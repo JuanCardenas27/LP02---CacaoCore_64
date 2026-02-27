@@ -1,2 +1,50 @@
-# LP02---CacaoCore_64
-CacaoCore_64 is a 64-bit Little-Endian computer architecture designed from scratch by Arquitectura Criolla, which integrates CPU, ALU, control unit with variable-length microinstructions, memory hierarchy, and a custom ISA. The project includes bus design, a linker-loader module, among other things.
+# Computador Simulado de 64 bits
+
+Simulador de un computador de propósito general de **64 bits** implementado en Python.  
+Arquitectura: CPU → RAM → ejecución.
+
+---
+
+## Estructura del proyecto
+
+```
+simulador/
+├── README.md                        ← Este archivo (visión general)
+├── jerarquia_memoria.md             ← Documento de diseño completo del sistema
+│
+├── src/
+│   ├── memoria/
+│   │   ├── ram.py                   ← Memoria principal (1 MB)
+│   │   └── README.md                ← Documentación detallada de la RAM
+│   ├── cpu/
+│   │   └── README.md                ← 🔧 Pendiente — CPU y banco de registros
+│   └── isa/
+│       └── README.md                ← 🔧 Pendiente — Opcodes y codificación
+│
+├── tests/
+│   └── README.md                    ← 🔧 Pendiente — Pruebas unitarias
+│
+└── programas/                       ← Binarios compilados (.bin)
+```
+
+---
+
+## Módulos
+
+###  `src/memoria/` — RAM
+Memoria principal de 1 MB dividida en cinco zonas fijas.  
+Ver documentación completa en [src/memoria/README.md](src/memoria/README.md).
+
+| Zona            | Rango                     | Tamaño |
+|-----------------|---------------------------|--------|
+| Sistema         | `0x00000000 – 0x00000FFF` | 4 KB   |
+| Código          | `0x00001000 – 0x0003FFFF` | 252 KB |
+| Datos estáticos | `0x00040000 – 0x0007FFFF` | 256 KB |
+| Heap            | `0x00080000 – 0x000BFFFF` | 256 KB |
+| Pila            | `0x000C0000 – 0x000FFFFF` | 256 KB |
+
+Importar desde cualquier módulo:
+```python
+from src.memoria.ram import ram, CODE_START, DATA_START, WORD_SIZE
+```
+
