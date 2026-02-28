@@ -1,7 +1,9 @@
 from alu import ALU
-class Processor:
+from decoder import Decoder
+
+class ControlUnit:
     def __init__(self):
-        self._control_unit = None
+
         self._registers =[
             bytearray(8) for _ in range(0, 16)
         ]
@@ -14,6 +16,7 @@ class Processor:
         self._dp = bytearray(1)
 
         self._alu = ALU(self._registers[15], self._fr)
+        self._decoder = Decoder()
 
 
     @staticmethod
@@ -26,7 +29,10 @@ class Processor:
 
         '''
         return self._registers[bin]
-    
+
+
+
+
 if __name__ == '__main__':
-    proc = Processor()
+    proc = ControlUnit()
     print(proc._get_register(proc._to_binary(2)))

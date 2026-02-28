@@ -279,7 +279,7 @@ if __name__ == '__main__':
 
     acumulador = bytearray(8)
     flags = bytearray(1)
-    alu = ALU(memoryview(acumulador), flags)
+    alu = ALU(acumulador, flags)
     op1 = bytearray(8)
     op1[0] = 8
     op2 = bytearray(8)
