@@ -36,11 +36,11 @@ class Decoder:
 
             if "name" in node:
                 raise ISAOpcodesCollision(
-                    f"Instruction '{instruction["name"]}' has opcode {hex(instruction["opcode"])} "
-                    f"already assigned to {node["name"]}, in current decoding method"
+                    f'Instruction {instruction["name"]} has opcode {hex(instruction["opcode"])} '
+                    f'already assigned to {node["name"]}, in current decoding method'
                 )
 
             node["name"] = instruction["name"]
 
     def decode(self, opcode:bytearray):
-        pass
+        return (None,None)

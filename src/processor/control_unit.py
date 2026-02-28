@@ -2,9 +2,12 @@ from memoria.ram import ram
 from alu import ALU
 from decoder import Decoder
 
+RUNNING = 1
+HALTED = 0
+
 class ControlUnit:
 
-    _own_methods = {} # nombre (sin modo) : lambda x,y: self.name(x, [y])
+    _methods = {} # nombre (sin modo) : lambda x,y: self.name(x, [y])
     _mode_length = {
         "r": 4,
         "i": 16,
@@ -13,6 +16,7 @@ class ControlUnit:
     }
 
     def __init__(self):
+        self.state = HALTED
 
         self._registers =[
             bytearray(8) for _ in range(0, 16)
@@ -30,36 +34,36 @@ class ControlUnit:
 
 
     @staticmethod
-    def _to_binary(number:bytearray, size, sign):
-        number = int.from_bytes(number, byteorder='little', signed=sign)
+    def _to_binary(register:bytearray, size, sign):
+        number = int.from_bytes(register, byteorder='little', signed=sign)
         return f"{number:b}".zfill(size)
 
     def _fetch(self):
+        self._check_intp()
+
         self._mar[:] = self._pc[:]
 
-        # TODO: Señal de READ en bus de control.
-
-        # TODO: MDR <- Contenido bus de datos.
+        self._read_request()
 
         self._ir[:] = self._mdr[:]
 
         acc = self._registers[15]
-        self._alu.add(self._pc, (8).to_bytes(8, byteorder='little', signed=True))
+        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)))
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc[:]
 
         self._decode()
         
     def _decode(self):
-        self._dp[:] = (0).to_bytes(1, byteorder='litle', signed=False)
-        instruction, use_alu = self._decoder.decode(self._ir)
+        self._dp[:] = (0).to_bytes(1, byteorder='little', signed=False)
+        instruction = self._decoder.decode(self._ir)
         name, modes = instruction.split('_')
 
-        self._execute(name, modes, use_alu)
+        self._execute(name, modes)
 
-    def _execute(self, name, modes, use_alu):
+    def _execute(self, name, modes):
 
-        ops = [None for _ in range(2)]
+        ops = [bytearray() for _ in range(2)]
 
         for i, mode in enumerate(modes):
             initial_pos = int.from_bytes(self._dp, byteorder='little', signed=False) * 4
@@ -70,28 +74,36 @@ class ControlUnit:
                 ops[i] = self._registers[int(cod_i, 2)]
 
             elif mode == "i":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(2, byteorder='little', signed=True))
             
             elif mode == "m":
-                ops[i] = int(cod_i[::-1], 2)
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
             
             elif mode == "n":
-                ops[i] = self._registers[int(cod_i[::-1], 2)]
+                self._mar[:] = self._registers[int(cod_i, 2)]
+                self._read_request()
+                ops[i] = self._mdr[:]
 
         acc = self._registers[15]
 
-        self._own_methods[name](ops[0], ops[1])
-
-        # write-back
+        self._methods[name](ops[0], ops[1])
 
         self._registers[15][:] = acc[:]
+        self._fetch()
         
-
+    def _check_intp(self):
+        if self.state == HALTED:
+            #while ControlBus.INTR == OFF:
+                pass
 
     def _interruption_handler(self):
+        pass
+
+    def _read_request(self):
+        #TODO implement read request
         pass
 
 
 if __name__ == '__main__':
     proc = ControlUnit()
-    print(proc._to_binary(bytearray([2,3]), 64))
+    print(proc._to_binary(bytearray([2,3]), 64, False))
