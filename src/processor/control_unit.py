@@ -16,7 +16,7 @@ class ControlUnit:
         self._dp = bytearray(1)
 
         self._alu = ALU(self._registers[15], self._fr)
-        self._decoder = Decoder()
+        self._decoder = Decoder(self._dp)
 
 
     @staticmethod

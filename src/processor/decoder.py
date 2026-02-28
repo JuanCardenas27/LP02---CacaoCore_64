@@ -1,34 +1,4 @@
-# 0: {
-            #     0: {
-            #         0: lambda x=8, y=0: self._mov(x,y),
-            #         1: lambda x=8, y=1: self._mov(x,y),
-            #         2: lambda x=8, y=2: self._mov(x,y),
-            #         8: lambda x=8, y=8: self._mov(x,y),
-            #         9: lambda x=8, y=9: self._mov(x,y)
-            #     },
-            #     1: {
-            #         0: lambda x=16, y=0: self._mov(x,y),
-            #         1: lambda x=16, y=1: self._mov(x,y),
-            #         2: lambda x=16, y=2: self._mov(x,y),
-            #         8: lambda x=16, y=8: self._mov(x,y),
-            #         9: lambda x=16, y=9: self._mov(x,y)
-            #     },
-            #     2: {
-            #         0: lambda x=32, y=0: self._mov(x,y),
-            #         1: lambda x=32, y=1: self._mov(x,y),
-            #         2: lambda x=32, y=2: self._mov(x,y),
-            #         8: lambda x=32, y=8: self._mov(x,y),
-            #         9: lambda x=32, y=9: self._mov(x,y)
-            #     },
-            #     3: {
-            #         0: lambda x=64, y=0: self._mov(x,y),
-            #         1: lambda x=64, y=1: self._mov(x,y),
-            #         2: lambda x=64, y=2: self._mov(x,y),
-            #         8: lambda x=64, y=8: self._mov(x,y),
-            #         9: lambda x=64, y=9: self._mov(x,y)
-            #     },
-            #     15: self._nop
-            # }
+from isa.instructions import INSTRUCTION_SPECS
 
 '''
 r = 00
@@ -37,18 +7,20 @@ m = 10
 n = 11
 '''
 
-
 class Decoder:
+
     def __init__(self, dp):
         self._dp = dp
-        self.binary2function = {
-            15: {
-                0: self._nop,
-                1: self._hlt
-            },
-            13: {
-                0: {
-                    0: lambda z, x=8, y=0: self._str(x,y,z),
-                }
-            }
-        }
+        self.bin2func = {}
+
+    def _register(self):
+        for instruction in INSTRUCTION_SPECS:
+            node = self.bin2func
+
+            hex_opcode = f"{instruction['opcode']:X}"  # sin 0x
+
+            for char in hex_opcode:
+                nibble = int(char, 16)
+                node = node.setdefault(nibble, {})
+
+            node["name"] = instruction["name"]
