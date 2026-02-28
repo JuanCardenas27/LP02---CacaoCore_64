@@ -1,20 +1,31 @@
-from isa.instructions import INSTRUCTION_SPECS
+import os
+import sys
 
-'''
-r = 00
-i = 01
-m = 10
-n = 11
-'''
+sys.path.append(
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+)
+
+from src.isa.microinstructions import MICROINSTRUCTION_SPECS
+
+# from isa.instructions import INSTRUCTION_SPECS
+
+class DecoderException(Exception):
+    '''Error base para funcionalidades del decodificador.'''
+
+class ISAOpcodesCollision(DecoderException):
+    '''Colisión de los opcodes de la ISA con el método de decodificación actual.'''
 
 class Decoder:
 
     def __init__(self, dp):
         self._dp = dp
         self.bin2func = {}
+        self._register()
 
     def _register(self):
-        for instruction in INSTRUCTION_SPECS:
+        for instruction in MICROINSTRUCTION_SPECS:
             node = self.bin2func
 
             hex_opcode = f"{instruction['opcode']:X}"  # sin 0x
@@ -23,4 +34,13 @@ class Decoder:
                 nibble = int(char, 16)
                 node = node.setdefault(nibble, {})
 
+            if "name" in node:
+                raise ISAOpcodesCollision(
+                    f"Instruction '{instruction["name"]}' has opcode {hex(instruction["opcode"])} "
+                    f"already assigned to {node["name"]}, in current decoding method"
+                )
+
             node["name"] = instruction["name"]
+
+    def decode(self, opcode:bytearray):
+        pass

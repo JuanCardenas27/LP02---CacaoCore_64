@@ -16,11 +16,9 @@ class ALU:
         
         return result
 
-    def _reset_flags(self):
-        self.flags[0] &= ~(1 << 1)
-        self.flags[0] &= ~(1 << 2)
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+    def _reset_flags(self, positions = (1,2,3,4)):
+        for i in positions:
+            self.flags[0] &= ~(1 << i)
 
     def add(self, op1:bytearray, op2:bytearray):
 
@@ -105,7 +103,7 @@ class ALU:
     
     def dec(self, op1:bytearray):
         #Resetea las banderas que se pueden modificar
-        self.add(op1, (-1).to_bytes(8, byteorder='little', signed=True))
+        self.sub(op1, (1).to_bytes(8, byteorder='little', signed=True))
 
     def cmp(self, op1:bytearray, op2:bytearray):
         #Resetea las banderas que se pueden modificar
@@ -128,9 +126,7 @@ class ALU:
     def and_a(self, op1:bytearray, op2:bytearray):
 
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+        self._reset_flags((3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -148,9 +144,7 @@ class ALU:
     def or_a(self, op1:bytearray, op2:bytearray):
 
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+        self._reset_flags((3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -167,9 +161,7 @@ class ALU:
 
     def xor_a(self, op1:bytearray, op2:bytearray):
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+        self._reset_flags((3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -186,9 +178,7 @@ class ALU:
     
     def not_a(self, op1:bytearray):
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+        self._reset_flags((3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
 
@@ -204,11 +194,7 @@ class ALU:
 
     def shl(self, op1:bytearray):
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 2)
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
-        
+        self._reset_flags((2,3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         self.acm[:] = (int.from_bytes(self.acm, byteorder="little", signed=True) << num1 - 1).to_bytes(8, byteorder='little', signed=True)
@@ -229,11 +215,7 @@ class ALU:
 
     def shr(self, op1:bytearray):
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 2)
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
-        
+        self._reset_flags((2,3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         self.acm[:] = (int.from_bytes(self.acm, byteorder="little", signed=True) >> num1 - 1).to_bytes(8, byteorder='little', signed=True)
@@ -254,9 +236,7 @@ class ALU:
 
     def test(self, op1:bytearray, op2:bytearray):
         #Resetea las banderas que se pueden modificar
-        
-        self.flags[0] &= ~(1 << 3)
-        self.flags[0] &= ~(1 << 4)
+        self._reset_flags((3,4))
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -270,7 +250,6 @@ class ALU:
             self.flags[0] += 8 #Encendemos el bit 4 negative
 
 
-    
 
 if __name__ == '__main__':
     def paf(acumulador, flags):
