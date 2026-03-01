@@ -1,5 +1,38 @@
+"""
+microinstructions.py — Especificaciones de Microinstrucciones de la ISA
+========================================================================
+Define el conjunto completo de instrucciones de la ISA junto con sus opcodes
+de 64 bits para el procesador simulado de 64 bits.
+
+Estructura del Opcode
+---------------------
+Cada opcode de 64 bits está codificado en hexadecimal. Los últimos 2 bits (los
+menos significativos) codifican el modo de direccionamiento:
+
+    - r  = 0b00  (registro)
+    - i  = 0b01  (inmediato)
+    - m  = 0b10  (memoria)
+    - n  = 0b11  (ninguno/especial)
+
+Categorías de Instrucciones
+----------------------------
+- Control: nop, hlt, ret, ei, di, iret, push, pop, int
+- MOV: Movimiento de datos entre registros/memoria (diferentes tamaños)
+- LOAD: Carga de datos desde memoria
+- STORE: Almacenamiento de datos en memoria
+- SEXT: Extensión de signo
+- Aritmética: add, sub, mul, div, inc, dec, neg
+- Lógica: and, or, xor, not
+- Otras ALU: cmp, test, desplazamientos (shl, shr, rol, ror), cmpz
+- Saltos: jmp, jz, jnz, jc, jnc, js, jns, jo, jno, jl, jg, jge, jle, call
+
+Uso
+---
+El decodificador (decoder.py) utiliza esta lista para construir un árbol de
+decodificación y traducir secuencias de bytes en nombres de instrucciones.
+"""
+
 MICROINSTRUCTION_SPECS = [
-    # Opcodes include addressing mode bits
 
     # =========================
     # Control
@@ -11,6 +44,11 @@ MICROINSTRUCTION_SPECS = [
     {"name": "ei", "opcode": 0xFFFFFFFFFFFFFFF3},
     {"name": "di", "opcode": 0xFFFFFFFFFFFFFFF4},
     {"name": "iret", "opcode": 0xFFFFFFFFFFFFFFF5},
+
+    {"name": "push_r", "opcode": 0xFFFFFFFFFFFFF40},
+    {"name": "pop_r", "opcode": 0xFFFFFFFFFFFFF44},
+
+    {"name": "int_i", "opcode": 0xFFFFFFFFFF45},
 
     # =========================
     # MOV
@@ -48,6 +86,9 @@ MICROINSTRUCTION_SPECS = [
     {"name": "movd_mi", "opcode": 0xF039},
     {"name": "movd_nr", "opcode": 0xFFFFFFFFFFF03C},
 
+    {"name": "swap_r", "opcode": 0xFFFFFFFFFFFFF50},
+    {"name": "swap_rr", "opcode": 0xFFFFFFFFFFF0D0},
+
     # =========================
     # LOAD
     # =========================
@@ -71,6 +112,9 @@ MICROINSTRUCTION_SPECS = [
     {"name": "loadd_i", "opcode": 0xFFFFFFFFFF0D},
     {"name": "loadd_rm", "opcode": 0xFFFF072},
     {"name": "loadd_ri", "opcode": 0xFFFFFFFF071},
+
+    {"name": "lea_m", "opcode": 0xFFFFFF82},
+    {"name": "lea_rm", "opcode": 0xFFFF152},
 
     # =========================
     # STORE
@@ -103,7 +147,7 @@ MICROINSTRUCTION_SPECS = [
     {"name": "sext_ri", "opcode": 0xFFFFFFFF081},
 
     # =========================
-    # Arithmetic
+    # Aritmética
     # =========================
 
     {"name": "add_m", "opcode": 0xFFFFF022},
@@ -144,8 +188,11 @@ MICROINSTRUCTION_SPECS = [
     {"name": "dec_r", "opcode": 0xFFFFFFFFFFFF524},
     {"name": "dec_m", "opcode": 0xFFFFF536},
 
+    {"name": "neg_r", "opcode": 0xFFFFFFFFFFFFF48},
+    {"name": "neg_m", "opcode": 0xFFFFFF7A},
+
     # =========================
-    # Logic
+    # Lógica
     # =========================
 
     {"name": "and_m", "opcode": 0xFFFFF73A},
@@ -174,38 +221,61 @@ MICROINSTRUCTION_SPECS = [
 
     {"name": "not_r", "opcode": 0xFFFFFFFFFFFFA34},
     {"name": "not_m", "opcode": 0xFFFFFA46},
-# ####
-#     # =========================
-#     # Other ALU ops
-#     # =========================
 
-#     {"name": "shl_imm",   "opcode": 0xFFFFFFFFFB3},
-#     {"name": "shl_r_imm", "opcode": 0xFFFFFFFB12},
+    # =========================
+    # Otras relaciondas con ALU
+    # =========================
 
-#     {"name": "shr_imm",   "opcode": 0xFFFFFFFFFC3},
-#     {"name": "shr_r_imm", "opcode": 0xFFFFFFFC13},
+    {"name": "cmp_m", "opcode": 0xFFFFF64A},
+    {"name": "cmp_r", "opcode": 0xFFFFFFFFFFFF638},
+    {"name": "cmp_i", "opcode": 0xFFFFFFFFF62D},
+    {"name": "cmp_rr", "opcode": 0xFFFFFFFFFF60B0},
+    {"name": "cmp_ri", "opcode": 0xFFFFFFF6101},
+    {"name": "cmp_rm", "opcode": 0xFFF6132},
+    {"name": "cmp_rn", "opcode": 0xFFFFFFFFFF60B3},
 
-#     # =========================
-#     # Jumps
-#     # =========================
+    {"name": "test_m", "opcode": 0xFFFFFD4E},
+    {"name": "test_r", "opcode": 0xFFFFFFFFFFFFD3C},
+    {"name": "test_i", "opcode": 0xFFFFFFFFFD31},
+    {"name": "test_rr", "opcode": 0xFFFFFFFFFFD0C0},
+    {"name": "test_ri", "opcode": 0xFFFFFFFD111},
+    {"name": "test_rm", "opcode": 0xFFFD142},
+    {"name": "test_rn", "opcode": 0xFFFFFFFFFFD0C3},
 
-#     {"name": "jmp_mem",  "opcode": 0xFFFFFF5},
-#     {"name": "jz_mem",   "opcode": 0xFFFFFF5},
-#     {"name": "jnz_mem",  "opcode": 0xFFFFFF5},
-#     {"name": "jc_mem",   "opcode": 0xFFFFFF5},
+    {"name": "shl_i", "opcode": 0xFFFFFFFFFB35},
+    {"name": "shl_ri", "opcode": 0xFFFFFFFB121},
 
-#     {"name": "jnc_mem",  "opcode": 0xFFFFFF6},
-#     {"name": "js_mem",   "opcode": 0xFFFFFF6},
-#     {"name": "jns_mem",  "opcode": 0xFFFFFF6},
-#     {"name": "jo_mem",   "opcode": 0xFFFFFF6},
+    {"name": "shr_i", "opcode": 0xFFFFFFFFFC39},
+    {"name": "shr_ri", "opcode": 0xFFFFFFFC131},
 
-#     {"name": "jno_mem",  "opcode": 0xFFFFFF7},
-#     {"name": "call_mem", "opcode": 0xFFFFFF7},
+    {"name": "rol_i", "opcode": 0xFFFFFFFFFF3D},
+    {"name": "rol_ri", "opcode": 0xFFFFFFFF141},
 
-#     {"name": "jl_mem",   "opcode": 0xFFFFFF8},
-#     {"name": "jg_mem",   "opcode": 0xFFFFFF8},
+    {"name": "ror_i", "opcode": 0xFFFFFFFFFF41},
+    {"name": "ror_ri", "opcode": 0xFFFFFFFF151},
 
-#     {"name": "jge_mem",  "opcode": 0xFFFFFF9},
-#     {"name": "jle_mem",  "opcode": 0xFFFFFF9},
+    {"name": "cmpz_r", "opcode": 0xFFFFFFFFFFFFF4C},
+    {"name": "cmpz_m", "opcode": 0xFFFFFF7E},
+
+    # =========================
+    # Saltos
+    # =========================
+
+    {"name": "jmp_m", "opcode": 0xFFFFFF52},
+    {"name": "jz_m", "opcode": 0xFFFFFF56},
+    {"name": "jnz_m", "opcode": 0xFFFFFF5A},
+    {"name": "jc_m", "opcode": 0xFFFFFF5E},
+    {"name": "jnc_m", "opcode": 0xFFFFFF62},
+    {"name": "js_m", "opcode": 0xFFFFFF66},
+    {"name": "jns_m", "opcode": 0xFFFFFF6A},
+    {"name": "jo_m", "opcode": 0xFFFFFF6E},
+    {"name": "jno_m", "opcode": 0xFFFFFF72},
+
+    {"name": "jl_m", "opcode": 0xFFFFFF86},
+    {"name": "jg_m", "opcode": 0xFFFFFF8E},
+    {"name": "jge_m", "opcode": 0xFFFFFF92},
+    {"name": "jle_m", "opcode": 0xFFFFFF96},
+
+    {"name": "call_m", "opcode": 0xFFFFFF76}
 
 ]

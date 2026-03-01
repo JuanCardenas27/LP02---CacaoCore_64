@@ -74,12 +74,12 @@ class ControlUnit:
                 ops[i] = self._registers[int(cod_i, 2)]
 
             elif mode == "i":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(2, byteorder='little', signed=True))
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(2, byteorder='little', signed=True)) # ¿2 u 8 bytes?
             
             elif mode == "m":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True)) # ¿Por qué no int?
             
-            elif mode == "n":
+            elif mode == "n": # ¿Por qué no int?^^
                 self._mar[:] = self._registers[int(cod_i, 2)]
                 self._read_request()
                 ops[i] = self._mdr[:]
@@ -89,6 +89,7 @@ class ControlUnit:
         self._methods[name](ops[0], ops[1])
 
         self._registers[15][:] = acc[:]
+        
         self._fetch()
         
     def _check_intp(self):
