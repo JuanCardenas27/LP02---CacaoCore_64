@@ -33,12 +33,6 @@ class ControlUnit:
         self._decoder = Decoder(self._dp)
         self._to_binary
 
-
-    @staticmethod
-    def _to_binary(register:bytearray, size, sign):
-        number = int.from_bytes(register, byteorder='little', signed=sign)
-        return f"{number:b}".zfill(size)
-
     def _boot(self, start_address: int):
         """
         Inicializa el sistema. 
@@ -63,6 +57,10 @@ class ControlUnit:
         except Exception as e:
             print(f"Error de ejecución: {e}")
             self.state = HALTED
+    
+    def _run_step(self):
+        if self.state == RUNNING:
+            self._fetch()
     
     def _fetch(self):
 
@@ -125,12 +123,93 @@ class ControlUnit:
         #     while ControlBus.INTR == OFF:
                 pass
 
+    #################################
+    #   INTERACCIÓN CON MEMORIA     #
+    #################################
     def _read_from_ram(self):
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         self._mdr[:] = ram.read_word(direccion).to_bytes(8, byteorder='little', signed=False)
 
-    def _interruption_handler(self):
-        pass
+    def _write_to_ram(self):
+        direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
+        value = int.from_bytes(self._mdr[:], byteorder='little', signed=False)
+        ram.write_word(direccion, value)
+    
+    #################################
+    #     FUNCIONES AUXILIARES      #
+    #################################
+    @staticmethod
+    def int_to_bytes(value, size) -> bytes:
+        return ((value >> (64 - size)) << (64-size)).to_bytes(8, byteorder='little', signed=True)
+    
+    @staticmethod
+    def bytes_to_int(b_array):
+        return int.from_bytes(b_array[:], byteorder='little', signed=True)
+    
+    @staticmethod
+    def _to_binary(register:bytearray, size, sign):
+        number = int.from_bytes(register, byteorder='little', signed=sign)
+        return f"{number:b}".zfill(size)
+    
+    #################################
+    #       MICROINSTRUCCIONES      #
+    #################################
+
+    def hlt(self):
+        self.state = HALTED
+    
+    def mov_ra(self, op1, op2, size):
+        """Sirve para direccionamientos rr y ri"""
+        value = self.bytes_to_int(op2)
+        op1[:] = self.int_to_bytes(value, size)
+
+    def mov_rm(self, op1, op2, size):
+        self._mar=op2[:]
+        self._read_from_ram()
+        value = self.bytes_to_int(self._mdr)
+        op1[:] = self.int_to_bytes(value, size)
+
+    def mov_ma(self, op1, op2, size):
+        """Sirve para direccionamientos rr y ri"""
+        value = self.bytes_to_int(op2)
+        self._mdr[:] = self.int_to_bytes(value, size)
+        self._mar[:] = op1[:]
+        self._write_to_ram()
+
+    def load_m(self, op1, size):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        value = self.bytes_to_int(self._mdr)
+        self._registers[15][:] = self.int_to_bytes(value, size)
+    
+    def load_i(self, op1, size):
+        value = self.bytes_to_int(op1)
+        self._registers[15][:] = self.int_to_bytes(value, size)
+
+    def load_rm(self, op1, op2, size):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        value = self.bytes_to_int(self._mdr)
+        op1[:] = self.int_to_bytes(value, size)
+
+    def load_ri(self, op1, op2, size):
+        value = self.bytes_to_int(op2)
+        op1[:] = self.int_to_bytes(value, size)
+    
+    def store_m(self, op1, size):
+        value = self.bytes_to_int(self._registers[15])
+        self._mdr[:] = self.int_to_bytes(value, size)
+        self._mar[:] = op1[:]
+        self._write_to_ram()
+
+
+
+    
+    
+
+    
+    
+    
 
 
 if __name__ == '__main__':
