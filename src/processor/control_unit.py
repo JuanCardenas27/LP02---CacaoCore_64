@@ -414,7 +414,7 @@ class ControlUnit:
         self._alu.shl(op1)
 
     def shl_ri(self, op1, op2):
-        self.load_i(op1[:], 8)
+        self.load_i(op1, 8)
         self._alu.shl(op2)
         op1[:] = self._registers[15][:]
 
@@ -426,11 +426,43 @@ class ControlUnit:
         self._alu.shr(op2)
         op1[:] = self._registers[15][:]
 
+    def swap_r(self, op1):
+        temp = op1[:]
+        op1[:] = self._registers[15][:]
+        self._registers[15][:] = temp
 
+    def swap_rr(self, op1, op2):
+        temp = op1[:]
+        op1[:] = op2[:]
+        op2[:] = temp
 
+    def lea_m(self, op1):
+        self.load_i(op1)
 
+    def lea_rm(self, op1, op2):
+        self.load_i(op2)
+        op1[:] = self._registers[15][:]
 
+    def ror_i(self, op1):
+        value = self.bytes_to_int(self._registers[15])
+        shift = self.bytes_to_int(op1)
+        self._registers[15] = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
+    
+    def ror_ri(self, op1, op2):
+        value = self.bytes_to_int(op1)
+        shift = self.bytes_to_int(op2)
+        op1[:] = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
 
+    {"name": "cmpz_r", "opcode": 0xFFFFFFFFFFFFF4C},
+    {"name": "cmpz_m", "opcode": 0xFFFFFF7E},
+
+    def cmpz_r(self, op1):
+        self.cmp_ra(self.int_to_bytes(0, 8), op1)
+
+    def cmpz_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self.cmp_ra(self.int_to_bytes(0, 8), self._mdr)
     
     
 
