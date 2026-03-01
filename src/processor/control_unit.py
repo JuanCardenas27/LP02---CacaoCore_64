@@ -31,6 +31,7 @@ class ControlUnit:
 
         self._alu = ALU(self._registers[15], self._fr)
         self._decoder = Decoder(self._dp)
+        self._to_binary
 
 
     @staticmethod
@@ -38,12 +39,36 @@ class ControlUnit:
         number = int.from_bytes(register, byteorder='little', signed=sign)
         return f"{number:b}".zfill(size)
 
+    def _boot(self, start_address: int):
+        """
+        Inicializa el sistema. 
+        Equivale al 'Power-On Reset'.
+        """
+        #Limpiar registro de flags
+        self._fr[:] = (0).to_bytes(8, byteorder='little', signed=False)
+
+        #Establecer el punto de partida (Dirección de la primera instrucción)
+        self._pc[:] = start_address.to_bytes(8, byteorder='little')
+        
+        #Cambiar el estado a RUNNING
+        self.state = RUNNING
+        
+        print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
+        
+    def _run_full_exec(self):
+        try:
+            while self.state == RUNNING:
+                self._fetch()
+                
+        except Exception as e:
+            print(f"Error de ejecución: {e}")
+            self.state = HALTED
+    
     def _fetch(self):
-        self._check_intp()
 
         self._mar[:] = self._pc[:]
-
-        self._read_request()
+        
+        self._read_from_ram()
 
         self._ir[:] = self._mdr[:]
 
@@ -57,8 +82,12 @@ class ControlUnit:
     def _decode(self):
         self._dp[:] = (0).to_bytes(1, byteorder='little', signed=False)
         instruction = self._decoder.decode(self._ir)
-        name, modes = instruction.split('_')
-
+        try:
+            name, modes = instruction.split('_')
+        except:
+            name = instruction
+            modes = []
+    
         self._execute(name, modes)
 
     def _execute(self, name, modes):
@@ -81,7 +110,6 @@ class ControlUnit:
             
             elif mode == "n": # ¿Por qué no int?^^
                 self._mar[:] = self._registers[int(cod_i, 2)]
-                self._read_request()
                 ops[i] = self._mdr[:]
 
         acc = self._registers[15]
@@ -90,18 +118,18 @@ class ControlUnit:
 
         self._registers[15][:] = acc[:]
         
-        self._fetch()
+        self._check_intp()
         
     def _check_intp(self):
-        if self.state == HALTED:
-            #while ControlBus.INTR == OFF:
+        # if ControlBus.INTR == ON:
+        #     while ControlBus.INTR == OFF:
                 pass
 
-    def _interruption_handler(self):
-        pass
+    def _read_from_ram(self):
+        direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
+        self._mdr[:] = ram.read_word(direccion).to_bytes(8, byteorder='little', signed=False)
 
-    def _read_request(self):
-        #TODO implement read request
+    def _interruption_handler(self):
         pass
 
 

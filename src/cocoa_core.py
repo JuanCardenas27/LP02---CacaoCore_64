@@ -1,6 +1,7 @@
+from processor.control_unit import ControlUnit
+from memoria import ram
 class CocoaCore64:
     def __init__(self):
-        self.processor
-        self.ram_memory
-        self.io_entry
-        self.buses
+        self.ram_memory = ram
+        #self.io_entry = ¿?
+        self.processor = ControlUnit()
