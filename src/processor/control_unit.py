@@ -202,6 +202,233 @@ class ControlUnit:
         self._mar[:] = op1[:]
         self._write_to_ram()
 
+    #Operaciones aritmeticas
+    def add_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.add(self._registers[15], self._mdr)
+
+    def add_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.add(self._registers[15], op1)
+
+    def add_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.add(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def add_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.add(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+
+    def sub_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.sub(self._registers[15], self._mdr)
+
+    def sub_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.sub(self._registers[15], op1)
+
+    def sub_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.sub(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def sub_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.sub(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    
+    def mul_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.mul(self._registers[15], self._mdr)
+
+    def mul_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.mul(self._registers[15], op1)
+
+    def mul_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.mul(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def mul_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.mul(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    
+    def div_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.div(self._registers[15], self._mdr)
+
+    def div_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.div(self._registers[15], op1)
+
+    def div_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.div(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def div_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.div(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def inc_r(self, op1):
+        self._alu.inc(op1)
+
+    def inc_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.inc(self._mdr)
+
+    def dec_r(self, op1):
+        self._alu.dec(op1)
+
+    def dec_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.dec(self._mdr)
+
+    def and_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.and_a(self._registers[15], self._mdr)
+
+    def and_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.and_a(self._registers[15], op1)
+
+    def and_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.and_a(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def and_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.and_a(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def or_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.or_a(self._registers[15], self._mdr)
+
+    def or_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.or_a(self._registers[15], op1)
+
+    def or_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.or_a(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def or_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.or_a(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def xor_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.xor_a(self._registers[15], self._mdr)
+
+    def xor_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.xor_a(self._registers[15], op1)
+
+    def xor_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.xor_a(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def xor_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.xor_a(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def not_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.not_a(self._mdr)
+
+    def not_r(self, op1):
+        self._alu.not_a(op1)
+
+    def cmp_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.cmp(self._registers[15], self._mdr)
+
+    def cmp_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.cmp(self._registers[15], op1)
+
+    def cmp_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.cmp(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def cmp_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.cmp(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def test_m(self, op1):
+        self._mar[:] = op1[:]
+        self._read_from_ram()
+        self._alu.test(self._registers[15], self._mdr)
+
+    def test_a(self, op1):
+        """Sirve para direccionamientos r e i"""
+        self._alu.test(self._registers[15], op1)
+
+    def test_ra(self, op1, op2):
+        """Sirve para direccionamientos rr e ri"""
+        self._alu.test(op1, op2)
+        op1[:] = self._registers[15][:]
+    
+    def test_rm(self, op1, op2):
+        self._mar[:] = op2[:]
+        self._read_from_ram()
+        self._alu.test(op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def shl_i(self, op1):
+        self._alu.shl(op1)
+
+    def shl_ri(self, op1, op2):
+        self.load_i(op1[:], 8)
+        self._alu.shl(op2)
+        op1[:] = self._registers[15][:]
+
+    def shr_i(self, op1):
+        self._alu.shr(op1)
+
+    def shr_ri(self, op1, op2):
+        self.load_i(op1, 8)
+        self._alu.shr(op2)
+        op1[:] = self._registers[15][:]
+
+
+
+
 
 
     
