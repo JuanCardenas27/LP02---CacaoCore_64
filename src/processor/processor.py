@@ -1,4 +1,4 @@
-from alu import ALU
+from .alu import ALU
 class Processor:
     def __init__(self):
         self._control_unit = None
