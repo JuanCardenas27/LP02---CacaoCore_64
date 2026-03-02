@@ -16,8 +16,14 @@ simulador/
 │   ├── memoria/
 │   │   ├── ram.py                   ← Memoria principal (1 MB)
 │   │   └── README.md                ← Documentación detallada de la RAM
-│   ├── cpu/
-│   │   └── README.md                ← 🔧 Pendiente — CPU y banco de registros
+│   ├── processor/
+│   │   ├── processor.py             ← CPU y banco de registros
+│   │   ├── alu.py                   ← Unidad Aritmético-Lógica
+│   │   └── README.md                ← 🔧 Pendiente — Documentación CPU
+│   ├── enlazador_cargador/
+│   │   ├── enlazador.py             ← Resuelve símbolos y genera binario
+│   │   ├── cargador.py              ← Carga binario en RAM e inicializa entorno
+│   │   └── binario.py               ← Estructura del binario ejecutable
 │   └── isa/
 │       └── README.md                ← 🔧 Pendiente — Opcodes y codificación
 │
@@ -47,4 +53,15 @@ Importar desde cualquier módulo:
 ```python
 from src.memoria.ram import ram, CODE_START, DATA_START, WORD_SIZE
 ```
+
+### `src/processor/` — CPU y ALU
+Procesador de 64 bits con 16 registros de propósito general.
+- `processor.py`: Unidad de Control, banco de registros (PC, SP, ACC, FLAGS, etc.)
+- `alu.py`: Operaciones aritméticas, lógicas, comparaciones y desplazamientos
+
+### `src/enlazador_cargador/` — Enlazador y Cargador
+Resuelve símbolos, genera binarios ejecutables y carga programas en memoria.
+- `enlazador.py`: Resuelve referencias externas, unifica segmentos, genera binario absoluto
+- `cargador.py`: Valida memoria, copia código/datos, inicializa registros y entorno
+- `binario.py`: Estructura y serialización del binario ejecutable
 

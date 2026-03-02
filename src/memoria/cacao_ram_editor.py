@@ -13,7 +13,7 @@ import re
 #  IMPORTAR LA RAM REAL DESDE ram.py
 # ─────────────────────────────────────────────
 try:
-    from ram import (
+    from memoria.ram import (
         ram,
         RAM_SIZE,
         WORD_SIZE,

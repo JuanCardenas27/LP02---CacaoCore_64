@@ -121,6 +121,8 @@ class ControlUnit(MicroinstructionMixin):
         values_dict["fr"] = self.bytes_to_int(self._fr)
         values_dict["dp"] = self.bytes_to_int(self._dp)
 
+        return values_dict
+
 
     def boot(self, start_address: int):
         """Inicializa el sistema (Power-On Reset).
@@ -133,8 +135,10 @@ class ControlUnit(MicroinstructionMixin):
         start_address : int
             Dirección de memoria donde comienza el programa (típicamente 0).
         """
-        #Limpiar registro de flags
-        self._fr[:] = (0).to_bytes(8, byteorder='little', signed=False)
+        #Limpiar registros
+        self._fr[:] = (0).to_bytes(1, byteorder='little', signed=False)
+        for reg in range(0, 16):
+            self._registers[reg][:] = bytearray(8)
 
         #Ubicar la posición inicial de la pila
         self._registers[13][:] = SP_INITIAL.to_bytes(8, byteorder='little', signed=False)
@@ -181,11 +185,11 @@ class ControlUnit(MicroinstructionMixin):
 
         self._ir[:] = self._mdr[:]
 
-        acc = self._registers[15]
+        acc = self._registers[15][:]
         self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)))
         self._pc[:] = self._registers[15][:]
-        self._registers[15][:] = acc[:]
-
+        self._registers[15][:] = acc
+        print("Completó FETCH")
         self._decode()
         
     def _decode(self):
@@ -201,7 +205,7 @@ class ControlUnit(MicroinstructionMixin):
         except:
             name = instruction
             modes = []
-    
+        print("Completó DECODE")
         self._execute(name, modes)
 
     def _execute(self, name, modes):
@@ -238,11 +242,11 @@ class ControlUnit(MicroinstructionMixin):
                 ops[i] = self._mdr[:]
 
         acc = self._registers[15]
-
-        self._methods[name](ops[0], ops[1])
+        self._methods[name+"_"+modes](ops[0], ops[1])
 
         self._registers[15][:] = acc[:]
         
+        print("Completó EXECUTE")
         self._check_intp()
         
     def _check_intp(self):
