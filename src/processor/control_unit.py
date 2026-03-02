@@ -40,7 +40,24 @@ class ControlUnit:
         self._decoder = Decoder(self._dp)
         self._to_binary
 
-    def _boot(self, start_address: int):
+    def get_registers(self):
+        values_dict = {}
+
+        for i, bytea in enumerate(self._registers[:13]):
+            values_dict[f"r{i}"] = self.bytes_to_int(bytea, True)
+        
+        values_dict["sp"] = self.bytes_to_int(self._registers[13])
+        values_dict["lr"] = self.bytes_to_int(self._registers[14])
+        values_dict["acc"] = self.bytes_to_int(self._registers[15])
+        values_dict["pc"] = self.bytes_to_int(self._pc)
+        values_dict["ir"] = self.bytes_to_int(self._ir)
+        values_dict["mar"] = self.bytes_to_int(self._mar)
+        values_dict["mdr"] = self.bytes_to_int(self._mdr)
+        values_dict["fr"] = self.bytes_to_int(self._fr)
+        values_dict["dp"] = self.bytes_to_int(self._dp)
+
+
+    def boot(self, start_address: int):
         """
         Inicializa el sistema. 
         Equivale al 'Power-On Reset'.
@@ -58,8 +75,8 @@ class ControlUnit:
         self.state = RUNNING
         
         print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
-        
-    def _run_full_exec(self):
+
+    def run_full_exec(self):
         try:
             while self.state == RUNNING:
                 self._fetch()
@@ -68,7 +85,7 @@ class ControlUnit:
             print(f"Error de ejecución: {e}")
             self.state = HALTED
     
-    def _run_step(self):
+    def run_step(self):
         if self.state == RUNNING:
             self._fetch()
     
