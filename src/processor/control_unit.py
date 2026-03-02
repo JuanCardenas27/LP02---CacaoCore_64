@@ -543,24 +543,22 @@ class ControlUnit:
         op2[:] = temp
 
     def lea_m(self, op1):
-        self.load_i(op1)
+        self.load_i(op1, 32)
 
     def lea_rm(self, op1, op2):
-        self.load_i(op2)
+        self.load_i(op2, 32)
         op1[:] = self._registers[15][:]
 
     def ror_i(self, op1):
         value = self.bytes_to_int(self._registers[15])
         shift = self.bytes_to_int(op1)
-        self._registers[15] = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
+        tmp = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
+        self._registers[15][:] = self.int_to_bytes(tmp, 64)
     
     def ror_ri(self, op1, op2):
         value = self.bytes_to_int(op1)
         shift = self.bytes_to_int(op2)
         op1[:] = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
-
-    {"name": "cmpz_r", "opcode": 0xFFFFFFFFFFFFF4C},
-    {"name": "cmpz_m", "opcode": 0xFFFFFF7E},
 
     def cmpz_r(self, op1):
         self.cmp_ra(self.int_to_bytes(0, 8), op1)
