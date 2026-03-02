@@ -9,6 +9,7 @@ class MicroinstructionMixin:
     def hlt(self):
         """HALT - Detiene la ejecución del procesador."""
         self.state = HALTED
+        print("System HALTED. Fin de la ejecución")
     
     def mov_ra(self, op1, op2, size):
         """MOV registro-acumulador: op1 = op2.

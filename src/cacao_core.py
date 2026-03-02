@@ -15,3 +15,8 @@ class CacaoCore64:
 
     def run_step(self):
         self.processor.run_step()
+
+if __name__=="__main__":
+    compu = CacaoCore64()
+    compu.boot(200)
+    compu.run_full()
