@@ -1,18 +1,77 @@
-from memoria.ram import ram, SP_INITIAL, VECTOR_TABLE
-from alu import ALU
-from decoder import Decoder
+from memoria.ram import ram, SP_INITIAL
+from .alu import ALU
+from .decoder import Decoder
+from .microinstructions_mixin import MicroinstructionMixin
+from .instruction_map import get_methods_map
 
 RUNNING = 1
 HALTED = 0
 
-class ControlUnit:
+"""Control Unit Module
+====================
+
+Implementa la Unidad de Control del procesador Cacao Core 64.
+
+Gestiona el flujo de ejecución de instrucciones: ciclo fetch-decode-execute,
+registros del procesador, memoria (RAM), interrupciones y microinstrucciones.
+
+Clases
+------
+ControlUnit : Unidad de control principal del procesador.
+
+Constantes
+----------
+RUNNING : int
+    Estado del procesador ejecutando instrucciones.
+HALTED : int
+    Estado del procesador detenido.
+
+Ejemplo de uso:
+    cu = ControlUnit()
+    cu.boot(start_address=0)
+    cu.run_full_exec()  # Ejecutar programa completo
+"""
+
+class ControlUnit(MicroinstructionMixin):
+    """Unidad de Control del procesador Cacao Core 64.
+    
+    Gestiona la ejecución de instrucciones, registro de estado, memoria y
+    microinstrucciones. Implementa el ciclo fetch-decode-execute y manejo
+    de interrupciones.
+    
+    Atributos
+    ---------
+    state : int
+        Estado actual del procesador (RUNNING o HALTED).
+    INTR : bool
+        Bandera de interrupción pendiente.
+    INTA : bool
+        Bandera de reconocimiento de interrupción.
+    _registers : list[bytearray]
+        16 registros de propósito general (8 bytes c/u).
+    _pc : bytearray
+        Program Counter (8 bytes).
+    _ir : bytearray
+        Instruction Register (8 bytes).
+    _mar : bytearray
+        Memory Address Register (4 bytes).
+    _mdr : bytearray
+        Memory Data Register (6 bytes).
+    _fr : bytearray
+        Flags Register (1 byte).
+    _dp : bytearray
+        Decode Pointer (1 byte).
+    _alu : ALU
+        Unidad Aritmético-Lógica.
+    _decoder : Decoder
+        Decodificador de instrucciones.
+    """
     _flags_indexes = {"z":4,
                       "s":3,
                       "c":2,
                       "v":1,
                       "i":0
                       }
-    _methods = {} # nombre (sin modo) : lambda x,y: self.name(x, [y])
     _mode_length = {
         "r": 4,
         "i": 16,
@@ -21,6 +80,11 @@ class ControlUnit:
     }
 
     def __init__(self):
+        """Inicializa la Unidad de Control.
+        
+        Crea todos los registros, la ALU y el Decodificador. El estado
+        inicial es HALTED hasta que se ejecute _boot().
+        """
         self.state = HALTED
         self.INTR = False
         self.INTA = False
@@ -38,12 +102,36 @@ class ControlUnit:
 
         self._alu = ALU(self._registers[15], self._fr)
         self._decoder = Decoder(self._dp)
-        self._to_binary
 
-    def _boot(self, start_address: int):
-        """
-        Inicializa el sistema. 
-        Equivale al 'Power-On Reset'.
+        self._methods = get_methods_map(self)
+
+    def get_registers(self):
+        values_dict = {}
+
+        for i, bytea in enumerate(self._registers[:13]):
+            values_dict[f"r{i}"] = self.bytes_to_int(bytea, True)
+        
+        values_dict["sp"] = self.bytes_to_int(self._registers[13])
+        values_dict["lr"] = self.bytes_to_int(self._registers[14])
+        values_dict["acc"] = self.bytes_to_int(self._registers[15])
+        values_dict["pc"] = self.bytes_to_int(self._pc)
+        values_dict["ir"] = self.bytes_to_int(self._ir)
+        values_dict["mar"] = self.bytes_to_int(self._mar)
+        values_dict["mdr"] = self.bytes_to_int(self._mdr)
+        values_dict["fr"] = self.bytes_to_int(self._fr)
+        values_dict["dp"] = self.bytes_to_int(self._dp)
+
+
+    def boot(self, start_address: int):
+        """Inicializa el sistema (Power-On Reset).
+        
+        Limpia los flags, establece el Stack Pointer, configura el PC en la
+        dirección de inicio y cambia el estado a RUNNING.
+        
+        Parámetros
+        ----------
+        start_address : int
+            Dirección de memoria donde comienza el programa (típicamente 0).
         """
         #Limpiar registro de flags
         self._fr[:] = (0).to_bytes(8, byteorder='little', signed=False)
@@ -59,7 +147,12 @@ class ControlUnit:
         
         print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
         
-    def _run_full_exec(self):
+    def run_full_exec(self):
+        """Ejecuta el programa completo hasta que se detiene (HLT).
+        
+        Realiza el ciclo fetch-decode-execute repetidamente hasta que
+        el procesador pasa a estado HALTED o ocurre una excepción.
+        """
         try:
             while self.state == RUNNING:
                 self._fetch()
@@ -68,12 +161,20 @@ class ControlUnit:
             print(f"Error de ejecución: {e}")
             self.state = HALTED
     
-    def _run_step(self):
+    def run_step(self):
+        """Ejecuta un paso (instrucción) del programa.
+        
+        Realiza un ciclo fetch-decode-execute único. Útil para depuración.
+        """
         if self.state == RUNNING:
             self._fetch()
     
     def _fetch(self):
-
+        """Fase FETCH del ciclo de ejecución.
+        
+        Lee la instrucción desde RAM usando PC, la carga en IR, incrementa PC,
+        decodifica la instrucción y la ejecuta.
+        """
         self._mar[:] = self._pc[:]
         
         self._read_from_ram()
@@ -88,6 +189,11 @@ class ControlUnit:
         self._decode()
         
     def _decode(self):
+        """Fase DECODE del ciclo de ejecución.
+        
+        Reinicia el Decode Pointer, decodifica la instrucción usando el
+        Decodificador y extrae el nombre de la microinstrucción y sus modos.
+        """
         self._dp[:] = (0).to_bytes(1, byteorder='little', signed=False)
         instruction = self._decoder.decode(self._ir)
         try:
@@ -99,7 +205,18 @@ class ControlUnit:
         self._execute(name, modes)
 
     def _execute(self, name, modes):
-
+        """Fase EXECUTE del ciclo de ejecución.
+        
+        Extrae operandos según los modos de direccionamiento y ejecuta
+        la microinstrucción correspondiente.
+        
+        Parámetros
+        ----------
+        name : str
+            Nombre de la microinstrucción sin modo.
+        modes : str
+            Modos de direccionamiento (r=registro, i=inmediato, m=memoria, n=indirecto).
+        """
         ops = [bytearray() for _ in range(2)]
 
         for i, mode in enumerate(modes):
@@ -129,6 +246,11 @@ class ControlUnit:
         self._check_intp()
         
     def _check_intp(self):
+        """Verifica y maneja interrupciones pendientes.
+        
+        Si hay una interrupción pendiente, guarda el estado del procesador
+        en la pila y llama al manejador de interrupciones.
+        """
         if self.INTR == True:
             self.push(self._pc)
             self.push(self._fr)
@@ -141,16 +263,39 @@ class ControlUnit:
             
                 
     def _interruption_handler(self, vector):
+        """Manejador de interrupciones.
+        
+        Parámetros
+        ----------
+        vector : int
+            Vector de interrupción que identifica el tipo de interrupción.
+        """
         pass
 
     #################################
     #   INTERACCIÓN CON MEMORIA     #
     #################################
     def _read_from_ram(self, size=8):
+        """Lee datos desde RAM usando MAR en MDR.
+        
+        La dirección se toma de MAR y los datos se escriben en MDR.
+        
+        Parámetros
+        ----------
+        size : int, opcional
+            Número de bytes a leer (default: 8).
+        """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         self._mdr[:] = ram.read(direccion, size)
 
     def _write_to_ram(self, size=8):
+        """Escribe datos en RAM desde MDR usando dirección en MAR.
+        
+        Parámetros
+        ----------
+        size : int, opcional
+            Número de bytes a escribir (default: 8).
+        """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         value = self._mdr[:size]
         ram.write(direccion, value)
@@ -160,421 +305,65 @@ class ControlUnit:
     #################################
     @staticmethod
     def int_to_bytes(value, size) -> bytes:
+        """Convierte un entero a bytes con tamaño específico.
+        
+        Parámetros
+        ----------
+        value : int
+            Valor entero a convertir.
+        size : int
+            Número de bits del valor.
+        
+        Retorna
+        -------
+        bytes
+            Representación en bytes.
+        """
         return ((value >> (64 - size)) << (64-size)).to_bytes(8, byteorder='little', signed=True)
     
     @staticmethod
     def bytes_to_int(b_array, signo=True):
+        """Convierte bytes a entero.
+        
+        Parámetros
+        ----------
+        b_array : bytearray
+            Array de bytes a convertir.
+        signo : bool, opcional
+            Si es True, interpreta como signed; si es False, unsigned (default: True).
+        
+        Retorna
+        -------
+        int
+            Valor entero.
+        """
         return int.from_bytes(b_array[:], byteorder='little', signed=signo)
     
     @staticmethod
     def _to_binary(register:bytearray, size, sign):
+        """Convierte un registro a su representación binaria en string.
+        
+        Parámetros
+        ----------
+        register : bytearray
+            Registro a convertir.
+        size : int
+            Tamaño en bits de la representación.
+        sign : bool
+            Si es True, interpreta como signed; si es False, unsigned.
+        
+        Retorna
+        -------
+        str
+            String binario rellenado con ceros.
+        """
         number = int.from_bytes(register, byteorder='little', signed=sign)
         return f"{number:b}".zfill(size)
-    
-    #################################
-    #       MICROINSTRUCCIONES      #
-    #################################
-
-    def hlt(self):
-        self.state = HALTED
-    
-    def mov_ra(self, op1, op2, size):
-        """Sirve para direccionamientos rr y ri"""
-        value = self.bytes_to_int(op2)
-        op1[:] = self.int_to_bytes(value, size)
-
-    def mov_rm(self, op1, op2, size):
-        self._mar[:]=op2[:]
-        self._read_from_ram(size=size//8)
-        value = self.bytes_to_int(self._mdr)
-        op1[:] = self.int_to_bytes(value, size)
-
-    def mov_ma(self, op1, op2, size):
-        """Sirve para direccionamientos mr y mi"""
-        value = self.bytes_to_int(op2)
-        self._mdr[:] = self.int_to_bytes(value, size)
-        self._mar[:] = op1[:]
-        self._write_to_ram(size=size//8)
-
-    def load_m(self, op1, size):
-        self._mar[:] = op1[:]
-        self._read_from_ram(size=size//8)
-        value = self.bytes_to_int(self._mdr)
-        self._registers[15][:] = self.int_to_bytes(value, size)
-    
-    def load_i(self, op1, size):
-        value = self.bytes_to_int(op1)
-        self._registers[15][:] = self.int_to_bytes(value, size)
-
-    def load_rm(self, op1, op2, size):
-        self._mar[:] = op2[:]
-        self._read_from_ram(size=size//8)
-        value = self.bytes_to_int(self._mdr)
-        op1[:] = self.int_to_bytes(value, size)
-
-    def load_ri(self, op1, op2, size):
-        value = self.bytes_to_int(op2)
-        op1[:] = self.int_to_bytes(value, size)
-    
-    def store_m(self, op1, size):
-        value = self.bytes_to_int(self._registers[15])
-        self._mdr[:] = self.int_to_bytes(value, size)
-        self._mar[:] = op1[:]
-        self._write_to_ram(size=size//8)
-    
-    def store_r(self, op1, size):
-        value = self.bytes_to_int(self._registers[15])
-        op1[:] = self.int_to_bytes(value, size)
-
-    def store_ma(self, op1, op2, size):
-        """Sirve para direccionamientos mr y mi"""
-        value = self.bytes_to_int(op2)
-        self._mdr[:] = self.int_to_bytes(value, size)
-        self._mar[:] = op1[:]
-        self._write_to_ram(size=size//8)
-
-    def jmp(self, op1):
-        self._pc = op1[:]
-    
-    def j_condicional(self, op1, flag):
-        index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
-        if int(flags[index]):
-            self._pc = op1[:]
-
-    def jn_condicional(self, op1, flag):
-        index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
-        if not int(flags[index]):
-            self._pc = op1[:]
-
-    def j_comparacion(self, op1, flag1, flag2, cmp):
-        pass
-
-    def call_m(self, op1):
-        self._registers[14][:] = self._pc[:]
-        self.push(op1)
-        self.jmp(op1)
-    
-    def ret(self):
-        """Return from subroutine using pop: update LR and PC."""
-        self.pop(self._registers[14])
-        self._pc[:] = self._registers[14][:]
-    
-    def push(self, op1):
-        self._mar[:] = self._registers[13][:]
-        self._mdr[:] = op1[:]
-        self._write_to_ram()
-        head_sp = self.bytes_to_int(self._registers[13], False)
-        head_sp -= 8
-        self._registers[13][:] = self.int_to_bytes(head_sp, 64)
-    
-    def pop(self, op1):
-        self._mar[:] = self._registers[13][:]
-        self._read_from_ram()
-        op1[:] = self._mdr[:]
-        head_sp = self.bytes_to_int(self._registers[13], False)
-        head_sp += 8
-        self._registers[13][:] = self.int_to_bytes(head_sp, 64)
-    
-    def iret(self):
-        for reg in range(15,0, -1):
-            self.pop(self._registers[reg])
-        self.pop(self._fr)
-        self.pop(self._pc)
-    
-    def int(self):
-        pass
-
-    def nop(self):
-        pass
-    
-    def ei(self):
-        """Enable interrupts by setting flag bit0."""
-        flags = int.from_bytes(self._fr, byteorder='little', signed=False)
-        flags |= 1
-        self._fr[:] = flags.to_bytes(1, byteorder='little', signed=False)
-
-    def di(self):
-        """Disable interrupts by clearing flag bit0."""
-        flags = int.from_bytes(self._fr, byteorder='little', signed=False)
-        flags &= ~1
-        self._fr[:] = flags.to_bytes(1, byteorder='little', signed=False)
-        
-    def sext(self):
-        pass
-
-    def neg(self):
-        pass
-        self._write_to_ram()
-
-    #Operaciones aritmeticas
-    def add_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.add(self._registers[15], self._mdr)
-
-    def add_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.add(self._registers[15], op1)
-
-    def add_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.add(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def add_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.add(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-
-    def sub_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.sub(self._registers[15], self._mdr)
-
-    def sub_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.sub(self._registers[15], op1)
-
-    def sub_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.sub(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def sub_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.sub(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    
-    def mul_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.mul(self._registers[15], self._mdr)
-
-    def mul_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.mul(self._registers[15], op1)
-
-    def mul_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.mul(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def mul_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.mul(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    
-    def div_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.div(self._registers[15], self._mdr)
-
-    def div_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.div(self._registers[15], op1)
-
-    def div_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.div(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def div_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.div(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def inc_r(self, op1):
-        self._alu.inc(op1)
-
-    def inc_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.inc(self._mdr)
-
-    def dec_r(self, op1):
-        self._alu.dec(op1)
-
-    def dec_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.dec(self._mdr)
-
-    def and_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.and_a(self._registers[15], self._mdr)
-
-    def and_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.and_a(self._registers[15], op1)
-
-    def and_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.and_a(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def and_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.and_a(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def or_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.or_a(self._registers[15], self._mdr)
-
-    def or_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.or_a(self._registers[15], op1)
-
-    def or_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.or_a(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def or_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.or_a(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def xor_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.xor_a(self._registers[15], self._mdr)
-
-    def xor_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.xor_a(self._registers[15], op1)
-
-    def xor_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.xor_a(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def xor_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.xor_a(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def not_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.not_a(self._mdr)
-
-    def not_r(self, op1):
-        self._alu.not_a(op1)
-
-    def cmp_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.cmp(self._registers[15], self._mdr)
-
-    def cmp_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.cmp(self._registers[15], op1)
-
-    def cmp_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.cmp(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def cmp_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.cmp(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def test_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self._alu.test(self._registers[15], self._mdr)
-
-    def test_a(self, op1):
-        """Sirve para direccionamientos r e i"""
-        self._alu.test(self._registers[15], op1)
-
-    def test_ra(self, op1, op2):
-        """Sirve para direccionamientos rr e ri"""
-        self._alu.test(op1, op2)
-        op1[:] = self._registers[15][:]
-    
-    def test_rm(self, op1, op2):
-        self._mar[:] = op2[:]
-        self._read_from_ram()
-        self._alu.test(op1, self._mdr)
-        op1[:] = self._registers[15][:]
-
-    def shl_i(self, op1):
-        self._alu.shl(op1)
-
-    def shl_ri(self, op1, op2):
-        self.load_i(op1, 8)
-        self._alu.shl(op2)
-        op1[:] = self._registers[15][:]
-
-    def shr_i(self, op1):
-        self._alu.shr(op1)
-
-    def shr_ri(self, op1, op2):
-        self.load_i(op1, 8)
-        self._alu.shr(op2)
-        op1[:] = self._registers[15][:]
-
-    def swap_r(self, op1):
-        temp = op1[:]
-        op1[:] = self._registers[15][:]
-        self._registers[15][:] = temp
-
-    def swap_rr(self, op1, op2):
-        temp = op1[:]
-        op1[:] = op2[:]
-        op2[:] = temp
-
-    def lea_m(self, op1):
-        self.load_i(op1, 32)
-
-    def lea_rm(self, op1, op2):
-        self.load_i(op2, 32)
-        op1[:] = self._registers[15][:]
-
-    def ror_i(self, op1):
-        value = self.bytes_to_int(self._registers[15])
-        shift = self.bytes_to_int(op1)
-        tmp = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
-        self._registers[15][:] = self.int_to_bytes(tmp, 64)
-    
-    def ror_ri(self, op1, op2):
-        value = self.bytes_to_int(op1)
-        shift = self.bytes_to_int(op2)
-        op1[:] = (value >> shift) | ((value << (8 - shift)) & (2**8 - 1))
-
-    def cmpz_r(self, op1):
-        self.cmp_ra(self.int_to_bytes(0, 8), op1)
-
-    def cmpz_m(self, op1):
-        self._mar[:] = op1[:]
-        self._read_from_ram()
-        self.cmp_ra(self.int_to_bytes(0, 8), self._mdr)
-    
-    
-
-    
     
     
 
 
 if __name__ == '__main__':
     proc = ControlUnit()
+
     print(proc._to_binary(bytearray([2,3]), 64, False))
