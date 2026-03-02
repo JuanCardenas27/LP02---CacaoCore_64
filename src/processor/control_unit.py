@@ -131,6 +131,7 @@ class ControlUnit:
     def _check_intp(self):
         if self.INTR == True:
             self.push(self._pc)
+            self.push(self._fr)
             for reg in self._registers:
                 self.push(reg)
             self.INTA = True
@@ -247,6 +248,9 @@ class ControlUnit:
         if not int(flags[index]):
             self._pc = op1[:]
 
+    def j_comparacion(self, op1, flag1, flag2, cmp):
+        pass
+
     def call_m(self, op1):
         self._registers[14][:] = self._pc[:]
         self.push(op1)
@@ -276,7 +280,11 @@ class ControlUnit:
     def iret(self):
         for reg in range(15,0, -1):
             self.pop(self._registers[reg])
+        self.pop(self._fr)
         self.pop(self._pc)
+    
+    def int(self):
+        pass
 
     def nop(self):
         pass
@@ -293,15 +301,11 @@ class ControlUnit:
         flags &= ~1
         self._fr[:] = flags.to_bytes(1, byteorder='little', signed=False)
         
+    def sext(self):
+        pass
 
-
-
-    
-    
-
-    
-    
-    
+    def neg(self):
+        pass
 
 
 if __name__ == '__main__':
