@@ -24,6 +24,7 @@ RAM_SIZE       = 1 * 1024 * 1024        # 1 MB
 
 # Límites de zona (inclusive inicio, EXCLUSIVE fin)
 SYS_START      = 0x00000000
+VECTOR_TABLE   = 0x00000010             # Base de la tabla de vectores de interrupción
 SYS_END        = 0x00001000             # 4 KB reservados para el simulador
 
 CODE_START     = 0x00001000             # PC arranca aquí
