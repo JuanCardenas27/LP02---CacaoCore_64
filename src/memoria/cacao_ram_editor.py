@@ -6,7 +6,7 @@ Arquitectura: Von Neumann, 64 bits, 1 MB RAM, direcciones 32 bits
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, filedialog
 import re
 
 # ─────────────────────────────────────────────
@@ -139,6 +139,7 @@ class CacaoRAMEditor(tk.Tk):
 
         self._build_ui()
         self._refresh_hex_view(0x00001000, 16)
+        self.loaded_file_path = None
 
     # ─── UI PRINCIPAL ─────────────────────────────
     def _build_ui(self):
@@ -246,7 +247,31 @@ class CacaoRAMEditor(tk.Tk):
                   bg="#2A3045", fg=ACCENT, relief="flat", padx=6,
                   cursor="hand2",
                   command=self._unprotect_code).pack(side="right")
+                # ───────── ARCHIVO TXT ─────────
+        file_frame = tk.Frame(f, bg=BG_PANEL)
+        file_frame.pack(fill="x", pady=(6, 2))
 
+        tk.Button(file_frame,
+                  text="📂  CARGAR .TXT",
+                  font=("Courier New", 10, "bold"),
+                  bg="#2A3045",
+                  fg=ACCENT2,
+                  relief="flat",
+                  pady=5,
+                  cursor="hand2",
+                  command=self._load_txt_file
+                  ).pack(side="left", fill="x", expand=True, padx=(0,4))
+
+        tk.Button(file_frame,
+                  text="⬇  ESCRIBIR ARCHIVO",
+                  font=("Courier New", 10, "bold"),
+                  bg=ACCENT,
+                  fg=BG_DARK,
+                  relief="flat",
+                  pady=5,
+                  cursor="hand2",
+                  command=self._write_loaded_file
+                  ).pack(side="left", fill="x", expand=True)
     # ─── PANEL: LECTURA ──────────────────────────
     def _build_read_panel(self, parent):
         f = self._panel(parent, "◉  LEER DESDE RAM")
@@ -555,6 +580,116 @@ class CacaoRAMEditor(tk.Tk):
         except ValueError:
             rows = 16
         self._refresh_hex_view(addr, rows)
+    
+    def _load_txt_file(self):
+        path = filedialog.askopenfilename(
+            title="Seleccionar archivo .txt",
+            filetypes=[("Text files", "*.txt")]
+        )
+
+        if not path:
+            return
+
+        self.loaded_file_path = path
+        self._log(f"Archivo cargado: {path}", "info")
+    
+    def _write_loaded_file(self):
+
+        if not self.loaded_file_path:
+            messagebox.showerror("Error", "No hay archivo cargado.")
+            return
+
+        # Dirección base usando el mismo parser oficial
+        base_addr, err = self._parse_addr(self.addr_var)
+        if err:
+            messagebox.showerror("Error de dirección", err)
+            return
+
+        try:
+            with open(self.loaded_file_path, "r") as f:
+                lines = f.readlines()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}")
+            return
+
+        current_addr = base_addr
+        bytes_per_line = 8
+        step = 8
+
+        for idx, line in enumerate(lines):
+
+            line = line.strip()
+            if not line:
+                current_addr += step
+                continue
+
+            mode = self.data_mode.get()
+            tokens = line.replace(",", " ").split()
+            parsed_bytes = []
+
+            for t in tokens:
+                t = t.strip()
+                if not t:
+                    continue
+
+                if mode == "hex":
+                    if not re.fullmatch(r"[0-9A-Fa-f]{1,2}", t):
+                        messagebox.showerror(
+                            "Error de formato",
+                            f"Línea {idx+1}: token hex inválido '{t}'"
+                        )
+                        return
+                    parsed_bytes.append(int(t, 16))
+
+                elif mode == "bin":
+                    if not re.fullmatch(r"[01]{1,8}", t):
+                        messagebox.showerror(
+                            "Error de formato",
+                            f"Línea {idx+1}: token binario inválido '{t}'"
+                        )
+                        return
+                    parsed_bytes.append(int(t, 2))
+
+                elif mode == "dec":
+                    try:
+                        val = int(t)
+                        if not (0 <= val <= 255):
+                            raise ValueError
+                        parsed_bytes.append(val)
+                    except ValueError:
+                        messagebox.showerror(
+                            "Error de formato",
+                            f"Línea {idx+1}: token decimal inválido '{t}'"
+                        )
+                        return
+
+            if len(parsed_bytes) > bytes_per_line:
+                messagebox.showerror(
+                    "Error",
+                    f"Línea {idx+1} excede 32 bytes."
+                )
+                return
+
+            # rellenar con ceros
+            while len(parsed_bytes) < bytes_per_line:
+                parsed_bytes.append(0)
+
+            ok, msg = write_ram(current_addr, bytes(parsed_bytes))
+
+            if not ok:
+                messagebox.showerror("Error de escritura", msg)
+                return
+
+            seg_name, _ = get_segment(current_addr)
+            self._log(
+                f"[FILE WRITE] 0x{current_addr:08X} [{seg_name}] ← línea {idx+1}",
+                "ok"
+            )
+
+            current_addr += step
+
+        self._refresh_hex_view(base_addr, min(32, len(lines)))
+        self._log("Escritura de archivo completada.", "ok")
 
     # ─── RENDERIZADO VISOR HEX ────────────────────
     def _refresh_hex_view(self, base_addr, rows=16):
