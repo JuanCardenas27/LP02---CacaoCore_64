@@ -17,4 +17,4 @@ Exportados
 ControlUnit : Clase principal de la Unidad de Control.
 """
 
-from control_unit import ControlUnit
+from .control_unit import ControlUnit
