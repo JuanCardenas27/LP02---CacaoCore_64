@@ -73,16 +73,20 @@ class Decoder:
         """
         Inicializa el decodificador con el registro DP.
         
-        Parametros
+        Construye el árbol de decodificación a partir de MICROINSTRUCTION_SPECS
+        de forma automática. Detecta colisiones de opcodes y fallará si existen
+        opcodes conflictivos.
+        
+        Parámetros
         ----------
         dp : bytearray
-            Referencia al registro DP (Decode Pointer) que sera incrementado
-            durante la decodificacion. Debe ser de 1 byte.
+            Referencia al registro DP (Decode Pointer) de 1 byte que será
+            incrementado durante la decodificación.
         
         Lanza
         -----
         ISAOpcodesCollision
-            Si hay conflictos entre los opcodes definidos en MICROINSTRUCTION_SPECS.
+            Si hay conflictos entre opcodes (prefijos superpuestos, duplicados).
         """
         self._dp = dp
         self._bin2func_tree = {}
