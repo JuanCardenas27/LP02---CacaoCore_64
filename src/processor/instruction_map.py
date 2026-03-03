@@ -4,12 +4,12 @@ def get_methods_map(cu):
     """
     return {
             # Control
-            "nop": lambda x, y: cu.nop(),
-            "hlt": lambda x, y: cu.hlt(),
-            "ret": lambda x, y: cu.ret(),
-            "ei": lambda x, y: cu.ei(),
-            "di": lambda x, y: cu.di(),
-            "iret": lambda x, y: cu.iret(),
+            "nop_": lambda x, y: cu.nop(),
+            "hlt_": lambda x, y: cu.hlt(),
+            "ret_": lambda x, y: cu.ret(),
+            "ei_": lambda x, y: cu.ei(),
+            "di_": lambda x, y: cu.di(),
+            "iret_": lambda x, y: cu.iret(),
             "push_r": lambda x, y: cu.push(x),
             "pop_r": lambda x, y: cu.pop(x),
             "int_i": lambda x, y: cu.int(),

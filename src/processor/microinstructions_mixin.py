@@ -621,6 +621,7 @@ class MicroinstructionMixin:
             Registro a incrementar.
         """
         self._alu.inc(op1)
+        op1[:] = self._registers[15][:]
 
     def inc_m(self, op1):
         """INC memoria: [op1] = [op1] + 1.
@@ -636,6 +637,7 @@ class MicroinstructionMixin:
         self._mar[:] = op1[:]
         self._read_from_ram()
         self._alu.inc(self._mdr)
+        self.store_m(op1, 64)
 
     def dec_r(self, op1):
         """DEC registro: op1 = op1 - 1.
@@ -649,6 +651,7 @@ class MicroinstructionMixin:
             Registro a decrementar.
         """
         self._alu.dec(op1)
+        op1[:] = self._registers[15][:]
 
     def dec_m(self, op1):
         """DEC memoria: [op1] = [op1] - 1.
@@ -664,6 +667,7 @@ class MicroinstructionMixin:
         self._mar[:] = op1[:]
         self._read_from_ram()
         self._alu.dec(self._mdr)
+        self.store_m(op1, 64)
 
     def and_m(self, op1):
         """AND memoria: ACM = ACM AND [op1].
