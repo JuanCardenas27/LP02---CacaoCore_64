@@ -39,7 +39,7 @@ MICROINSTRUCTION_SPECS = [
     # =========================
 
     {"name": "nop", "opcode": 0xFFFFFFFFFFFFFFF0},
-    {"name": "hlt", "opcode": 0xFFFFFFFFFFFFFFF1},
+    {"name": "hlt", "opcode": 0x0000000000000000},
     {"name": "ret", "opcode": 0xFFFFFFFFFFFFFFF2},
     {"name": "ei", "opcode": 0xFFFFFFFFFFFFFFF3},
     {"name": "di", "opcode": 0xFFFFFFFFFFFFFFF4},
