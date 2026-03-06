@@ -221,7 +221,7 @@ class MicroinstructionMixin:
             Flag a verificar ('z'=zero, 's'=sign, 'c'=carry, 'v'=overflow, 'i'=interrupt).
         """
         index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
+        flags = self._to_binary(self._fr, 8, False)[::-1]
         if int(flags[index]):
             self._pc = op1[:]
 
@@ -238,7 +238,7 @@ class MicroinstructionMixin:
             Flag a verificar ('z'=zero, 's'=sign, 'c'=carry, 'v'=overflow, 'i'=interrupt).
         """
         index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
+        flags = self._to_binary(self._fr, 8, False)[::-1]
         if not int(flags[index]):
             self._pc = op1[:]
 
@@ -252,9 +252,10 @@ class MicroinstructionMixin:
         cmp : str
             Operador de comparación.
         """
-        flags = self._to_binary(self._fr, 8, False)
+        flags = self._to_binary(self._fr, 8, False)[::-1]
         val_z = int(flags[4])
         val_s = int(flags[3])
+        print(flags)
         if cmp == "<":
             salto = val_s == 1 and val_z == 0
         elif cmp == ">":
@@ -403,7 +404,7 @@ class MicroinstructionMixin:
         """
         self._alu.add(self._registers[15], op1)
 
-    def add_ra(self, op1, op2):
+    def add_ra(self, op1, op2, change_flags=True):
         """ADD registro-acumulador: op1 = op1 + op2.
         
         Suma dos valores (registros o inmediatos).
@@ -416,7 +417,7 @@ class MicroinstructionMixin:
         op2 : bytearray
             Valor a sumar.
         """
-        self._alu.add(op1, op2)
+        self._alu.add(op1, op2, change_flags)
         op1[:] = self._registers[15][:]
     
     def add_rm(self, op1, op2):
@@ -942,7 +943,6 @@ class MicroinstructionMixin:
             Segundo operando.
         """
         self._alu.cmp(op1, op2)
-        op1[:] = self._registers[15][:]
     
     def cmp_rm(self, op1, op2):
         """CMP registro-memoria: actualiza flags comparando op1 con [op2].
@@ -960,7 +960,6 @@ class MicroinstructionMixin:
         self._mar[:] = op2[:]
         self._read_from_ram()
         self._alu.cmp(op1, self._mdr)
-        op1[:] = self._registers[15][:]
 
     def test_m(self, op1):
         """TEST memoria: actualiza flags con AND(ACM, [op1]) sin modificar ACM.

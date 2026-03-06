@@ -186,7 +186,7 @@ class ControlUnit(MicroinstructionMixin):
         self._ir[:] = self._mdr[:]
 
         acc = self._registers[15][:]
-        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)))
+        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)), False)
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc
         print("Completó FETCH")
@@ -238,7 +238,7 @@ class ControlUnit(MicroinstructionMixin):
     
 
             acc = self._registers[15]
-            self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)))
+            self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)), False)
             self._registers[15][:] = acc[:]
 
         self._methods[name+"_"+modes](ops[0], ops[1])

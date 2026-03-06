@@ -88,7 +88,7 @@ class ALU:
         for i in positions:
             self.flags[0] &= ~(1 << i)
 
-    def add(self, op1:bytearray, op2:bytearray):
+    def add(self, op1:bytearray, op2:bytearray, change_flags=True):
         """Suma dos operandos de 64 bits.
         
         Realiza una suma signada y sin signo, verificando overflow y carry.
@@ -102,15 +102,15 @@ class ALU:
             Segundo operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        
-        self._reset_flags()
+        if change_flags:
+            self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
 
         result = num1 + num2
-
-        result = self._check_flags(result)
+        if change_flags:
+            result = self._check_flags(result)
 
         num1 = int.from_bytes(op1, byteorder="little", signed=False) 
         num2 = int.from_bytes(op2, byteorder="little", signed=False)
@@ -262,7 +262,7 @@ class ALU:
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
 
         result = num1 - num2
-
+        print(result)
         result = self._check_flags(result)
 
         num1 = int.from_bytes(op1, byteorder="little", signed=False) 
