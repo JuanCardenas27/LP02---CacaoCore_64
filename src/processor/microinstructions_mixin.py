@@ -261,9 +261,9 @@ class MicroinstructionMixin:
         elif cmp == ">":
             salto = val_s == 0 and val_z == 0
         elif cmp == ">=":
-            salto = val_s == 0 
+            salto = val_s == 0 or val_z == 1
         elif cmp == "<=":
-            salto = val_s == 1
+            salto = val_s == 1 or val_z == 1
         elif cmp == "=":
             salto = val_z == 1
         elif cmp == "!=":
