@@ -238,7 +238,9 @@ class ControlUnit(MicroinstructionMixin):
     
 
             acc = self._registers[15]
+            flgs=self._fr[:]
             self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)))
+            self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
         self._methods[name+"_"+modes](ops[0], ops[1])
