@@ -1,3 +1,14 @@
+### Convención de uso de registros
+R0 = dirección base del arreglo A
+R1 = n (tamaño del arreglo)
+R2 = índice i (externo)
+R3 = índice j (interno)
+R4 = A[j] (elemento actual)
+R5 = A[j+1] (elemento siguiente)
+R6 = dirección de A[j] (temporal)
+R7 = dirección de A[j+1] (temporal)
+R8 = límite interno (n - 1 - i)
+
 -- Cargar la lista desde la pos 0x00040000 (movh_mi)
 05 00 00 00 04 00 19 F0
 03 00 08 00 04 00 19 F0
