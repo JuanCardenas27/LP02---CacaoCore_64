@@ -75,6 +75,8 @@ def get_methods_map(cu):
             "storeh_r": lambda x, y: cu.store_r(x, 16),
             "storeh_mr": lambda x, y: cu.store_ma(x, y, 16),
             "storeh_mi": lambda x, y: cu.store_ma(x, y, 16),
+            "storeh_nr": lambda x, y: cu.store_ma(x, y, 16),
+            "storeh_ni": lambda x, y: cu.store_ma(x, y, 16),
             "storew_m": lambda x, y: cu.store_m(x, 32),
             "storew_r": lambda x, y: cu.store_r(x, 32),
             "storew_mr": lambda x, y: cu.store_ma(x, y, 32),

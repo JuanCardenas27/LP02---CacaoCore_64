@@ -262,7 +262,7 @@ class ALU:
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
 
         result = num1 - num2
-        print(result)
+
         result = self._check_flags(result)
 
         num1 = int.from_bytes(op1, byteorder="little", signed=False) 

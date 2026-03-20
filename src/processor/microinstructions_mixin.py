@@ -255,7 +255,6 @@ class MicroinstructionMixin:
         flags = self._to_binary(self._fr, 8, False)[::-1]
         val_z = int(flags[4])
         val_s = int(flags[3])
-        print(flags)
         if cmp == "<":
             salto = val_s == 1 and val_z == 0
         elif cmp == ">":
@@ -269,6 +268,7 @@ class MicroinstructionMixin:
         elif cmp == "!=":
             salto = val_z == 0
         
+        print(salto)
         if salto:
             self._pc = op1[:]
 
@@ -943,6 +943,7 @@ class MicroinstructionMixin:
             Segundo operando.
         """
         self._alu.cmp(op1, op2)
+        op1[:] = self._registers[15][:]
     
     def cmp_rm(self, op1, op2):
         """CMP registro-memoria: actualiza flags comparando op1 con [op2].
@@ -960,6 +961,7 @@ class MicroinstructionMixin:
         self._mar[:] = op2[:]
         self._read_from_ram()
         self._alu.cmp(op1, self._mdr)
+        op1[:] = self._registers[15][:]
 
     def test_m(self, op1):
         """TEST memoria: actualiza flags con AND(ACM, [op1]) sin modificar ACM.
