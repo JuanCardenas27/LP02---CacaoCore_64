@@ -34,14 +34,14 @@ R8 = límite interno (n - 1 - i)
 8E FF FF FF {reloc #}
 -- Iniciar indice j en R3 (movh_ri)
 00 00 13 01 FF FF FF FF
--- R8 <- R8 - R2   sub_ra
-82 50 10 FF FF FF FF FF
+-- R8 <- R8 - 1   sub_ra
+48 52 FF FF FF FF FF FF
 
 -- Loop interno {0x00001070}
 -- CMP R3, R8       (R3 < R8) = (j < n-1-i) cmp_ra
 38 B0 60 FF FF FF FF FF
--- JG Fin_interno    j_comparacion
-8E FF FF FF {reloc #}
+-- JGE Fin_interno    j_comparacion
+92 FF FF FF {reloc #}
 -- R6 <- R3 (movh_rr)
 63 10 F0 FF FF FF FF FF
 -- R6 <- R6*8   mul_ri
