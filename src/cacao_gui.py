@@ -3,6 +3,12 @@ CACAO_Core-64 — Interfaz Gráfica Principal
 ==========================================
 Panel de control del procesador simulado de 64 bits.
 Coloca este archivo en src/ y ejecutalo con: python cacao_gui.py
+
+Cambios respecto a la versión anterior:
+  - Toda lógica de carga de archivos → RAM extraída a cacao_loader.py
+  - Se importa CacaoLoaderPanel y se integra en columna C (row 2)
+  - self.loader_panel disponible como atributo público
+  - Importa CacaoConsole desde cacao_console.py  →  self.console
 """
 
 import tkinter as tk
@@ -10,7 +16,7 @@ from tkinter import messagebox
 import sys, os
 from loader.cacao_loader import Loader
 
-# ── Importaciones del proyecto ─────────────────────────────────────────────
+# ── Backend del procesador ────────────────────────────────────────────────────
 try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from cacao_core import CacaoCore64
@@ -19,8 +25,24 @@ except ImportError:
     CacaoCore64 = None
     BACKEND = "SIMULADO (cacao_core.py no encontrado)"
 
+# ── Consola ───────────────────────────────────────────────────────────────────
+try:
+    from cacao_console import CacaoConsole
+    CONSOLE_OK = True
+except ImportError:
+    CacaoConsole = None
+    CONSOLE_OK = False
+
+# ── Cargador de archivos → RAM ────────────────────────────────────────────────
+try:
+    from cacao_loader import CacaoLoaderPanel
+    LOADER_OK = True
+except ImportError:
+    CacaoLoaderPanel = None
+    LOADER_OK = False
+
 # ══════════════════════════════════════════════════════════════════════════════
-#  PALETA — igual que cacao_ram_editor.py
+#  PALETA
 # ══════════════════════════════════════════════════════════════════════════════
 BG_DARK   = "#0D0F12"
 BG_MID    = "#141720"
@@ -44,7 +66,7 @@ FM_LABEL = ("Courier New", 10)
 FM_BTN   = ("Courier New", 11, "bold")
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  MOCK
+#  MOCK (sin cacao_core.py)
 # ══════════════════════════════════════════════════════════════════════════════
 class _MockCU:
     def get_registers(self):
@@ -64,7 +86,6 @@ class _MockCore:
 #  HELPERS UI
 # ══════════════════════════════════════════════════════════════════════════════
 def make_panel(parent, title, color=ACCENT2, padx=10, pady=8):
-    """Crea un frame con barra de titulo coloreada. Retorna el frame interior."""
     outer = tk.Frame(parent, bg=BORDER, bd=1, relief="flat")
     tk.Label(outer, text=f" {title} ", font=FM_SM,
              fg=BG_DARK, bg=color, anchor="w").pack(fill="x")
@@ -94,6 +115,10 @@ class CacaoCoreGUI(tk.Tk):
         self._reg_labels   = {}
         self._flag_widgets = {}
 
+        # Atributos públicos de componentes externos
+        self.console      = None   # CacaoConsole       — asignado en _build_console_panel
+        self.loader_panel = None   # CacaoLoaderPanel   — asignado en _build_loader_panel
+
         self.title("CACAO_Core-64  ·  Panel de Control")
         self.configure(bg=BG_DARK)
         self.minsize(1280, 800)
@@ -108,6 +133,16 @@ class CacaoCoreGUI(tk.Tk):
         self._build_statusbar()
         self.after(100, self._refresh_registers)
 
+        # Log de arranque
+        if self.console:
+            self.console.write_ok(f"Backend: {BACKEND}")
+            if not LOADER_OK:
+                self.console.write_warn(
+                    "cacao_loader.py no encontrado — panel de carga deshabilitado")
+            if not CONSOLE_OK:
+                self.console.write_warn(
+                    "cacao_console.py no encontrado — usando consola minima")
+
     # ─────────────────────────────────────────────────────────────────────
     #  HEADER
     # ─────────────────────────────────────────────────────────────────────
@@ -115,7 +150,6 @@ class CacaoCoreGUI(tk.Tk):
         hdr = tk.Frame(self, bg=BG_DARK, pady=10)
         hdr.pack(fill="x", padx=18, side="top")
 
-        # Icono / logo pixelado
         canvas = tk.Canvas(hdr, width=40, height=40, bg=BG_DARK,
                            highlightthickness=0)
         canvas.pack(side="left", padx=(0, 10))
@@ -135,13 +169,12 @@ class CacaoCoreGUI(tk.Tk):
         tk.Frame(self, bg=ACCENT, height=2).pack(fill="x", padx=18, side="top")
 
     # ─────────────────────────────────────────────────────────────────────
-    #  BODY — usa grid para control total de columnas
+    #  BODY
     # ─────────────────────────────────────────────────────────────────────
     def _build_body(self):
         body = tk.Frame(self, bg=BG_DARK)
         body.pack(fill="both", expand=True, padx=18, pady=10, side="top")
 
-        # 3 columnas: A fija, B fija, C expansible
         body.columnconfigure(0, minsize=300, weight=0)
         body.columnconfigure(1, minsize=440, weight=0)
         body.columnconfigure(2, weight=1)
@@ -156,7 +189,7 @@ class CacaoCoreGUI(tk.Tk):
         col_c = tk.Frame(body, bg=BG_DARK)
         col_c.grid(row=0, column=2, sticky="nsew")
 
-        # Columna A: control + formato (top), GPR (bottom, expand)
+        # ── Columna A ─────────────────────────────────────────────────────
         col_a.rowconfigure(0, weight=0)
         col_a.rowconfigure(1, weight=0)
         col_a.rowconfigure(2, weight=1)
@@ -174,28 +207,36 @@ class CacaoCoreGUI(tk.Tk):
         gpr_frame.grid(row=2, column=0, sticky="nsew")
         self._build_gpr_panel(gpr_frame)
 
-        # Columna B: PC, IR, especiales, auxiliares
+        # ── Columna B ─────────────────────────────────────────────────────
         col_b.rowconfigure(4, weight=1)
         col_b.columnconfigure(0, weight=1)
         self._build_pc_ir_panel(col_b)
         self._build_special_regs_panel(col_b)
         self._build_aux_regs_panel(col_b)
 
-        # Columna C: flags + RAM
+        # ── Columna C ─────────────────────────────────────────────────────
+        # row 0 = FLAGS      (fijo)
+        # row 1 = RAM btn    (fijo)
+        # row 2 = LOADER     (fijo)
+        # row 3 = CONSOLA    (expansible — weight=1)
         col_c.rowconfigure(0, weight=0)
-        col_c.rowconfigure(1, weight=1)
+        col_c.rowconfigure(1, weight=0)
+        col_c.rowconfigure(2, weight=0)
+        col_c.rowconfigure(3, weight=1)
         col_c.columnconfigure(0, weight=1)
+
         self._build_flags_panel(col_c)
         self._build_ram_panel(col_c)
+        self._build_loader_panel(col_c)
+        self._build_console_panel(col_c)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA A: CONTROL DE EJECUCION
+    #  COLUMNA A: CONTROL
     # ─────────────────────────────────────────────────────────────────────
     def _build_control_panel(self, parent):
         outer, pf = make_panel(parent, "⚙  CONTROL DE EJECUCION", ACCENT2)
         outer.pack(fill="x")
 
-        # Start Address
         sa_row = tk.Frame(pf, bg=BG_PANEL)
         sa_row.pack(fill="x", pady=(0, 8))
 
@@ -216,7 +257,6 @@ class CacaoCoreGUI(tk.Tk):
 
         tk.Frame(pf, bg=BORDER, height=1).pack(fill="x", pady=(0, 6))
 
-        # Botones
         for label, color, cmd in [
             ("⚡  BOOT",       ACCENT,  self._do_boot),
             ("▶▶  RUN FULL",  ACCENT2, self._do_run_full),
@@ -225,7 +265,7 @@ class CacaoCoreGUI(tk.Tk):
             make_button(pf, label, color, cmd).pack(fill="x", pady=3)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA A: FORMATO DE REGISTROS
+    #  COLUMNA A: FORMATO
     # ─────────────────────────────────────────────────────────────────────
     def _build_format_panel(self, parent):
         outer, pf = make_panel(parent, "◈  FORMATO DE REGISTROS", ACCENT4)
@@ -250,7 +290,7 @@ class CacaoCoreGUI(tk.Tk):
             rb.pack(side="left", padx=3)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA A: GPR r0-r12 (ocupa espacio restante)
+    #  COLUMNA A: GPR
     # ─────────────────────────────────────────────────────────────────────
     def _build_gpr_panel(self, parent):
         outer, pf = make_panel(parent, "█  REGISTROS GPR  (r0 – r12)", ACCENT, padx=6, pady=4)
@@ -288,7 +328,7 @@ class CacaoCoreGUI(tk.Tk):
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: PC e IR GRANDES
+    #  COLUMNA B: PC / IR
     # ─────────────────────────────────────────────────────────────────────
     def _build_pc_ir_panel(self, parent):
         for row_idx, (name, title, color) in enumerate([
@@ -296,15 +336,14 @@ class CacaoCoreGUI(tk.Tk):
             ("ir", "▸  INSTRUCTION REG  [ IR ]", ACCENT2),
         ]):
             outer, pf = make_panel(parent, title, color, padx=8, pady=6)
-            outer.grid(row=row_idx, column=0, sticky="ew",
-                       pady=(0, 6), padx=0)
+            outer.grid(row=row_idx, column=0, sticky="ew", pady=(0, 6))
             lbl = tk.Label(pf, text="0x0000000000000000",
                            font=FM_XL, fg=color, bg=BG_PANEL, anchor="center")
             lbl.pack(fill="x", pady=6)
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: SP, LR, ACC
+    #  COLUMNA B: SP / LR / ACC
     # ─────────────────────────────────────────────────────────────────────
     def _build_special_regs_panel(self, parent):
         outer, pf = make_panel(parent, "◉  REGISTROS ESPECIALES", ACCENT5)
@@ -325,7 +364,7 @@ class CacaoCoreGUI(tk.Tk):
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: MAR, MDR, DP
+    #  COLUMNA B: MAR / MDR / DP
     # ─────────────────────────────────────────────────────────────────────
     def _build_aux_regs_panel(self, parent):
         outer, pf = make_panel(parent,
@@ -352,7 +391,7 @@ class CacaoCoreGUI(tk.Tk):
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA C: FLAGS REGISTER
+    #  COLUMNA C — row 0: FLAGS
     # ─────────────────────────────────────────────────────────────────────
     def _build_flags_panel(self, parent):
         outer, pf = make_panel(parent,
@@ -360,7 +399,6 @@ class CacaoCoreGUI(tk.Tk):
                                ACCENT3)
         outer.grid(row=0, column=0, sticky="ew", pady=(0, 6))
 
-        # Valor raw
         raw_row = tk.Frame(pf, bg=BG_PANEL)
         raw_row.pack(fill="x", pady=(0, 10))
         tk.Label(raw_row, text="FR raw:", font=FM_LABEL,
@@ -371,7 +409,6 @@ class CacaoCoreGUI(tk.Tk):
                                     anchor="w", padx=6, relief="flat")
         self._fr_raw_lbl.pack(side="left", fill="x", expand=True)
 
-        # bit4=Z  bit3=N  bit2=C  bit1=V  bit0=I
         FLAG_DEFS = [
             (4, "Z", "Zero",      ACCENT),
             (3, "N", "Negative",  ACCENT3),
@@ -386,7 +423,6 @@ class CacaoCoreGUI(tk.Tk):
             col = tk.Frame(flags_row, bg=BG_PANEL,
                            highlightbackground=BORDER, highlightthickness=1)
             col.pack(side="left", expand=True, fill="both", padx=4, pady=2)
-
             tk.Label(col, text=short, font=("Courier New", 15, "bold"),
                      fg=color, bg=BG_PANEL).pack(pady=(8, 0))
             tk.Label(col, text=desc, font=FM_SM,
@@ -398,15 +434,14 @@ class CacaoCoreGUI(tk.Tk):
             ind.pack(pady=(4, 4), fill="x")
             tk.Label(col, text=f"bit {bit_idx}", font=FM_SM,
                      fg=TEXT_DIM, bg=BG_PANEL).pack(pady=(0, 8))
-
             self._flag_widgets[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA C: RAM EDITOR
+    #  COLUMNA C — row 1: BOTÓN RAM EDITOR
     # ─────────────────────────────────────────────────────────────────────
     def _build_ram_panel(self, parent):
         outer, pf = make_panel(parent, "◈  MEMORIA RAM", ACCENT4)
-        outer.grid(row=1, column=0, sticky="nsew")
+        outer.grid(row=1, column=0, sticky="ew", pady=(0, 6))
 
         tk.Label(pf, text=(
             "Accede al editor directo de RAM para inspeccionar,\n"
@@ -418,6 +453,99 @@ class CacaoCoreGUI(tk.Tk):
         btn = make_button(pf, "  ◈  ABRIR RAM EDITOR  ", ACCENT4,
                           self._open_ram_editor)
         btn.pack(anchor="w", ipadx=8, ipady=4)
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  COLUMNA C — row 2: CARGADOR DE ARCHIVOS  ← NUEVO
+    # ─────────────────────────────────────────────────────────────────────
+    def _build_loader_panel(self, parent):
+        """
+        Integra CacaoLoaderPanel (de cacao_loader.py) en columna C row 2.
+        Disponible como self.loader_panel.
+
+        API pública del panel:
+            self.loader_panel.loader.load_file("prog.bin", 0x1000)
+            self.loader_panel.loader.load_bytes(buffer, 0x2000)
+            self.loader_panel.set_ram(nueva_ram)
+            self.loader_panel.last_result   → LoadResult
+        """
+        if CacaoLoaderPanel is not None:
+            ram = getattr(self._core, "ram", None)
+            self.loader_panel = CacaoLoaderPanel(
+                parent,
+                ram=ram,
+                console=None,   # se enlaza tras construir la consola
+            )
+            self.loader_panel.frame.grid(row=2, column=0, sticky="ew",
+                                         pady=(0, 6))
+        else:
+            outer, pf = make_panel(parent, "▤  CARGADOR DE ARCHIVOS → RAM", ACCENT2)
+            outer.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+            tk.Label(pf,
+                     text="cacao_loader.py no encontrado.\nCopiar junto a cacao_gui.py.",
+                     font=FM_SM, fg=ACCENT3, bg=BG_PANEL,
+                     justify="left", anchor="w").pack(fill="x")
+            self.loader_panel = None
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  COLUMNA C — row 3: CONSOLA
+    # ─────────────────────────────────────────────────────────────────────
+    def _build_console_panel(self, parent):
+        """
+        Integra CacaoConsole (de cacao_console.py) en columna C row 3.
+        Disponible como self.console.
+
+        API pública:
+            self.console.write("texto")
+            self.console.write_info("info")
+            self.console.write_ok("ok")
+            self.console.write_warn("aviso")
+            self.console.write_error("error")
+            self.console.write_hex("PC", 0x1000, bits=32)
+            self.console.write_separator()
+            self.console.clear()
+            self.console.save_log()
+        """
+        if CacaoConsole is not None:
+            self.console = CacaoConsole(parent, show_timestamps=True,
+                                        show_toolbar=True)
+            self.console.frame.grid(row=3, column=0, sticky="nsew")
+        else:
+            outer, pf = make_panel(parent, "⬛  CONSOLA DE SISTEMA", ACCENT3)
+            outer.grid(row=3, column=0, sticky="nsew")
+            pf.pack_configure(fill="both", expand=True)
+            tw = tk.Text(pf, font=FM_SM, bg=BG_INPUT, fg=ACCENT3,
+                         state="disabled", relief="flat")
+            tw.pack(fill="both", expand=True)
+
+            class _FallbackConsole:
+                def __init__(self, w):
+                    self._tw = w
+                def _w(self, msg):
+                    self._tw.configure(state="normal")
+                    self._tw.insert("end", msg + "\n")
+                    self._tw.configure(state="disabled")
+                    self._tw.see("end")
+                def write(self, msg, tag="plain"):    self._w(f"  »  {msg}")
+                def write_info(self, msg):            self._w(f" [i] {msg}")
+                def write_ok(self, msg):              self._w(f" [✓] {msg}")
+                def write_warn(self, msg):            self._w(f" [!] {msg}")
+                def write_error(self, msg):           self._w(f" [✗] {msg}")
+                def write_hex(self, lbl, val, bits=64):
+                    mask = (1 << bits) - 1
+                    self._w(f" [H] {lbl}: 0x{int(val)&mask:0{bits//4}X}")
+                def write_cmd(self, cmd):             self._w(f" [>] {cmd}")
+                def write_separator(self, **kw):      self._w("─" * 60)
+                def clear(self):
+                    self._tw.configure(state="normal")
+                    self._tw.delete("1.0", "end")
+                    self._tw.configure(state="disabled")
+                def save_log(self): pass
+
+            self.console = _FallbackConsole(tw)
+
+        # Enlazar la consola al loader_panel ahora que ya existe
+        if self.loader_panel is not None:
+            self.loader_panel.set_console(self.console)
 
     # ─────────────────────────────────────────────────────────────────────
     #  STATUS BAR
@@ -455,7 +583,7 @@ class CacaoCoreGUI(tk.Tk):
         return str(val)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  REFRESH
+    #  REFRESH REGISTERS
     # ─────────────────────────────────────────────────────────────────────
     def _refresh_registers(self):
         regs = self._core.processor.get_registers()
@@ -472,7 +600,6 @@ class CacaoCoreGUI(tk.Tk):
             if lbl:
                 lbl.config(text=self._fmt_val(regs.get(name, 0)))
 
-        # PC e IR siempre en HEX (son punteros/instrucciones)
         for name in ("pc", "ir"):
             lbl = self._reg_labels.get(name)
             if lbl:
@@ -495,7 +622,7 @@ class CacaoCoreGUI(tk.Tk):
             )
 
     # ─────────────────────────────────────────────────────────────────────
-    #  ACCIONES
+    #  ACCIONES DE EJECUCIÓN
     # ─────────────────────────────────────────────────────────────────────
     def _parse_addr(self):
         raw = self._start_addr_var.get().strip().lstrip("0x").lstrip("0X")
@@ -508,47 +635,66 @@ class CacaoCoreGUI(tk.Tk):
 
     def _do_boot(self):
         addr = self._parse_addr()
-        if addr is None: return
+        if addr is None:
+            return
         try:
             self._core.boot(addr)
             self._refresh_registers()
-            self._set_status(f"BOOT completado  ·  PC -> 0x{addr:08X}", ACCENT)
+            msg = f"BOOT completado  ·  PC -> 0x{addr:08X}"
+            self._set_status(msg, ACCENT)
+            if self.console:
+                self.console.write_ok(msg)
+                self.console.write_hex("PC", addr, bits=32)
+            # Propagar la RAM actualizada al loader
+            if self.loader_panel and hasattr(self._core, "ram"):
+                self.loader_panel.set_ram(self._core.ram)
         except Exception as e:
             self._set_status(f"ERROR en BOOT: {e}", ACCENT3)
+            if self.console:
+                self.console.write_error(f"ERROR en BOOT: {e}")
             messagebox.showerror("Error de BOOT", str(e))
 
     def _do_run_full(self):
         try:
             self._core.run_full()
             self._refresh_registers()
-            self._set_status("RUN FULL completado  ·  procesador detenido (HLT)", ACCENT2)
+            msg = "RUN FULL completado  ·  procesador detenido (HLT)"
+            self._set_status(msg, ACCENT2)
+            if self.console:
+                self.console.write_ok(msg)
         except Exception as e:
             self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
+            if self.console:
+                self.console.write_error(f"ERROR en RUN FULL: {e}")
             messagebox.showerror("Error FULL", str(e))
 
     def _do_run_step(self):
         #try:
             self._core.run_step()
             self._refresh_registers()
-            self._set_status("RUN STEP  ·  un ciclo fetch-decode-execute completado", ACCENT5)
+            msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
+            self._set_status(msg, ACCENT5)
+            if self.console:
+                regs = self._core.processor.get_registers()
+                self.console.write_info(msg)
+                self.console.write_hex("PC", regs.get("pc", 0), bits=64)
+                self.console.write_hex("IR", regs.get("ir", 0), bits=64)
         # except Exception as e:
         #     self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
+        #     if self.console:
+        #         self.console.write_error(f"ERROR en RUN STEP: {e}")
         #     messagebox.showerror("Error EN STEP", str(e))
 
+    # ─────────────────────────────────────────────────────────────────────
+    #  RAM EDITOR (ventana independiente)
+    # ─────────────────────────────────────────────────────────────────────
     def _open_ram_editor(self):
-        """
-        Abre el RAM Editor en el MISMO proceso Python para que comparta
-        la instancia global `ram`. Usa importlib para cargar el modulo
-        dinamicamente y lo instancia como tk.Toplevel.
-        """
-        # Evitar multiples ventanas
         if hasattr(self, "_ram_win") and self._ram_win and \
                 self._ram_win.winfo_exists():
             self._ram_win.lift()
             self._ram_win.focus_force()
             return
 
-        # Localizar cacao_ram_editor.py
         base = os.path.dirname(os.path.abspath(__file__))
         editor_path = None
         for candidate in [
@@ -560,21 +706,20 @@ class CacaoCoreGUI(tk.Tk):
                 break
 
         if editor_path is None:
+            msg = "No se encontro cacao_ram_editor.py"
             messagebox.showinfo("RAM Editor",
-                "No se encontro cacao_ram_editor.py\n"
-                "Ruta esperada: src/memoria/cacao_ram_editor.py")
+                f"{msg}\nRuta esperada: src/memoria/cacao_ram_editor.py")
+            if self.console:
+                self.console.write_warn(msg)
             return
 
-        # Cargar el modulo en el proceso actual (comparte instancia de ram)
         import importlib.util
         spec = importlib.util.spec_from_file_location("cacao_ram_editor",
                                                        editor_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        EditorClass = mod.CacaoRAMEditor  # hereda de tk.Tk
+        EditorClass = mod.CacaoRAMEditor
 
-        # CacaoRAMEditor hereda de tk.Tk, no de Toplevel.
-        # Creamos una subclase que hereda de Toplevel en su lugar.
         parent_self = self
 
         class RAMEditorWindow(tk.Toplevel):
@@ -584,41 +729,40 @@ class CacaoCoreGUI(tk.Tk):
                 self.geometry("1260x820")
                 self.minsize(1100, 700)
                 self.configure(bg=mod.BG_DARK)
-                self.resizable(True, True)
                 self.loader_mod = Loader()
-                # Copiar estado interno que el editor necesita
+                self.resizable(True, True)
                 self.addr_var      = tk.StringVar(self, value="00001000")
                 self.data_mode     = tk.StringVar(self, value="hex")
                 self.read_addr_var = tk.StringVar(self, value="00001000")
                 self.read_len_var  = tk.StringVar(self, value="64")
                 self.hex_base_var  = tk.StringVar(self, value="00001000")
                 self.hex_rows_var  = tk.StringVar(self, value="16")
-                # Enlazar todos los metodos del editor original
                 import types
                 for name in dir(EditorClass):
                     if name.startswith("__"):
                         continue
                     val = getattr(EditorClass, name)
                     if callable(val) and isinstance(val, types.FunctionType):
-                        setattr(self, name,
-                                types.MethodType(val, self))
-                # Construir UI (llama a _build_ui del editor original)
+                        setattr(self, name, types.MethodType(val, self))
                 self._build_ui()
                 self._refresh_hex_view(0x00001000, 16)
 
         try:
             win = RAMEditorWindow()
             self._ram_win = win
-            self._set_status(
-                "RAM Editor abierto en proceso compartido — cambios inmediatos.",
-                mod.ACCENT)
+            msg = "RAM Editor abierto en proceso compartido — cambios inmediatos."
+            self._set_status(msg, mod.ACCENT)
+            if self.console:
+                self.console.write_ok(msg)
         except Exception as e:
-            # Fallback subproceso
             import subprocess
             subprocess.Popen([sys.executable, editor_path])
-            self._set_status(
-                "ADVERTENCIA: RAM Editor como proceso externo — "
-                "los cambios NO se comparten automaticamente.", mod.ACCENT3)
+            msg = ("ADVERTENCIA: RAM Editor como proceso externo — "
+                   "los cambios NO se comparten automaticamente.")
+            self._set_status(msg, mod.ACCENT3)
+            if self.console:
+                self.console.write_warn(msg)
+                self.console.write_error(f"Detalle: {e}")
 
     def _set_status(self, msg, color=ACCENT):
         self._status_var.set(f"  {msg}")
