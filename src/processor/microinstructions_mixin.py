@@ -359,8 +359,8 @@ class MicroinstructionMixin:
         self._alu.add(vector_address, vector_num, False)
         self._mar[:] = self._registers[15][:]
         self._read_from_ram()
-
-        self._mar[:] = self._mdr[:]
+        self.mov_ra(acc, self._mdr, 4)
+        self._mar[:] = acc[:]
         self._read_from_ram(1)
 
         self._registers[15][:] = acc[:]

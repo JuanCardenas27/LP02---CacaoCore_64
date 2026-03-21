@@ -12,11 +12,11 @@ class CacaoCore64:
     def __init__(self):
         self.ram_memory = ram
         self.loader = loader
+        self.loader.read_and_load(VECTOR_PATH, VECTOR_TABLE, "hex")
+        self.loader.read_and_load(ROUTINE_PATH, SUBROUTINES, "hex")
         self.processor = ControlUnit()
 
     def boot(self, start_address):
-        self.loader.read_and_load(VECTOR_PATH, VECTOR_TABLE, "hex")
-        self.loader.read_and_load(ROUTINE_PATH, SUBROUTINES, "hex")
         self.processor.boot(start_address)
 
     def run_full(self):
