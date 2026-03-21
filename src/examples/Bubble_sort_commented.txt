@@ -72,5 +72,31 @@ R8 = límite interno (n - 1 - i)
 02 22 FF FF FF FF FF FF
 -- JMP LOOP_ext
 50 10 00 00 52 FF FF FF
--- FIN_Externo {0x000010F8}
+
+## A partir de aca R0: dir base y R1: n-1 y R3: indice y R2: valor a imprimir
+-- FIN_Externo {0x000010F8}: R3 <- 0
+00 00 13 01 FF FF FF FF
+-- R1 <- R1 - 1
+01 00 11 0A F1 FF FF FF
+-- LOOP_IMP: CMP R3, R1
+31 B0 60 FF FF FF FF FF
+-- JG FIN_IMP
+{reloc #} 8E FF FF FF
+-- R4 <- R3*8+R0
+43 10 F0 FF FF FF FF FF
+08 00 14 0B F3 FF FF FF
+40 40 00 FF FF FF FF FF
+- R2 <- [R4]
+24 03 F0 FF FF FF FF FF
+-- PRINT lo que esté en R2
+02 D0 00 00 80 02 FF FF
+00 0D 00 00 2B 15 FF FF
+08 00 1C 02 FF FF FF FF
+00 00 45 FF FF FF FF FF
+-- INC R3
+03 22 FF FF FF FF FF FF
+-- JMP LOOP_IMP
+{reloc #} 52 FF FF FF
+-- FIN_IMP: HLT
 00 00 00 00 00 00 00 00
+-- 
