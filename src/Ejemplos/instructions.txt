@@ -1,0 +1,24 @@
+05 00 00 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+01 00 08 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+04 00 10 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+02 00 18 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+08 00 20 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+05 00 28 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
+28 00 04 00 20 01 FF FF movh_rm size
+00 00 11 01 FF FF FF FF movh_ri 0
+00 00 04 00 22 01 FF FF movh_rm max guardado en 2
+01 22 FF FF FF FF FF FF inc_r index
+40 52 FF FF FF FF FF FF dec_r size
+01 B0 60 FF FF FF FF FF  cmp_rr
+B8 10 00 00 8E FF FF FF    jg_m
+41 30 F0 FF FF FF FF FF movd_rr grab de index into reg 4
+08 00 14 0B F3 FF FF FF mul_ri that copy at 4 times 8
+00 00 04 00 25 15 FF FF lea_rm charge the array into the acc
+45 40 00 FF FF FF FF FF add_rr add the extra index now we got the net position here at 5
+64 13 F0 FF FF FF FF FF movh_rn 6 4 el contenido de la dir guardada en 4 pasa a 6
+62 B0 60 FF FF FF FF FF    cmp_rr 6 2 comparamos
+A8 10 00 00 96 FF FF FF    jle_m cmp rr 1  ###########################################
+26 30 F0 FF FF FF FF FF Re assign max
+01 22 FF FF FF FF FF FF inc_r
+58 10 00 00 52 FF FF FF jmp back to loop
+00 00 00 00 00 00 00 00 HLT

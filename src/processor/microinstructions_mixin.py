@@ -33,7 +33,7 @@ class MicroinstructionMixin:
         """MOV registro-memoria: op1 = [op2].
         
         Lee datos desde memoria en la dirección op2 y los copia a op1.
-        Modo: rm (registro-memoria).
+        Modo: rm (registro-memoria) o rn(registro-indirecto).
         
         Parámetros
         ----------
@@ -48,7 +48,8 @@ class MicroinstructionMixin:
         self._read_from_ram(size=size//8)
         value = self.bytes_to_int(self._mdr)
         op1[:] = self.int_to_bytes(value, size)
-
+        
+    
     def mov_ma(self, op1, op2, size):
         """MOV memoria-acumulador: [op1] = op2.
         
@@ -220,7 +221,7 @@ class MicroinstructionMixin:
             Flag a verificar ('z'=zero, 's'=sign, 'c'=carry, 'v'=overflow, 'i'=interrupt).
         """
         index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
+        flags = self._to_binary(self._fr, 8, False)[::-1]
         if int(flags[index]):
             self._pc = op1[:]
 
@@ -237,25 +238,42 @@ class MicroinstructionMixin:
             Flag a verificar ('z'=zero, 's'=sign, 'c'=carry, 'v'=overflow, 'i'=interrupt).
         """
         index = self._flags_indexes[flag]
-        flags = self._to_binary(self._fr, 8, False)
+        flags = self._to_binary(self._fr, 8, False)[::-1]
         if not int(flags[index]):
             self._pc = op1[:]
 
-    def j_comparacion(self, op1, flag1, flag2, cmp):
-        """Salto condicional basado en comparación de dos flags.
+    def j_comparacion(self, op1, cmp):
+        """Salto condicional basado en las flags Z y S.
         
         Parámetros
         ----------
         op1 : bytearray
             Dirección de salto.
-        flag1 : str
-            Primer flag.
-        flag2 : str
-            Segundo flag.
         cmp : str
             Operador de comparación.
         """
-        pass
+        flags = self._to_binary(self._fr, 8, False)[::-1]
+        val_z = int(flags[4])
+        val_s = int(flags[3])
+        print(flags, val_z, val_s )
+        if cmp == "<":
+            salto = val_s == 1 and val_z == 0
+        elif cmp == ">":
+            salto = val_s == 0 and val_z == 0
+        elif cmp == ">=":
+            salto = val_s == 0 or val_z == 1
+        elif cmp == "<=":
+            salto = val_s == 1 or val_z == 1
+        elif cmp == "=":
+            salto = val_z == 1
+        elif cmp == "!=":
+            salto = val_z == 0
+
+        if salto:
+            self._pc = op1[:]
+
+
+
 
     def call_m(self, op1):
         """CALL - Llamada a subrutina.
@@ -386,7 +404,7 @@ class MicroinstructionMixin:
         """
         self._alu.add(self._registers[15], op1)
 
-    def add_ra(self, op1, op2):
+    def add_ra(self, op1, op2, change_flags=True):
         """ADD registro-acumulador: op1 = op1 + op2.
         
         Suma dos valores (registros o inmediatos).
@@ -399,7 +417,7 @@ class MicroinstructionMixin:
         op2 : bytearray
             Valor a sumar.
         """
-        self._alu.add(op1, op2)
+        self._alu.add(op1, op2, change_flags)
         op1[:] = self._registers[15][:]
     
     def add_rm(self, op1, op2):
@@ -925,7 +943,6 @@ class MicroinstructionMixin:
             Segundo operando.
         """
         self._alu.cmp(op1, op2)
-        op1[:] = self._registers[15][:]
     
     def cmp_rm(self, op1, op2):
         """CMP registro-memoria: actualiza flags comparando op1 con [op2].
@@ -943,7 +960,6 @@ class MicroinstructionMixin:
         self._mar[:] = op2[:]
         self._read_from_ram()
         self._alu.cmp(op1, self._mdr)
-        op1[:] = self._registers[15][:]
 
     def test_m(self, op1):
         """TEST memoria: actualiza flags con AND(ACM, [op1]) sin modificar ACM.

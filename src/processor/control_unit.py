@@ -186,7 +186,7 @@ class ControlUnit(MicroinstructionMixin):
         self._ir[:] = self._mdr[:]
 
         acc = self._registers[15][:]
-        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)))
+        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)), False)
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc
         print("Completó FETCH")
@@ -227,7 +227,7 @@ class ControlUnit(MicroinstructionMixin):
             initial_pos = int.from_bytes(self._dp, byteorder='little', signed=False) * 4
             final_pos = initial_pos + self._mode_length[mode]
             cod_i = self._to_binary(self._ir, 64, False)[initial_pos: final_pos]
-            if mode == "r":
+            if mode == "r" or mode == "n":
                 ops[i] = self._registers[int(cod_i, 2)]
 
             elif mode == "i":
@@ -235,13 +235,12 @@ class ControlUnit(MicroinstructionMixin):
             
             elif mode == "m":
                 ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True)) # ¿Por qué no int?
-            
-            elif mode == "n": # ¿Por qué no int?^^
-                self._mar[:] = self._registers[int(cod_i, 2)]
-                ops[i] = self._mdr[:]
+    
 
             acc = self._registers[15]
+            flgs=self._fr[:]
             self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)))
+            self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
         self._methods[name+"_"+modes](ops[0], ops[1])

@@ -1,0 +1,26 @@
+### Convención de uso de registros
+R0 = A (primer operando, el que se suma)
+R1 = B (segundo operando, contador de veces)
+R2 = resultado (acumulador)
+R3 = i (contador del bucle, decremental)
+
+-- MOV R0, 6
+06 00 10 01 FF FF FF FF
+-- MOV R1, 4
+04 00 11 01 FF FF FF FF
+-- MOV R2, 0
+00 00 12 01 FF FF FF FF
+-- MOV R3, R1
+31 10 F0 FF FF FF FF FF
+-- LOOP: CMP R3, 0
+00 00 13 10 F6 FF FF FF
+-- JLE FIN
+{FIN} 96 FF FF FF
+-- ADD R2, R0
+20 40 00 FF FF FF FF FF
+-- DEC R3
+43 52 FF FF FF FF FF FF
+-- JMP LOOP
+{LOOP} 52 FF FF FF
+-- FIN: HALT
+00 00 00 00 00 00 00 00

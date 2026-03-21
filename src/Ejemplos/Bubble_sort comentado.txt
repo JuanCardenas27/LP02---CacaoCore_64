@@ -1,0 +1,76 @@
+### Convención de uso de registros
+R0 = dirección base del arreglo A
+R1 = n (tamaño del arreglo)
+R2 = índice i (externo)
+R3 = índice j (interno)
+R4 = A[j] (elemento actual)
+R5 = A[j+1] (elemento siguiente)
+R6 = dirección de A[j] (temporal)
+R7 = dirección de A[j+1] (temporal)
+R8 = límite interno (n - 1 - i)
+
+-- Cargar la lista desde la pos 0x00040000 (movh_mi)
+05 00 00 00 04 00 19 F0
+03 00 08 00 04 00 19 F0
+08 00 10 00 04 00 19 F0
+01 00 18 00 04 00 19 F0
+04 00 20 00 04 00 19 F0
+
+-- Cargar direccion base en R0 (lea_rm)
+00 00 04 00 20 15 FF FF
+
+-- Cargar tamaño e indice en R1 y R2 (movh_ri)
+05 00 11 01 FF FF FF FF
+00 00 12 01 FF FF FF FF
+
+-- Loop externo {0x00001050}
+-- R8 <- R1    movh_rr(R8, R1)
+81 10 F0 FF FF FF FF FF
+-- R8 <- R8 - 1      (dec_r)
+48 52 FF FF FF FF FF FF
+-- CMP R2, R8       (R1 < R8) = (i < n-1)
+28 B0 60 FF FF FF FF FF
+-- JG FIN_Externo
+8E FF FF FF {reloc #}
+-- Iniciar indice j en R3 (movh_ri)
+00 00 13 01 FF FF FF FF
+-- R8 <- R8 - R2   sub_ra
+82 50 10 FF FF FF FF FF
+
+-- Loop interno {0x00001070}
+-- CMP R3, R8       (R3 < R8) = (j < n-1-i) cmp_ra
+38 B0 60 FF FF FF FF FF
+-- JG Fin_interno    j_comparacion
+8E FF FF FF {reloc #}
+-- R6 <- R3 (movh_rr)
+63 10 F0 FF FF FF FF FF
+-- R6 <- R6*8   mul_ri
+08 00 16 0B F3 FF FF FF
+-- R6 <- R6 + R0    add_rr
+60 40 00 FF FF FF FF FF
+-- R7 <- R6      movh_rr
+76 10 F0 FF FF FF FF FF
+-- R7 <- R7 + 8      add_ri
+08 00 17 09 F0 FF FF FF
+-- R4 <- [R6]        mov_rn
+46 03 F0 FF FF FF FF FF
+-- R5 <- [R7]      mov_rn
+57 03 F0 FF FF FF FF FF
+-- CMP R4, R5       (R4 < R5) = (A[j] < A[j+1])
+45 B0 60 FF FF FF FF FF
+-- JLE Noswap
+{reloc #} 96 FF FF FF
+-- [R6] <- R5 store_nr
+65 04 FF FF FF FF FF FF
+-- [R7] <- R4
+74 04 FF FF FF FF FF FF
+-- NOSWAP: R3 inc_r {0x000010D8}
+03 22 FF FF FF FF FF FF
+-- JMP LOOP_int
+70 10 00 00 52 FF FF FF
+-- Fin_interno: R2 inc_r {0x000010E8}
+02 22 FF FF FF FF FF FF
+-- JMP LOOP_ext
+50 10 00 00 52 FF FF FF
+-- FIN_Externo {0x000010F8}
+00 00 00 00 00 00 00 00
