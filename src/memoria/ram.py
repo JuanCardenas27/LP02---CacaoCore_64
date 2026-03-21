@@ -38,7 +38,7 @@ HEAP_END       = 0x000C0000             # 256 KB
 
 STACK_START    = 0x000C0000             # Base de la pila
 STACK_END      = 0x00100000             # 256 KB (SP inicial = STACK_END - 1)
-SP_INITIAL     = STACK_END - 1          # 0x000FFFFF
+SP_INITIAL     = STACK_END - 8          # Última palabra alineada
 
 WORD_SIZE      = 8                      # bytes por palabra de 64 bits
 PC_INITIAL     = CODE_START             # 0x00001000
