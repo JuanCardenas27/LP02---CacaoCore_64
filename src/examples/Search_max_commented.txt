@@ -1,3 +1,11 @@
+### Convención de uso de registros
+R0 = A (primer operando, el que se suma)
+R1 = Indice para recorrer el arreglo
+R2 = Valor Maximo encontrado
+R3 = i (contador del bucle, decremental)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
+
 05 00 00 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
 01 00 08 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
 04 00 10 00 04 00 19 F0 movh_mi 00 00 04 00 05 00
@@ -21,4 +29,8 @@ A8 10 00 00 96 FF FF FF    jle_m cmp rr 1  #####################################
 26 30 F0 FF FF FF FF FF Re assign max
 01 22 FF FF FF FF FF FF inc_r
 58 10 00 00 52 FF FF FF jmp back to loop
+02 D0 00 00 80 02 FF FF mov max to buffer  
+00 0D 00 00 2B 15 FF FF lea rm  
+08 00 1C 02 FF FF FF FF movw_ri 
+00 00 45 FF FF FF FF FF print intr
 00 00 00 00 00 00 00 00 HLT

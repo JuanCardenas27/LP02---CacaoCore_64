@@ -324,12 +324,13 @@ class MicroinstructionMixin:
         op1 : bytearray
             Ubicación donde guardar el valor desempilado.
         """
-        self._mar[:] = self._registers[13][:]
-        self._read_from_ram()
-        op1[:] = self._mdr[:]
         head_sp = self.bytes_to_int(self._registers[13], False)
         head_sp += 8
         self._registers[13][:] = self.int_to_bytes(head_sp, 64)
+        self._mar[:] = self._registers[13][:]
+        self._read_from_ram()
+        op1[:] = self._mdr[:]
+        
     
     def iret(self):
         """IRET - Retorno de manejador de interrupción.
@@ -337,7 +338,7 @@ class MicroinstructionMixin:
         Restaura el estado completo del procesador desde la pila:
         PC, FR, y todos los registros.
         """
-        for reg in range(15,0, -1):
+        for reg in range(15,-1, -1):
             self.pop(self._registers[reg])
         self.pop(self._fr)
         self.pop(self._pc)

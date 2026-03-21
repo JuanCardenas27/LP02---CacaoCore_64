@@ -32,7 +32,7 @@ class IOController:
             return
 
         data = ram.read(addr, length) # TODO: Agregar formato.
-        self.console.write_ok(int.from_bytes(data, byteorder="little", signed=True))
+        self.console.write_ok(int.from_bytes(data, byteorder="little", signed=False))
 
 
 # ------------------------------------------------------------------
