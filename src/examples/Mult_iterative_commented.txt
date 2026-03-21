@@ -3,6 +3,8 @@ R0 = A (primer operando, el que se suma)
 R1 = B (segundo operando, contador de veces)
 R2 = resultado (acumulador)
 R3 = i (contador del bucle, decremental)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
 
 -- MOV R0, 6
 06 00 10 01 FF FF FF FF
@@ -22,5 +24,9 @@ R3 = i (contador del bucle, decremental)
 43 52 FF FF FF FF FF FF
 -- JMP LOOP
 {LOOP} 52 FF FF FF
--- FIN: HALT
+-- FIN: STORE
+
+-- FIN: INT 0 (Escribir en consola)
+00 00 45 FF FF FF FF FF
+-- HALT
 00 00 00 00 00 00 00 00

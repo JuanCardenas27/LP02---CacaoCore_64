@@ -10,12 +10,11 @@ Solo se añadieron los imports mínimos para que el módulo sea importable de fo
 
 import re
 from tkinter import messagebox
-from memoria import ram
+from memoria.ram import ram
 
 
 class Loader:
 
-    
     def load_to_ram(self, lines, base_addr, mode):
 
         current_addr   = base_addr
@@ -68,6 +67,13 @@ class Loader:
                         )
                         return
 
+                else: 
+                    messagebox.showerror(
+                        "Error",
+                        f"Modo de lectura inválido."
+                    )
+                    return
+
             if len(parsed_bytes) > bytes_per_line:
                 messagebox.showerror(
                     "Error",
@@ -81,3 +87,14 @@ class Loader:
 
             ram.write(current_addr, bytes(parsed_bytes))
             current_addr += step
+
+
+    def read_and_load(self, path, base_addr, mode):
+        with open(path, "r") as f:
+            lines = f.readlines()
+        self.load_to_ram(lines, base_addr, mode)
+        return lines
+
+
+# Instancia global del cargador
+loader = Loader()

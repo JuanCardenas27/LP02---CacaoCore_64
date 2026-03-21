@@ -3,6 +3,7 @@ from .alu import ALU
 from .decoder import Decoder
 from .microinstructions_mixin import MicroinstructionMixin
 from .instruction_map import get_methods_map
+from peripherals.io_controller import io_controller
 
 RUNNING = 1
 HALTED = 0
@@ -86,6 +87,9 @@ class ControlUnit(MicroinstructionMixin):
         inicial es HALTED hasta que se ejecute _boot().
         """
         self.state = HALTED
+
+        self.ram = ram
+        self.io_controller = io_controller
         self.INTR = False
         self.INTA = False
 
@@ -257,25 +261,12 @@ class ControlUnit(MicroinstructionMixin):
         en la pila y llama al manejador de interrupciones.
         """
         if self.INTR == True:
-            self.push(self._pc)
-            self.push(self._fr)
-            for reg in self._registers:
-                self.push(reg)
             self.INTA = True
-            #TODO Pedir al controlador de int el vector
-            vector = self.bytes_to_int(self._mdr)
-            self._interruption_handler(vector)
-            
-                
-    def _interruption_handler(self, vector):
-        """Manejador de interrupciones.
-        
-        Parámetros
-        ----------
-        vector : int
-            Vector de interrupción que identifica el tipo de interrupción.
-        """
-        pass
+            vector = self._mdr
+            self.io_controller.handle_interrupt(vector, [self._registers[11], self._registers[12]])
+            self.iret()
+            self.INTA = False
+
 
     #################################
     #   INTERACCIÓN CON MEMORIA     #
@@ -291,7 +282,7 @@ class ControlUnit(MicroinstructionMixin):
             Número de bytes a leer (default: 8).
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
-        self._mdr[:] = ram.read(direccion, size)
+        self._mdr[:] = self.ram.read(direccion, size)
 
     def _write_to_ram(self, size=8):
         """Escribe datos en RAM desde MDR usando dirección en MAR.
@@ -303,7 +294,7 @@ class ControlUnit(MicroinstructionMixin):
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         value = self._mdr[:size]
-        ram.write(direccion, value)
+        self.ram.write(direccion, value)
     
     #################################
     #     FUNCIONES AUXILIARES      #

@@ -341,10 +341,29 @@ class MicroinstructionMixin:
             self.pop(self._registers[reg])
         self.pop(self._fr)
         self.pop(self._pc)
+
+        self.INTR = False
     
-    def int(self):
+    def int(self, vector_num):
         """INT - Generar interrupción de software."""
-        pass
+        self.INTR = True
+
+        self.push(self._pc)
+        self.push(self._fr)
+        for reg in self._registers:
+            self.push(reg)
+        
+        vector_address = bytearray(VECTOR_TABLE.to_bytes(8, byteorder='little', signed=True))
+        acc = self._registers[15]
+        self._alu.add(vector_address, vector_num, False)
+        self._mar[:] = self._registers[15][:]
+        self._read_from_ram()
+
+        self._mar[:] = self._mdr[:]
+        self._read_from_ram(1)
+
+        self._registers[15][:] = acc[:]
+
 
     def nop(self):
         """NOP - Operación nula (sin operación)."""

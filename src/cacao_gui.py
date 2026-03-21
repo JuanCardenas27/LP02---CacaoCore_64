@@ -14,7 +14,7 @@ Cambios respecto a la versión anterior:
 import tkinter as tk
 from tkinter import messagebox
 import sys, os
-from loader.cacao_loader import Loader
+from loader.cacao_loader import loader
 
 # ── Backend del procesador ────────────────────────────────────────────────────
 try:
@@ -27,19 +27,12 @@ except ImportError:
 
 # ── Consola ───────────────────────────────────────────────────────────────────
 try:
-    from cacao_console import CacaoConsole
+    from peripherals.cacao_console import CacaoConsole
     CONSOLE_OK = True
 except ImportError:
     CacaoConsole = None
     CONSOLE_OK = False
 
-# ── Cargador de archivos → RAM ────────────────────────────────────────────────
-try:
-    from cacao_loader import CacaoLoaderPanel
-    LOADER_OK = True
-except ImportError:
-    CacaoLoaderPanel = None
-    LOADER_OK = False
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  PALETA
@@ -55,7 +48,7 @@ ACCENT4   = "#FFD166"
 ACCENT5   = "#C3A6FF"
 TEXT_MAIN = "#E0E8F0"
 TEXT_DIM  = "#5A6880"
-BORDER    = "#2A3045"
+BORDER    = "#5C6FB3"
 
 FM       = ("Courier New", 11)
 FM_SM    = ("Courier New",  9)
@@ -135,13 +128,9 @@ class CacaoCoreGUI(tk.Tk):
 
         # Log de arranque
         if self.console:
-            self.console.write_ok(f"Backend: {BACKEND}")
-            if not LOADER_OK:
-                self.console.write_warn(
-                    "cacao_loader.py no encontrado — panel de carga deshabilitado")
+            print(f"Backend: {BACKEND}")
             if not CONSOLE_OK:
-                self.console.write_warn(
-                    "cacao_console.py no encontrado — usando consola minima")
+                print("cacao_console.py no encontrado — usando consola minima")
 
     # ─────────────────────────────────────────────────────────────────────
     #  HEADER
@@ -227,7 +216,6 @@ class CacaoCoreGUI(tk.Tk):
 
         self._build_flags_panel(col_c)
         self._build_ram_panel(col_c)
-        self._build_loader_panel(col_c)
         self._build_console_panel(col_c)
 
     # ─────────────────────────────────────────────────────────────────────
@@ -455,38 +443,6 @@ class CacaoCoreGUI(tk.Tk):
         btn.pack(anchor="w", ipadx=8, ipady=4)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA C — row 2: CARGADOR DE ARCHIVOS  ← NUEVO
-    # ─────────────────────────────────────────────────────────────────────
-    def _build_loader_panel(self, parent):
-        """
-        Integra CacaoLoaderPanel (de cacao_loader.py) en columna C row 2.
-        Disponible como self.loader_panel.
-
-        API pública del panel:
-            self.loader_panel.loader.load_file("prog.bin", 0x1000)
-            self.loader_panel.loader.load_bytes(buffer, 0x2000)
-            self.loader_panel.set_ram(nueva_ram)
-            self.loader_panel.last_result   → LoadResult
-        """
-        if CacaoLoaderPanel is not None:
-            ram = getattr(self._core, "ram", None)
-            self.loader_panel = CacaoLoaderPanel(
-                parent,
-                ram=ram,
-                console=None,   # se enlaza tras construir la consola
-            )
-            self.loader_panel.frame.grid(row=2, column=0, sticky="ew",
-                                         pady=(0, 6))
-        else:
-            outer, pf = make_panel(parent, "▤  CARGADOR DE ARCHIVOS → RAM", ACCENT2)
-            outer.grid(row=2, column=0, sticky="ew", pady=(0, 6))
-            tk.Label(pf,
-                     text="cacao_loader.py no encontrado.\nCopiar junto a cacao_gui.py.",
-                     font=FM_SM, fg=ACCENT3, bg=BG_PANEL,
-                     justify="left", anchor="w").pack(fill="x")
-            self.loader_panel = None
-
-    # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA C — row 3: CONSOLA
     # ─────────────────────────────────────────────────────────────────────
     def _build_console_panel(self, parent):
@@ -505,7 +461,7 @@ class CacaoCoreGUI(tk.Tk):
             self.console.clear()
             self.console.save_log()
         """
-        if CacaoConsole is not None:
+        if CacaoConsole:
             self.console = CacaoConsole(parent, show_timestamps=True,
                                         show_toolbar=True)
             self.console.frame.grid(row=3, column=0, sticky="nsew")
@@ -669,7 +625,7 @@ class CacaoCoreGUI(tk.Tk):
             messagebox.showerror("Error FULL", str(e))
 
     def _do_run_step(self):
-        #try:
+        try:
             self._core.run_step()
             self._refresh_registers()
             msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
@@ -679,11 +635,11 @@ class CacaoCoreGUI(tk.Tk):
                 self.console.write_info(msg)
                 self.console.write_hex("PC", regs.get("pc", 0), bits=64)
                 self.console.write_hex("IR", regs.get("ir", 0), bits=64)
-        # except Exception as e:
-        #     self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
-        #     if self.console:
-        #         self.console.write_error(f"ERROR en RUN STEP: {e}")
-        #     messagebox.showerror("Error EN STEP", str(e))
+        except Exception as e:
+            self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
+            if self.console:
+                self.console.write_error(f"ERROR en RUN STEP: {e}")
+            messagebox.showerror("Error EN STEP", str(e))
 
     # ─────────────────────────────────────────────────────────────────────
     #  RAM EDITOR (ventana independiente)
@@ -729,7 +685,7 @@ class CacaoCoreGUI(tk.Tk):
                 self.geometry("1260x820")
                 self.minsize(1100, 700)
                 self.configure(bg=mod.BG_DARK)
-                self.loader_mod = Loader()
+                self.loader_mod = loader
                 self.resizable(True, True)
                 self.addr_var      = tk.StringVar(self, value="00001000")
                 self.data_mode     = tk.StringVar(self, value="hex")
@@ -772,4 +728,5 @@ class CacaoCoreGUI(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     app = CacaoCoreGUI()
+    app._core.processor.io_controller.console = app.console
     app.mainloop()

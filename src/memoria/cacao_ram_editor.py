@@ -610,14 +610,13 @@ class CacaoRAMEditor(tk.Tk):
             return
 
         try:
-            with open(self.loaded_file_path, "r") as f:
-                lines = f.readlines()
+            mode = self.data_mode.get()
+        
+            lines = self.loader_mod.read_and_load(self.loaded_file_path, base_addr, mode)
+
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}")
             return
-        mode = self.data_mode.get()
-        
-        self.loader_mod.load_to_ram(lines, base_addr, mode)
 
         self._refresh_hex_view(base_addr, min(32, len(lines)))
         self._log("Escritura de archivo completada.", "ok")

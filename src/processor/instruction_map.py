@@ -12,7 +12,7 @@ def get_methods_map(cu):
             "iret_": lambda x, y: cu.iret(),
             "push_r": lambda x, y: cu.push(x),
             "pop_r": lambda x, y: cu.pop(x),
-            "int_i": lambda x, y: cu.int(),
+            "int_i": lambda x, y: cu.int(x),
             
             # MOV
             "movb_rr": lambda x, y: cu.mov_ra(x, y, 8),
