@@ -15,7 +15,7 @@ class FloatAritmethicUnit:
         return (sign, exp, mantisa)
     
     def _pack(self, sign: int, exp_insesgado:int, mantisa:int) -> bytes:
-        cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:] + bin(mantisa)[2:].zfill(52)
+        cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:].zfill(11) + bin(mantisa)[2:].zfill(52)
         return int(cadena, base=2).to_bytes(8, byteorder='little')
         
     
@@ -31,43 +31,91 @@ class FloatAritmethicUnit:
     def _reset_flags(self):
         pass
     
-    def fp_div(self, op1: bytearray, op2: bytearray, change_flags=True):
+    def fp_add(self, op1:bytearray, op2:bytearray, change_flags=True):           
+
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
+
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_sub(op1, op2)
+
+        p_mantisa1 = (1 << 52) | num1[2]  
+        p_mantisa2 = (1 << 52) | num2[2]
+
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
+
+        result = p_mantisa1 + p_mantisa2
+
+        bits_extra = result.bit_length() - 53
+        nuevo_expo = mayor_exp + bits_extra
+        if bits_extra > 0:
+            result >>= bits_extra
+
+        mantisa_final = result & ((1 << 52) - 1)
+
         if change_flags:
-            result = self._reset_flags()
+            self._reset_flags()
+            result = self._check_flags(result)
 
-        sign1, exp1, mant1 = self._unpack(op1)
-        sign2, exp2, mant2 = self._unpack(op2)
+        self.fp_acm[:] = self._pack(num1[0], nuevo_expo, mantisa_final)
+        return self._pack(num1[0], nuevo_expo, mantisa_final)
+ 
 
-        # Desnormalizar.
-        mant1 |= (1 << 52)
-        mant2 |= (1 << 52)
+    def fp_sub(self, op1: bytearray, op2: bytearray, change_flags=True):
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
 
-        # Signo.
-        sign = sign1 ^ sign2
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_add(op1, op2)
 
-        # Resta de exponentes.
-        exp = exp1 - exp2
+        p_mantisa1 = (1 << 52) | num1[2]
+        p_mantisa2 = (1 << 52) | num2[2]
 
-        # División de mantisas.
-        mant = (mant1 << 52) // mant2
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
 
-        # Corrección de rango.
-        if mant < (1 << 52):
-            mant <<= 1
-            exp -= 1
-        elif mant >= (1 << 53):
-            mant >>= 1
-            exp += 1
+        if p_mantisa1 >= p_mantisa2:
+            signo_resultado = num1[0]
+        else:
+            signo_resultado = 1- num1[0]
 
-        # Normalizar.
-        mant &= (1 << 52) - 1
+        result = p_mantisa1 - p_mantisa2
 
-        result = self._pack(sign, exp, mant)
-        self.fp_acm[:] = result
+        # caso especial: resultado es exactamente cero
+        if result == 0:
+            return self._pack(0, -1023, 0)
 
-        return result
+        # normalizar — la resta puede encoger o crecer
+        bits_resultado = result.bit_length()
+        if bits_resultado < 53:
+            shift = 53 - bits_resultado
+            result <<= shift
+            nuevo_expo = mayor_exp - shift
+        else:
+            nuevo_expo = mayor_exp
 
+        mantisa_final = result & ((1 << 52) - 1)
 
+        if change_flags:
+            self._reset_flags()
+            self._check_flags(result)
+
+        self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        return self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        
     @staticmethod
     def _to_binary(register:bytearray):
         """Convierte un registro a su representación de 64 bits en string.
