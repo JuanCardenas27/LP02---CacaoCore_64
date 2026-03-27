@@ -288,5 +288,8 @@ MICROINSTRUCTION_SPECS = [
     {"name": "fp_sub_rm", "opcode": 0x0}
     {"name": "fp_sub_rr", "opcode": 0x0}
     {"name": "fp_sub_nr", "opcode": 0x0}
+    {"name": "fp_mul_rr", "opcode": 0x0}
+    {"name": "fp_mul_rm", "opcode": 0x0}
+    {"name": "fp_mul_nr", "opcode": 0x0}
 
 ]
