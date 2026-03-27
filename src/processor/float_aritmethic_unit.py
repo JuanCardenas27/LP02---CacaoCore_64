@@ -6,7 +6,7 @@ class FloatAritmethicUnit:
         self.flags = fp_flags 
 
     def _unpack(self, b_array:bytearray) -> tuple[int, int, int]:
-        bin_num = bin(int.from_bytes(b_array[:], byteorder='little'))[2:]
+        bin_num = bin(int.from_bytes(b_array, byteorder='little'))[2:].zfill(64)
 
         sign = int(bin_num[0])
         exp = int(bin_num[1:12], base=2) - 1023
@@ -15,7 +15,7 @@ class FloatAritmethicUnit:
         return (sign, exp, mantisa)
     
     def _pack(self, sign: int, exp_insesgado:int, mantisa:int) -> bytes:
-        cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:] + bin(mantisa)[2:].zfill(52)
+        cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:].zfill(11) + bin(mantisa)[2:].zfill(52)
         return int(cadena, base=2).to_bytes(8, byteorder='little')
         
     
@@ -31,28 +31,91 @@ class FloatAritmethicUnit:
     def _reset_flags(self):
         pass
     
-    def fp_add(self, op1:bytearray, op2:bytearray, change_flags=True):
+    def fp_add(self, op1:bytearray, op2:bytearray, change_flags=True):           
+
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
+
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_sub(op1, op2)
+
+        p_mantisa1 = (1 << 52) | num1[2]  
+        p_mantisa2 = (1 << 52) | num2[2]
+
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
+
+        result = p_mantisa1 + p_mantisa2
+
+        bits_extra = result.bit_length() - 53
+        nuevo_expo = mayor_exp + bits_extra
+        if bits_extra > 0:
+            result >>= bits_extra
+
+        mantisa_final = result & ((1 << 52) - 1)
+
         if change_flags:
             self._reset_flags()
-
-        num1 = int.from_bytes(op1, byteorder="little", signed=True) 
-        num2 = int.from_bytes(op2, byteorder="little", signed=True)
-
-        result = num1 + num2
-        if change_flags:
             result = self._check_flags(result)
 
-        num1 = int.from_bytes(op1, byteorder="little", signed=False) 
-        num2 = int.from_bytes(op2, byteorder="little", signed=False)
+        self.fp_acm[:] = self._pack(num1[0], nuevo_expo, mantisa_final)
+        return self._pack(num1[0], nuevo_expo, mantisa_final)
+ 
 
-        uns_result = num1 + num2
-        if uns_result > 2**64:
-            self.flags[0] += 4 #Encendemos el bit 3 carry
+    def fp_sub(self, op1: bytearray, op2: bytearray, change_flags=True):
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
 
-        self.fp_acm[:] = result.to_bytes(8, byteorder='little', signed=True)
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_add(op1, op2)
 
+        p_mantisa1 = (1 << 52) | num1[2]
+        p_mantisa2 = (1 << 52) | num2[2]
 
-    
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
+
+        if p_mantisa1 >= p_mantisa2:
+            signo_resultado = num1[0]
+        else:
+            signo_resultado = 1- num1[0]
+
+        result = p_mantisa1 - p_mantisa2
+
+        # caso especial: resultado es exactamente cero
+        if result == 0:
+            return self._pack(0, -1023, 0)
+
+        # normalizar — la resta puede encoger o crecer
+        bits_resultado = result.bit_length()
+        if bits_resultado < 53:
+            shift = 53 - bits_resultado
+            result <<= shift
+            nuevo_expo = mayor_exp - shift
+        else:
+            nuevo_expo = mayor_exp
+
+        mantisa_final = result & ((1 << 52) - 1)
+
+        if change_flags:
+            self._reset_flags()
+            self._check_flags(result)
+
+        self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        return self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        
     @staticmethod
     def _to_binary(register:bytearray):
         """Convierte un registro a su representación de 64 bits en string.
@@ -76,14 +139,22 @@ if __name__ == "__main__":
     flags = bytearray(1)
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(flags, acm)
-    var = "0100000000100100111000001100010010011011101001011110001101010100"
-        #  0100000000100000000000000100111000001100010010011011101001011110001101010100
-    tupla = objeto._unpack(var)
-    # 0100000000100100111000001100010010011011101001011110001101010100
-    # 0100000000100100111000001100010010011011101001011110001101010100
-    print(tupla)
-    resultado=objeto._pack(*tupla)
-    print(resultado)
-    for i in range(len(var)):
-        if not var[i] ==  resultado[i]:
-            print(i, var[i],  resultado[i])
+
+    import struct
+    def float_to_bytes(f):
+        return bytearray(struct.pack('<d', f))
+
+    def bytes_to_float(b):
+        return struct.unpack('<d', b)[0]
+
+    a, b = 1.5, 2.5
+    resultado = objeto.fp_sub(float_to_bytes(a), float_to_bytes(b))
+    print(f"{a} - {b} = {bytes_to_float(resultado)}")   # esperado: 4.0
+
+    a, b = 0.1, 0.2
+    resultado = objeto.fp_add(float_to_bytes(a), float_to_bytes(b))
+    print(f"{a} + {b} = {bytes_to_float(resultado)}")   # esperado: ~0.3
+
+    a, b = 1.0, 1000000.0
+    resultado = objeto.fp_add(float_to_bytes(a), float_to_bytes(b))
+    print(f"{a} + {b} = {bytes_to_float(resultado)}")   # esperado: 1000001.0
