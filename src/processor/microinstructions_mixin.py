@@ -1226,19 +1226,19 @@ class MicroinstructionMixin:
         self.cmp_ra(self.int_to_bytes(0, 8), self._mdr)
 
     def fp_operacion_rm(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul}
+        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
         self._mar[:] = op2[:]
         self._read_from_ram()
         operacion[operador](op1, self._mdr, change_flags)
         op1[:] = self._registers[15][:]
 
     def fp_operacion_rr(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul}
+        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
         operacion[operador](op1, op2, change_flags)
         op1[:] = self._registers[15][:]
 
     def fp_operacion_nr(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul}
+        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
         self._mar[:] = op1[:]
         self._read_from_ram()
         operacion[operador](op2, self._mdr, change_flags)

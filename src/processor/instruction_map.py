@@ -204,5 +204,8 @@ def get_methods_map(cu):
             "fp_mul_rr": lambda x, y: cu.fp_operacion_rr(x, y, "*"),
             "fp_mul_rm": lambda x, y: cu.fp_operacion_rm(x, y, "*"),
             "fp_mul_nr": lambda x, y: cu.fp_operacion_nr(x, y, "*"),
+            "fp_div_rr": lambda x, y: cu.fp_operacion_rr(x, y, "/"),
+            "fp_div_rm": lambda x, y: cu.fp_operacion_rm(x, y, "/"),
+            "fp_div_nr": lambda x, y: cu.fp_operacion_nr(x, y, "/"),
 
         }
