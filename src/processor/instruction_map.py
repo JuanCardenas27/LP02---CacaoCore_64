@@ -193,4 +193,13 @@ def get_methods_map(cu):
             "je_m": lambda x, y: cu.j_comparacion(x, '='),
             "jne_m": lambda x, y: cu.j_comparacion(x, '!='),
             "call_m": lambda x, y: cu.call_m(x),
+
+            #Artimética de punto flotante
+            "fp_add_rr": lambda x, y: cu.fp_operacion_rr(x, y, "+"),
+            "fp_add_rm": lambda x, y: cu.fp_operacion_rm(x, y, "+"),
+            "fp_add_nr": lambda x, y: cu.fp_operacion_nr(x, y, "+"),
+            "fp_sub_rm": lambda x, y: cu.fp_operacion_rm(x, y, "-"),
+            "fp_sub_rr": lambda x, y: cu.fp_operacion_rr(x, y, "-"),
+            "fp_sub_nr": lambda x, y: cu.fp_operacion_nr(x, y, "-"),
+
         }

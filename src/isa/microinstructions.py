@@ -279,4 +279,14 @@ MICROINSTRUCTION_SPECS = [
 
     {"name": "call_m", "opcode": 0xFFFFFF76}
 
+    # ==============================
+    # Aritmética de punto flotante
+    # ==============================
+    {"name": "fp_add_rr", "opcode": 0x0}
+    {"name": "fp_add_rm", "opcode": 0x0}
+    {"name": "fp_add_nr", "opcode": 0x0}
+    {"name": "fp_sub_rm", "opcode": 0x0}
+    {"name": "fp_sub_rr", "opcode": 0x0}
+    {"name": "fp_sub_nr", "opcode": 0x0}
+
 ]

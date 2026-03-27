@@ -98,7 +98,7 @@ class FloatAritmethicUnit:
         if result == 0:
             return self._pack(0, -1023, 0)
 
-        # normalizar — la resta puede encoger o crecer
+        # normalizar — la resta puede encoger la mantisa
         bits_resultado = result.bit_length()
         if bits_resultado < 53:
             shift = 53 - bits_resultado
@@ -154,6 +154,51 @@ class FloatAritmethicUnit:
         return result
 
         
+    def fp_cmp(self, op1:bytearray, op2:bytearray):
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
+
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_add(op1, op2)
+
+        p_mantisa1 = (1 << 52) | num1[2]
+        p_mantisa2 = (1 << 52) | num2[2]
+
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
+
+        if p_mantisa1 >= p_mantisa2:
+            signo_resultado = num1[0]
+        else:
+            signo_resultado = 1- num1[0]
+
+        result = p_mantisa1 - p_mantisa2
+
+        # caso especial: resultado es exactamente cero
+        if result == 0:
+            return self._pack(0, -1023, 0)
+
+        # normalizar — la resta puede encoger la mantisa
+        bits_resultado = result.bit_length()
+        if bits_resultado < 53:
+            shift = 53 - bits_resultado
+            result <<= shift
+            nuevo_expo = mayor_exp - shift
+        else:
+            nuevo_expo = mayor_exp
+
+        mantisa_final = result & ((1 << 52) - 1)
+
+        self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        return self._pack(signo_resultado, nuevo_expo, mantisa_final)
+
+
     @staticmethod
     def _to_binary(register:bytearray):
         """Convierte un registro a su representación de 64 bits en string.
