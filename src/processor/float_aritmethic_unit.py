@@ -6,7 +6,7 @@ class FloatAritmethicUnit:
         self.flags = fp_flags 
 
     def _unpack(self, b_array:bytearray) -> tuple[int, int, int]:
-        bin_num = bin(int.from_bytes(b_array[:], byteorder='little'))[2:]
+        bin_num = bin(int.from_bytes(b_array, byteorder='little'))[2:].zfill(64)
 
         sign = int(bin_num[0])
         exp = int(bin_num[1:12], base=2) - 1023
@@ -31,28 +31,43 @@ class FloatAritmethicUnit:
     def _reset_flags(self):
         pass
     
-    def fp_add(self, op1:bytearray, op2:bytearray, change_flags=True):
+    def fp_div(self, op1: bytearray, op2: bytearray, change_flags=True):
         if change_flags:
-            self._reset_flags()
+            result = self._reset_flags()
 
-        num1 = int.from_bytes(op1, byteorder="little", signed=True) 
-        num2 = int.from_bytes(op2, byteorder="little", signed=True)
+        sign1, exp1, mant1 = self._unpack(op1)
+        sign2, exp2, mant2 = self._unpack(op2)
 
-        result = num1 + num2
-        if change_flags:
-            result = self._check_flags(result)
+        # Desnormalizar.
+        mant1 |= (1 << 52)
+        mant2 |= (1 << 52)
 
-        num1 = int.from_bytes(op1, byteorder="little", signed=False) 
-        num2 = int.from_bytes(op2, byteorder="little", signed=False)
+        # Signo.
+        sign = sign1 ^ sign2
 
-        uns_result = num1 + num2
-        if uns_result > 2**64:
-            self.flags[0] += 4 #Encendemos el bit 3 carry
+        # Resta de exponentes.
+        exp = exp1 - exp2
 
-        self.fp_acm[:] = result.to_bytes(8, byteorder='little', signed=True)
+        # División de mantisas.
+        mant = (mant1 << 52) // mant2
+
+        # Corrección de rango.
+        if mant < (1 << 52):
+            mant <<= 1
+            exp -= 1
+        elif mant >= (1 << 53):
+            mant >>= 1
+            exp += 1
+
+        # Normalizar.
+        mant &= (1 << 52) - 1
+
+        result = self._pack(sign, exp, mant)
+        self.fp_acm[:] = result
+
+        return result
 
 
-    
     @staticmethod
     def _to_binary(register:bytearray):
         """Convierte un registro a su representación de 64 bits en string.
@@ -76,14 +91,14 @@ if __name__ == "__main__":
     flags = bytearray(1)
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(flags, acm)
-    var = "0100000000100100111000001100010010011011101001011110001101010100"
-        #  0100000000100000000000000100111000001100010010011011101001011110001101010100
-    tupla = objeto._unpack(var)
-    # 0100000000100100111000001100010010011011101001011110001101010100
-    # 0100000000100100111000001100010010011011101001011110001101010100
-    print(tupla)
-    resultado=objeto._pack(*tupla)
-    print(resultado)
-    for i in range(len(var)):
-        if not var[i] ==  resultado[i]:
-            print(i, var[i],  resultado[i])
+    import struct
+
+    a = 1
+    b = 2.1
+
+    op1 = bytearray(struct.pack('<d', a))
+    op2 = bytearray(struct.pack('<d', b))
+
+    res = objeto.fp_div(op1, op2)
+    print(struct.unpack('<d', res)[0])
+
