@@ -1,5 +1,6 @@
 from memoria.ram import ram, SP_INITIAL
 from .alu import ALU
+from .float_aritmethic_unit import FloatAritmethicUnit
 from .decoder import Decoder
 from .microinstructions_mixin import MicroinstructionMixin
 from .instruction_map import get_methods_map
@@ -102,9 +103,11 @@ class ControlUnit(MicroinstructionMixin):
         self._mar = bytearray(4)
         self._mdr = bytearray(6)
         self._fr = bytearray(1)
+        self._fp_flags = bytearray(1)
         self._dp = bytearray(1)
 
         self._alu = ALU(self._registers[15], self._fr)
+        self._fau = FloatAritmethicUnit(self._fp_flags, self._registers[15])
         self._decoder = Decoder(self._dp)
 
         self._methods = get_methods_map(self)
