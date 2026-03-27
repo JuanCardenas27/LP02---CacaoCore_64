@@ -116,7 +116,47 @@ class FloatAritmethicUnit:
         self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
         return self._pack(signo_resultado, nuevo_expo, mantisa_final)
     
-    
+    def fp_mul(self, op1:bytearray, op2:bytearray, change_flags=True):
+        if change_flags:
+            self._reset_flags()
+        
+        parts_op1 = self._unpack(op1)
+        parts_op2 = self._unpack(op2)
+
+        sign = parts_op1[0] ^ parts_op2[0]
+        exponente = parts_op1[1] + parts_op2[1] 
+
+        mA_full = (1 << 52) | parts_op1[2]
+        mB_full = (1 << 52) | parts_op2[2]
+        mantisa = mA_full * mB_full
+
+        if mantisa.bit_length() == 106:
+            mantisa >>= 1
+            exponente += 1
+
+        #round
+        m = (mantisa >> 52) & ((1 << 52) - 1) 
+
+        G = (mantisa >> 51) & 1
+        R = (mantisa >> 50) & 1
+        S = (mantisa & ((1 << 50) - 1)) != 0
+        
+        if G:
+            if R or S:
+                m += 1              # > 0.5 ULP
+            else:
+                if m & 1:           # impar round-to-even
+                    m += 1
+
+        if m == (1 << 52):          # desbordamiento del redondeo
+            m = 0
+            exponente += 1
+
+        self._check_flags(m)
+        result = self._pack(sign, exponente, m)
+        self.fp_acm[:] = result
+        return result
+
     def fp_div(self, op1: bytearray, op2: bytearray, change_flags=True):
         if change_flags:
             result = self._reset_flags()
@@ -224,12 +264,12 @@ if __name__ == "__main__":
     objeto = FloatAritmethicUnit(flags, acm)
     import struct
 
-    a = 1
-    b = 2.1
+    a = 2.5
+    b = -9.2
 
     op1 = bytearray(struct.pack('<d', a))
     op2 = bytearray(struct.pack('<d', b))
 
-    res = objeto.fp_div(op1, op2)
+    res = objeto.fp_mul(op1, op2)
     print(struct.unpack('<d', res)[0])
 
