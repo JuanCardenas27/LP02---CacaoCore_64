@@ -115,6 +115,44 @@ class FloatAritmethicUnit:
 
         self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
         return self._pack(signo_resultado, nuevo_expo, mantisa_final)
+    
+    
+    def fp_div(self, op1: bytearray, op2: bytearray, change_flags=True):
+        if change_flags:
+            result = self._reset_flags()
+
+        sign1, exp1, mant1 = self._unpack(op1)
+        sign2, exp2, mant2 = self._unpack(op2)
+
+        # Desnormalizar.
+        mant1 |= (1 << 52)
+        mant2 |= (1 << 52)
+
+        # Signo.
+        sign = sign1 ^ sign2
+
+        # Resta de exponentes.
+        exp = exp1 - exp2
+
+        # División de mantisas.
+        mant = (mant1 << 52) // mant2
+
+        # Corrección de rango.
+        if mant < (1 << 52):
+            mant <<= 1
+            exp -= 1
+        elif mant >= (1 << 53):
+            mant >>= 1
+            exp += 1
+
+        # Normalizar.
+        mant &= (1 << 52) - 1
+
+        result = self._pack(sign, exp, mant)
+        self.fp_acm[:] = result
+
+        return result
+
         
     @staticmethod
     def _to_binary(register:bytearray):
