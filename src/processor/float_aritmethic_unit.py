@@ -5,15 +5,19 @@ class FloatAritmethicUnit:
         self.fp_acm=acm
         self.flags = fp_flags 
 
-    def _unpack(self, bin_num:str) -> tuple[int, int, int]:
+    def _unpack(self, b_array:bytearray) -> tuple[int, int, int]:
+        bin_num = bin(int.from_bytes(b_array[:], byteorder='little'))[2:]
+
         sign = int(bin_num[0])
         exp = int(bin_num[1:12], base=2) - 1023
         mantisa = int(bin_num[12:], base=2)
         
         return (sign, exp, mantisa)
     
-    def _pack(self, sign: int, exp_insesgado:int, mantisa:int) -> str:
-        return bin(sign)[2:] + bin(exp_insesgado+1023)[2:] + bin(mantisa)[2:].zfill(64)
+    def _pack(self, sign: int, exp_insesgado:int, mantisa:int) -> bytes:
+        cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:] + bin(mantisa)[2:].zfill(52)
+        return int(cadena, base=2).to_bytes(8, byteorder='little')
+        
     
     def _check_flags(self, value):
         #TODO: Considerar al menos 5 flags usuales para float:
@@ -65,19 +69,21 @@ class FloatAritmethicUnit:
         """
         number = int.from_bytes(register, byteorder='little', signed=False)
         return f"{number:b}".zfill(64)
+
     
 
 if __name__ == "__main__":
     flags = bytearray(1)
-    objeto = FloatAritmethicUnit(flags)
+    acm = bytearray(8)
+    objeto = FloatAritmethicUnit(flags, acm)
     var = "0100000000100100111000001100010010011011101001011110001101010100"
+        #  0100000000100000000000000100111000001100010010011011101001011110001101010100
     tupla = objeto._unpack(var)
     # 0100000000100100111000001100010010011011101001011110001101010100
     # 0100000000100100111000001100010010011011101001011110001101010100
     print(tupla)
-    print(objeto._pack(*tupla))
-    x=10
-    print(-6<=x<=6)
-
-
-    
+    resultado=objeto._pack(*tupla)
+    print(resultado)
+    for i in range(len(var)):
+        if not var[i] ==  resultado[i]:
+            print(i, var[i],  resultado[i])
