@@ -1,14 +1,3 @@
-from memoria.ram import ram, SP_INITIAL
-from .alu import ALU
-from .float_aritmethic_unit import FloatAritmethicUnit
-from .decoder import Decoder
-from .microinstructions_mixin import MicroinstructionMixin
-from .instruction_map import get_methods_map
-from peripherals.io_controller import io_controller
-
-RUNNING = 1
-HALTED = 0
-
 """Control Unit Module
 ====================
 
@@ -33,6 +22,17 @@ Ejemplo de uso:
     cu.boot(start_address=0)
     cu.run_full_exec()  # Ejecutar programa completo
 """
+
+from memoria.ram import ram, SP_INITIAL
+from .alu import ALU
+from .float_aritmethic_unit import FloatAritmethicUnit
+from .decoder import Decoder
+from .microinstructions_mixin import MicroinstructionMixin
+from .instruction_map import get_methods_map
+from peripherals.io_controller import io_controller
+
+RUNNING = 1
+HALTED = 0
 
 class ControlUnit(MicroinstructionMixin):
     """Unidad de Control del procesador Cacao Core 64.
@@ -87,6 +87,7 @@ class ControlUnit(MicroinstructionMixin):
         Crea todos los registros, la ALU y el Decodificador. El estado
         inicial es HALTED hasta que se ejecute _boot().
         """
+        super().__init__()
         self.state = HALTED
 
         self.ram = ram

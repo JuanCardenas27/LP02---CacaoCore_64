@@ -2,6 +2,15 @@ from memoria.ram import VECTOR_TABLE
 HALTED = 0
 
 class MicroinstructionMixin:
+
+    def __init__(self):
+        self._fau_operation = {
+            '+': self._fau.fp_add ,
+            '-': self._fau.fp_sub,
+            '*':self._fau.fp_mul,
+            '/':self._fau.fp_div
+            }
+
     #################################
     #       MICROINSTRUCCIONES      #
     #################################
@@ -1226,24 +1235,17 @@ class MicroinstructionMixin:
         self.cmp_ra(self.int_to_bytes(0, 8), self._mdr)
 
     def fp_operacion_rm(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
         self._mar[:] = op2[:]
         self._read_from_ram()
-        operacion[operador](op1, self._mdr, change_flags)
+        self._fau_operation[operador](op1, self._mdr, change_flags)
         op1[:] = self._registers[15][:]
 
     def fp_operacion_rr(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
-        operacion[operador](op1, op2, change_flags)
+        self._fau_operation[operador](op1, op2, change_flags)
         op1[:] = self._registers[15][:]
 
-    def fp_operacion_nr(self, op1, op2, operador, change_flags=True):
-        operacion = {'+': self._fau.fp_add , '-': self._fau.fp_sub, '*':self._fau.fp_mul, '/':self._fau.fp_div}
-        self._mar[:] = op1[:]
+    def fp_operacion_rn(self, op1, op2, operador, change_flags=True):
+        self._mar[:] = op2[:]
         self._read_from_ram()
-        operacion[operador](op2, self._mdr, change_flags)
-
-        value = self.bytes_to_int(self._registers[15])
-        self._mdr[:] = self.int_to_bytes(value, 64)
-        self._mar[:] = op1[:]
-        self._write_to_ram(size=8)
+        self._fau_operation[operador](op1, self._mdr, change_flags)
+        op1[:] = self._registers[15][:]

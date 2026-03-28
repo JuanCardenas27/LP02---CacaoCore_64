@@ -12,7 +12,7 @@ menos significativos) codifican el modo de direccionamiento:
     - r  = 0b00  (registro)
     - i  = 0b01  (inmediato)
     - m  = 0b10  (memoria)
-    - n  = 0b11  (ninguno/especial)
+    - n  = 0b11  (indirecto)
 
 Categorías de Instrucciones
 ----------------------------
@@ -127,7 +127,7 @@ MICROINSTRUCTION_SPECS = [
 
     {"name": "storeh_m", "opcode": 0xFFFFFF16},
     {"name": "storeh_r", "opcode": 0xFFFFFFFFFFFFF04},
-    {"name": "storeh_nr", "opcode": 0xFFFFFFFFFFFF04},
+    {"name": "storeh_nr", "opcode": 0xFFFFFFFFFFFF04},  # TODO: Pasar solo a mov o arreglar doc y hacer todas.
     {"name": "storeh_mr", "opcode": 0xFFFF098},
     {"name": "storeh_mi", "opcode": 0xF059},
 
@@ -277,22 +277,53 @@ MICROINSTRUCTION_SPECS = [
     {"name": "jge_m", "opcode": 0xFFFFFF92},
     {"name": "jle_m", "opcode": 0xFFFFFF96},
 
-    {"name": "call_m", "opcode": 0xFFFFFF76}
+    {"name": "call_m", "opcode": 0xFFFFFF76},
 
     # ==============================
     # Aritmética de punto flotante
     # ==============================
-    {"name": "fp_add_rr", "opcode": 0x0}
-    {"name": "fp_add_rm", "opcode": 0x0}
-    {"name": "fp_add_nr", "opcode": 0x0}
-    {"name": "fp_sub_rm", "opcode": 0x0}
-    {"name": "fp_sub_rr", "opcode": 0x0}
-    {"name": "fp_sub_nr", "opcode": 0x0}
-    {"name": "fp_mul_rr", "opcode": 0x0}
-    {"name": "fp_mul_rm", "opcode": 0x0}
-    {"name": "fp_mul_nr", "opcode": 0x0}
-    {"name": "fp_div_rr", "opcode": 0x0}
-    {"name": "fp_div_rm", "opcode": 0x0}
-    {"name": "fp_div_nr", "opcode": 0x0}
+    
+    {"name": "fp_add_m", "opcode": 0xFFFFFF9A},
+    {"name": "fp_add_r", "opcode": 0xFFFFFFFFFFFFF54},
+    {"name": "fp_add_i", "opcode": 0xFFFFFFFFFF49},
+    {"name": "fp_add_rr", "opcode": 0xFFFFFFFFFFF0E0},
+    {"name": "fp_add_ri", "opcode": 0xFFFFFFFF161},
+    {"name": "fp_add_rm", "opcode": 0xFFFF162},
+    {"name": "fp_add_rn", "opcode": 0xFFFFFFFFFFF0E3},
+
+    {"name": "fp_sub_m", "opcode": 0xFFFFFF9E},
+    {"name": "fp_sub_r", "opcode": 0xFFFFFFFFFFFFF58},
+    {"name": "fp_sub_i", "opcode": 0xFFFFFFFFFF4D},
+    {"name": "fp_sub_rr", "opcode": 0xFFFFFFFFFFF0F0},
+    {"name": "fp_sub_ri", "opcode": 0xFFFFFFFF171},
+    {"name": "fp_sub_rm", "opcode": 0xFFFF172},
+    {"name": "fp_sub_rn", "opcode": 0xFFFFFFFFFFF0F3},
+
+    {"name": "fp_mul_m", "opcode": 0xFFFFFFA2},
+    {"name": "fp_mul_r", "opcode": 0xFFFFFFFFFFFFF5C},
+    {"name": "fp_mul_i", "opcode": 0xFFFFFFFFFF51},
+    {"name": "fp_mul_rr", "opcode": 0xFFFFFFFFFFF100},
+    {"name": "fp_mul_ri", "opcode": 0xFFFFFFFF181},
+    {"name": "fp_mul_rm", "opcode": 0xFFFF182},
+    {"name": "fp_mul_rn", "opcode": 0xFFFFFFFFFFF103},
+
+    {"name": "fp_div_m", "opcode": 0xFFFFFFA6},
+    {"name": "fp_div_r", "opcode": 0xFFFFFFFFFFFFF60},
+    {"name": "fp_div_i", "opcode": 0xFFFFFFFFFF55},
+    {"name": "fp_div_rr", "opcode": 0xFFFFFFFFFFF110},
+    {"name": "fp_div_ri", "opcode": 0xFFFFFFFF191},
+    {"name": "fp_div_rm", "opcode": 0xFFFF192},
+    {"name": "fp_div_rn", "opcode": 0xFFFFFFFFFFF113},
+
+    {"name": "fp_neg_r", "opcode": 0xFFFFFFFFFFFFF64},
+    {"name": "fp_neg_m", "opcode": 0xFFFFFFAA},
+
+    {"name": "cmp_m", "opcode": 0xFFFFFFAE},
+    {"name": "cmp_r", "opcode": 0xFFFFFFFFFFFFF68},
+    {"name": "cmp_i", "opcode": 0xFFFFFFFFFF59},
+    {"name": "cmp_rr", "opcode": 0xFFFFFFFFFFF120},
+    {"name": "cmp_ri", "opcode": 0xFFFFFFFF1A1},
+    {"name": "cmp_rm", "opcode": 0xFFFF1A2},
+    {"name": "cmp_rn", "opcode": 0xFFFFFFFFFFF123}
 
 ]
