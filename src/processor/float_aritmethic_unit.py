@@ -5,11 +5,18 @@ NAN = (0, 1024, 1)
 class FloatAritmethicUnit:
     def __init__(self, fp_flags, acm) -> None:
         self.fp_acm=acm
-        self.flags = fp_flags
+        self.flags = fp_flags   # - DivZ: Inidica si hubo división por 0
+                                # - Overflow: Un múnero más grande del permitido
+                                # - Underflow: Un número tan pequeño que no sea posible ponerlo (ie 0.1x10^-100000000)
+                                # - InvOp: Invalid Operation, si saca raiz de un negativo por ejemplo
+                                # - Inex: Inexacto, se prende si el valor del resultado tiene más decimales de los
+                                #   que se puede expresar y debe ser redondeado (ie 1/3 eu se trunca en 0.33333333334)
+                                # Se encuentran el formato little endian y en el orden presentado
         self._invalid_ops_div = [(INF , INF), (ZERO, INF), (ZERO, ZERO)]
         self._invalid_ops_mul = [(INF , ZERO), (ZERO, INF)]
         self._invalid_ops_sum = [((1, ) + INF , (0, ) + INF), ((0, ) + INF, (1, ) + INF)]
-        self._invalid_ops = {'*': self._invalid_ops_mul, '/': self._invalid_ops_div, '+': self._invalid_ops_sum}
+        self._invalid_ops = {'*': self._invalid_ops_mul, '/': self._invalid_ops_div,
+                             '+': self._invalid_ops_sum, '-': self._invalid_ops_sum}
 
     def _unpack(self, b_array:bytearray) -> tuple[int, int, int]:
         bin_num = bin(int.from_bytes(b_array, byteorder='little'))[2:].zfill(64)
@@ -24,21 +31,6 @@ class FloatAritmethicUnit:
         cadena = bin(sign)[2:] + bin(exp_insesgado+1023)[2:].zfill(11) + bin(mantisa)[2:].zfill(52)
         return int(cadena, base=2).to_bytes(8, byteorder='little')
         
-    
-    def _check_flags(self, value):
-        #TODO: Considerar al menos 5 flags usuales para float:
-        # - DivZ: Inidica si hubo división por 0
-        # - Overflow: Un múnero más grande del permitido
-        # - Underflow: Un número tan pequeño que no sea posible ponerlo (ie 0.1x10^-100000000)
-        # - InvOp: Invalid Operation, si saca raiz de un negativo por ejemplo
-        # - Inex: Inexacto, se prende si el valor del resultado tiene más decimales de los que se puede expresar y debe ser redondeado (ie 1/3 eu se trunca en 0.33333333334)
-        # Se encuentran el formato little endian y en el orden presentado
-        
-
-        #underflow < -1023
-        #overflow > 1023
-        pass
-    
     def _check_0div(self, op1, op2):
         if op1[1:] == ZERO and op2[1:] == ZERO:
             self.flags[0] += 1
@@ -52,7 +44,7 @@ class FloatAritmethicUnit:
     def _check_invalid_op(self, op1, op2, op):
         inv_op = self._invalid_ops[op]
         include_sign = 0
-        if op != '+' or op != '-':
+        if op != '+' and op != '-':
             include_sign = 1
         
         if op1[1] == 1024 and op1[2] != 0:
@@ -79,22 +71,18 @@ class FloatAritmethicUnit:
         return False
 
     def _reset_flags(self):
-        self.flags[:] = (0).to_bytes(1)
-        pass
+        self.flags[:] = bytes(1)
     
     def fp_add(self, op1:bytearray, op2:bytearray):           
-        
         num1 = self._unpack(op1)
         num2 = self._unpack(op2)
 
         #Check Inv Operands
-        
         self._reset_flags()
         result = self._check_invalid_op(num1, num2, '+')
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
 
         if num1[0] != num2[0]:
             op1[:] = self._pack(num2[0], num1[1], num1[2])
@@ -122,28 +110,21 @@ class FloatAritmethicUnit:
 
         mantisa_final = result & ((1 << 52) - 1)
 
-        
-        self._reset_flags()
         # Check Overflow
         result = self._check_overflow(num1[0], nuevo_expo)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
         
         #Check Underflow
         result = self._check_underflow(num1[0], nuevo_expo)
-        if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
-        
-        result = self._pack(num1[0], nuevo_expo, mantisa_final)
-        self.fp_acm[:] = result
-        return result
- 
+        if result: 
+            self.fp_acm[:] = self._pack(*result)
+            return
 
-    def fp_sub(self, op1: bytearray, op2: bytearray, change_flags=True):
+        self.fp_acm[:] = self._pack(num1[0], nuevo_expo, mantisa_final)
+
+    def fp_sub(self, op1: bytearray, op2: bytearray):
         num1 = self._unpack(op1)
         num2 = self._unpack(op2)
         
@@ -151,6 +132,13 @@ class FloatAritmethicUnit:
             op1[:] = self._pack(num2[0], num1[1], num1[2])
             return self.fp_add(op1, op2)
 
+        #Check Inv Operands
+        self._reset_flags()
+        result = self._check_invalid_op(num1, num2, '-')
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
+        
         p_mantisa1 = (1 << 52) | num1[2]
         p_mantisa2 = (1 << 52) | num2[2]
 
@@ -171,11 +159,13 @@ class FloatAritmethicUnit:
 
         # caso especial: resultado es exactamente cero
         if result == 0:
-            return self._pack(0, -1023, 0)
+            self.fp_acm[:] = self._pack(0, -1023, 0)
+            return
 
-        # normalizar — la resta puede encoger la mantisa
+        # normalizar - la resta puede encoger la mantisa
         bits_resultado = result.bit_length()
         if bits_resultado < 53:
+            self.flags[0] += 16
             shift = 53 - bits_resultado
             result <<= shift
             nuevo_expo = mayor_exp - shift
@@ -184,12 +174,19 @@ class FloatAritmethicUnit:
 
         mantisa_final = result & ((1 << 52) - 1)
 
-        if change_flags:
-            self._reset_flags()
-            self._check_flags(result)
-
+        # Check Overflow
+        result = self._check_overflow(signo_resultado, nuevo_expo)
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
+        
+        #Check Underflow
+        result = self._check_underflow(signo_resultado, nuevo_expo)
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
+        
         self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
-        return self._pack(signo_resultado, nuevo_expo, mantisa_final)
     
     def fp_mul(self, op1:bytearray, op2:bytearray, change_flags=True):
         if change_flags:
@@ -201,11 +198,9 @@ class FloatAritmethicUnit:
         #Check inv Operands
         result = self._check_invalid_op(parts_op1, parts_op2, '*')
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
             
-
         sign = parts_op1[0] ^ parts_op2[0]
         exponente = parts_op1[1] + parts_op2[1] 
 
@@ -239,20 +234,16 @@ class FloatAritmethicUnit:
         #Check Overflow
         result = self._check_overflow(sign, exponente)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
         
         #Check Underflow
         result = self._check_underflow(sign, exponente)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
 
-        result = self._pack(sign, exponente, m)
-        self.fp_acm[:] = result
-        return result
+        self.fp_acm[:] = self._pack(sign, exponente, m)
 
     def fp_div(self, op1: bytearray, op2: bytearray, change_flags=True):
         if change_flags:
@@ -266,16 +257,14 @@ class FloatAritmethicUnit:
         #Check DIV0
         result = self._check_0div(unp1, unp2)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
         
         #Check inv operands
         result = self._check_invalid_op(unp1, unp2, '/')
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
         
         # Desnormalizar.
         mant1 |= (1 << 52)
@@ -306,31 +295,77 @@ class FloatAritmethicUnit:
         #Check Overflow
         result = self._check_overflow(sign, exp)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
+            self.fp_acm[:] = self._pack(*result)
+            return
         
         #Check Underflow
         result = self._check_underflow(sign, exp)
         if result:
-            result = self._pack(*result)
-            self.fp_acm[:] = result
-            return result
-        
-        result = self._pack(sign, exp, mant)
-        self.fp_acm[:] = result
+            self.fp_acm[:] = self._pack(*result)
+            return
 
-        return result
-
-        
-    def fp_cmp(self, op1:bytearray, op2:bytearray):
+        self.fp_acm[:] = self._pack(sign, exp, mant)
+    
+    def fp_cmp_add(self, op1:bytearray, op2:bytearray):
         num1 = self._unpack(op1)
         num2 = self._unpack(op2)
 
+        #Check Inv Operands
+        self._reset_flags()
+        result = self._check_invalid_op(num1, num2, '+')
+        if result:
+            return
+
         if num1[0] != num2[0]:
             op1[:] = self._pack(num2[0], num1[1], num1[2])
-            return self.fp_add(op1, op2)
+            return self.fp_cmp(op1, op2)
 
+        p_mantisa1 = (1 << 52) | num1[2]  
+        p_mantisa2 = (1 << 52) | num2[2]
+
+        dif_exp = abs(num1[1] - num2[1])
+        if num1[1] > num2[1]:
+            p_mantisa2 >>= dif_exp
+            mayor_exp = num1[1]
+        else:
+            p_mantisa1 >>= dif_exp
+            mayor_exp = num2[1]
+
+        result = p_mantisa1 + p_mantisa2
+
+        bits_extra = result.bit_length() - 53
+        nuevo_expo = mayor_exp + bits_extra
+        
+        if bits_extra > 0:
+            self.flags[0] += 16
+            result >>= bits_extra
+
+        mantisa_final = result & ((1 << 52) - 1)        #TODO: ¿Quitar?
+
+        # Check Overflow
+        result = self._check_overflow(num1[0], nuevo_expo)
+        if result:
+            return
+        
+        #Check Underflow
+        result = self._check_underflow(num1[0], nuevo_expo)
+        if result:
+            return
+
+    def fp_cmp(self, op1:bytearray, op2:bytearray):
+        num1 = self._unpack(op1)
+        num2 = self._unpack(op2)
+        
+        if num1[0] != num2[0]:
+            op1[:] = self._pack(num2[0], num1[1], num1[2])
+            return self.fp_cmp_add(op1, op2)
+
+        #Check Inv Operands
+        self._reset_flags()
+        result = self._check_invalid_op(num1, num2, '-')
+        if result:
+            return
+        
         p_mantisa1 = (1 << 52) | num1[2]
         p_mantisa2 = (1 << 52) | num2[2]
 
@@ -345,27 +380,35 @@ class FloatAritmethicUnit:
         if p_mantisa1 >= p_mantisa2:
             signo_resultado = num1[0]
         else:
-            signo_resultado = 1- num1[0]
+            signo_resultado = 1 - num1[0]
 
         result = p_mantisa1 - p_mantisa2
 
         # caso especial: resultado es exactamente cero
         if result == 0:
-            return self._pack(0, -1023, 0)
+            return
 
-        # normalizar — la resta puede encoger la mantisa
+        # normalizar - la resta puede encoger la mantisa
         bits_resultado = result.bit_length()
         if bits_resultado < 53:
+            self.flags[0] += 16
             shift = 53 - bits_resultado
             result <<= shift
             nuevo_expo = mayor_exp - shift
         else:
             nuevo_expo = mayor_exp
 
-        mantisa_final = result & ((1 << 52) - 1)
+        mantisa_final = result & ((1 << 52) - 1)        #TODO: ¿Quitar?
 
-        self.fp_acm[:] = self._pack(signo_resultado, nuevo_expo, mantisa_final)
-        return self._pack(signo_resultado, nuevo_expo, mantisa_final)
+        # Check Overflow
+        result = self._check_overflow(signo_resultado, nuevo_expo)
+        if result:
+            return
+        
+        #Check Underflow
+        result = self._check_underflow(signo_resultado, nuevo_expo)
+        if result:
+            return
 
 
     @staticmethod
@@ -399,6 +442,6 @@ if __name__ == "__main__":
     op1 = bytearray(struct.pack('<d', a))
     op2 = bytearray(struct.pack('<d', b))
 
-    res = objeto.fp_sub(op1, op2)
-    print(struct.unpack('<d', res)[0])
-
+    objeto.fp_cmp(op1, op2)
+    print("Acum:", struct.unpack('<d', acm)[0])
+    print("FP Flags:", bin(int.from_bytes(objeto.flags, 'little', signed=False))[2:])
