@@ -61,7 +61,7 @@ class FloatAritmethicUnit:
         if op2[1] == 1024 and op2[2] != 0:
             self.flags[0] += 8
             return NAN
-        if (op1[include_sign:], op2[include_sign:]) not in inv_op:
+        if (op1[include_sign:], op2[include_sign:]) in inv_op:
             self.flags[0] += 8
             return NAN
         return False
@@ -117,29 +117,30 @@ class FloatAritmethicUnit:
         nuevo_expo = mayor_exp + bits_extra
         
         if bits_extra > 0:
+            self.flags[0] += 16
             result >>= bits_extra
 
         mantisa_final = result & ((1 << 52) - 1)
 
         
         self._reset_flags()
-        #Check Overflow
-        result = self._check_overflow(sign, exponente)
+        # Check Overflow
+        result = self._check_overflow(num1[0], nuevo_expo)
         if result:
             result = self._pack(*result)
             self.fp_acm[:] = result
             return result
         
         #Check Underflow
-        result = self._check_underflow(sign, exponente)
+        result = self._check_underflow(num1[0], nuevo_expo)
         if result:
             result = self._pack(*result)
             self.fp_acm[:] = result
             return result
         
-
-        self.fp_acm[:] = self._pack(num1[0], nuevo_expo, mantisa_final)
-        return self._pack(num1[0], nuevo_expo, mantisa_final)
+        result = self._pack(num1[0], nuevo_expo, mantisa_final)
+        self.fp_acm[:] = result
+        return result
  
 
     def fp_sub(self, op1: bytearray, op2: bytearray, change_flags=True):
