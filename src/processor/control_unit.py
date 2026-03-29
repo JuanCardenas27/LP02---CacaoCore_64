@@ -115,7 +115,8 @@ class ControlUnit(MicroinstructionMixin):
             '+': self._fau.fp_add ,
             '-': self._fau.fp_sub,
             '*':self._fau.fp_mul,
-            '/':self._fau.fp_div
+            '/':self._fau.fp_div,
+            'c':self._fau.fp_cmp
             }
 
     def get_registers(self):

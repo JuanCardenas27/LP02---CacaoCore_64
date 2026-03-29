@@ -207,6 +207,10 @@ def get_methods_map(cu):
             "fpdiv_rr": lambda x, y: cu.fp_operacion_rr(x, y, "/"),
             "fpdiv_rm": lambda x, y: cu.fp_operacion_rm(x, y, "/"),
             "fpdiv_rn": lambda x, y: cu.fp_operacion_rn(x, y, "/"),
+            "fpcmp_rr": lambda x, y: cu.fp_operacion_rr(x, y, "c"),
+            "fpcmp_rm": lambda x, y: cu.fp_operacion_rm(x, y, "c"),
+            "fpcmp_rn": lambda x, y: cu.fp_operacion_rn(x, y, "c"),
+            "fpsqrt_r": lambda x, y: cu.fp_sqrt_r(x),
             "fptof_r": lambda x, y: cu.fp_tof_r(x),
             "fptof_ri": lambda x, y: cu.fp_tof_ri(x, y),
             "fptoi_r": lambda x, y: cu.fp_toi_r(x)
