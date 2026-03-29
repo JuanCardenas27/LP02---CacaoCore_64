@@ -467,10 +467,6 @@ class FloatAritmethicUnit:
         self._check_sign(signo_resultado)
         self._check_zero((nuevo_expo, mantisa_final))
 
-    def fp_sqrt(self, op1:bytearray):
-        pass
-        # self.fp_acm[:] = self._pack(sign, exp, mant)
-
     def fp_i2f(self, op1:bytearray, change_flags:bool=True):
         integer = int.from_bytes(op1, byteorder='little', signed=True)
         self.fp_acm[:] = bytearray(struct.pack('<d', integer))
