@@ -62,6 +62,7 @@ class FloatAritmethicUnit:
     def _check_overflow(self, sign, exp):
         if exp > 1023:
             self.cu_flags[0] += 2
+            self._check_sign(sign)
             return (sign, ) + INF
         return False
 
@@ -69,6 +70,7 @@ class FloatAritmethicUnit:
         if exp < -1022:
             self.flags[0] += 1
             self.cu_flags[0] += 16
+            self._check_sign(sign)
             return (sign, ) + ZERO
         return False
     
@@ -336,7 +338,7 @@ class FloatAritmethicUnit:
             return
 
         self._check_sign(sign)
-        self._check_zero((exp, mant))
+        self._check_zero((exp, mant, sign))
 
         self.fp_acm[:] = self._pack(sign, exp, mant)
     
@@ -476,8 +478,8 @@ if __name__ == "__main__":
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(acm, fp_flags, cu_flags)
 
-    a = 1
-    b = -7.0
+    a = 0
+    b = 7.0
     c = -1
     d = -3.03
 
@@ -487,10 +489,12 @@ if __name__ == "__main__":
     op4 = bytearray(struct.pack('<d', d))
 
     objeto.fp_div(op1, op2)
-    objeto.fp_i2f(op3)
-    objeto.fp_f2i(op4)
-    print("Conversión i2f:", struct.unpack('<d', op3)[0])
-    print("Conversión f2i:", int.from_bytes(op4, 'little', signed=True))
+    # objeto.fp_i2f(op3)
+    # objeto.fp_f2i(op4)
+    # print("Conversión i2f:", struct.unpack('<d', op3)[0])
+    # print("Conversión f2i:", int.from_bytes(op4, 'little', signed=True))
     print("Acum:", struct.unpack('<d', acm)[0])
     print("FP Flags:", bin(int.from_bytes(objeto.flags, 'little', signed=False))[2:])
     print("CU Flags:", bin(int.from_bytes(objeto.cu_flags, 'little', signed=False))[2:])
+    # - Inex - InvOp - Underflow
+    # - DZ - Z - S - C - V - I
