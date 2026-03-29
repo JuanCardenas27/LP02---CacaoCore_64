@@ -35,6 +35,7 @@ class ALU:
         - Bit 3: Negative (N)
         - Bit 4: Zero (Z)
     """
+
     def __init__(self, acumulator, flags):
         """Inicializa la ALU.
         
@@ -76,7 +77,7 @@ class ALU:
         
         return result
 
-    def _reset_flags(self, positions = (1,2,3,4)):
+    def _reset_flags(self, positions = (1,2,3,4,5)):
         """Limpia (resetea) bits de flags especificados.
         
         Parámetros
@@ -217,6 +218,9 @@ class ALU:
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
 
+        if num2 == 0:
+            self.flags[0] += 32 #Encendemos el bit 6 zero division
+
         result = num1 // num2
 
         if result == 0:
@@ -286,7 +290,7 @@ class ALU:
             Segundo operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -315,7 +319,7 @@ class ALU:
             Segundo operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -344,7 +348,7 @@ class ALU:
             Segundo operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)
@@ -371,7 +375,7 @@ class ALU:
             Operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
 
@@ -398,7 +402,7 @@ class ALU:
             Operando de 8 bytes indicando número de posiciones de desplazamiento.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((2,3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         self.acm[:] = (int.from_bytes(self.acm, byteorder="little", signed=True) << num1 - 1).to_bytes(8, byteorder='little', signed=True)
@@ -430,7 +434,7 @@ class ALU:
             Operando de 8 bytes indicando número de posiciones de desplazamiento.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((2,3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         self.acm[:] = (int.from_bytes(self.acm, byteorder="little", signed=True) >> num1 - 1).to_bytes(8, byteorder='little', signed=True)
@@ -463,7 +467,7 @@ class ALU:
             Segundo operando de 8 bytes.
         """
         #Resetea las banderas que se pueden modificar
-        self._reset_flags((3,4))
+        self._reset_flags()
 
         num1 = int.from_bytes(op1, byteorder="little", signed=True) 
         num2 = int.from_bytes(op2, byteorder="little", signed=True)

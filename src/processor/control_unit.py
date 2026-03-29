@@ -96,19 +96,19 @@ class ControlUnit(MicroinstructionMixin):
         self.INTA = False
 
         self._registers =[
-            bytearray(8) for _ in range(0, 16)
+            bytearray(8) for _ in range(16)
         ]
         self.global_index = 0
         self._pc = bytearray(8)
         self._ir = bytearray(8)
         self._mar = bytearray(4)
         self._mdr = bytearray(6)
-        self._fr = bytearray(1)
+        self._fr = bytearray(1)     # DZ, Z, S, C, V, I
         self._fp_flags = bytearray(1)
         self._dp = bytearray(1)
 
         self._alu = ALU(self._registers[15], self._fr)
-        self._fau = FloatAritmethicUnit(self._fp_flags, self._registers[15])
+        self._fau = FloatAritmethicUnit(self._registers[15], self._fp_flags, self._fr)
         self._decoder = Decoder(self._dp)
 
         self._methods = get_methods_map(self)
