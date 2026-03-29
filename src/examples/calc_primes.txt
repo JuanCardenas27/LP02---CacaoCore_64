@@ -1,0 +1,53 @@
+Para caclular primos seguiremos el siguiente algoritmo
+En datos estaticos iremos guardando ordenadamente el numero de primos calculados y todos y cada uno de estaticos
+de base el n = 1 y el unico primo es 2
+a partir de ahi vamos a iterar del 3 hasta que contemos con y primos gemelos
+
+1) calculamos la raiz de x
+2) revisamos si es divisible pro todos los primos menores que dicha raiz
+3) de ser asi no es primos
+4) si no es divisible es primo y lo aniadimos a nuestra "lista" de primos y sumamos uno al n
+5) revisamos si el anterior primo a este es gemelo si si sumamos un a un contador de primos gemelos
+
+### ASM
+### Convención de uso de registros
+R0 = x (numero de primos)
+R1 = y (numero de primos gemelos)
+R2 = i (indice, de la lista de primos general)
+R3 = j (indice, de la lista de primos gemelos)
+R4 = n (numero que se revisa, comienza en 3, float)
+R5 = m (numero primo con el que se compara)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
+
+lista_primos = [2]
+lista_primos_gemelos =[]
+y = 0
+x = 1
+n = 3
+while y < 50
+    i = 0
+    sqrt = int(sqrt(n))
+    m = lista_primos[i]
+    while m < sqrt:
+        if n % m == 0:
+            n += 1
+            jmp inicio_while
+        else:
+            i += 1
+            m = lista_primos[i]
+    
+    lista_primos[x] = n
+    x += 1
+    if lista_primos[x-2] + 2 == n:
+        lista_primos_gemelos[y] = n
+        y += 1
+    n += 1
+    jmp  inicio_while
+
+-ASM
+
+        
+            
+
+

@@ -524,7 +524,7 @@ if __name__ == "__main__":
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(acm, fp_flags, cu_flags)
 
-    a = 8
+    a = 5
     b = 7.0
     c = -1
     d = -3.03
