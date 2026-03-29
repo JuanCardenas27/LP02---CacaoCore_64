@@ -318,13 +318,15 @@ MICROINSTRUCTION_SPECS = [
     {"name": "fpneg_r", "opcode": 0xFFFFFFFFFFFFF64},
     {"name": "fpneg_m", "opcode": 0xFFFFFFAA},
 
-    {"name": "cmp_m", "opcode": 0xFFFFFFAE},
-    {"name": "cmp_r", "opcode": 0xFFFFFFFFFFFFF68},
-    {"name": "cmp_i", "opcode": 0xFFFFFFFFFF59},
-    {"name": "cmp_rr", "opcode": 0xFFFFFFFFFFF120},
-    {"name": "cmp_ri", "opcode": 0xFFFFFFFF1A1},
-    {"name": "cmp_rm", "opcode": 0xFFFF1A2},
-    {"name": "cmp_rn", "opcode": 0xFFFFFFFFFFF123},
+    {"name": "fpcmp_m", "opcode": 0xFFFFFFAE},
+    {"name": "fpcmp_r", "opcode": 0xFFFFFFFFFFFFF68},
+    {"name": "fpcmp_i", "opcode": 0xFFFFFFFFFF59},
+    {"name": "fpcmp_rr", "opcode": 0xFFFFFFFFFFF120},
+    {"name": "fpcmp_ri", "opcode": 0xFFFFFFFF1A1},
+    {"name": "fpcmp_rm", "opcode": 0xFFFF1A2},
+    {"name": "fpcmp_rn", "opcode": 0xFFFFFFFFFFF123},
+
+    {"name": "fpsqrt_r", "opcode": 0xFFFFFFFFFFFFF74},
 
     {"name": "fptof_r", "opcode": 0xFFFFFFFFFFFFF6A},
     {"name": "fptof_ri", "opcode": 0xFFFFFFFF1B1},

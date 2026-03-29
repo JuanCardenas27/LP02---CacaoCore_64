@@ -1242,6 +1242,10 @@ class MicroinstructionMixin:
         self._fau_operation[operador](op1, self._mdr)
         op1[:] = self._registers[15][:]
 
+    def fp_sqrt_r(self, op1):
+        self._fau.fp_sqrt(op1)
+        op1[:] = self._registers[15][:]
+
     def fp_tof_r(self, op1):
         self._fau.fp_i2f(op1)
         op1[:] = self._registers[15][:]
