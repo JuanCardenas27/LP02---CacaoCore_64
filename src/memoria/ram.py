@@ -25,6 +25,8 @@ RAM_SIZE       = 1 * 1024 * 1024        # 1 MB
 # Límites de zona (inclusive inicio, EXCLUSIVE fin)
 SYS_START      = 0x00000000
 VECTOR_TABLE   = 0x00000010             # Base de la tabla de vectores de interrupción
+SUBROUTINES    = 0x00000100             # Inicio de la sección de subrutinas de interrupción
+INTR_BUFFER    = 0x00000D00             # Inicio del buffer de I/O
 SYS_END        = 0x00001000             # 4 KB reservados para el simulador
 
 CODE_START     = 0x00001000             # PC arranca aquí
@@ -38,7 +40,7 @@ HEAP_END       = 0x000C0000             # 256 KB
 
 STACK_START    = 0x000C0000             # Base de la pila
 STACK_END      = 0x00100000             # 256 KB (SP inicial = STACK_END - 1)
-SP_INITIAL     = STACK_END - 1          # 0x000FFFFF
+SP_INITIAL     = STACK_END - 8          # 0x000FFFF8  (última palabra alineada de la pila)
 
 WORD_SIZE      = 8                      # bytes por palabra de 64 bits
 PC_INITIAL     = CODE_START             # 0x00001000

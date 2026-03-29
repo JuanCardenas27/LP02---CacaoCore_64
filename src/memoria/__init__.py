@@ -2,7 +2,9 @@
 from .ram import (
     RAM, ram,
     RAM_SIZE, WORD_SIZE,
-    SYS_START,   SYS_END,
+    SYS_START, VECTOR_TABLE,
+    SUBROUTINES, INTR_BUFFER,
+    SYS_END,
     CODE_START,  CODE_END,
     DATA_START,  DATA_END,
     HEAP_START,  HEAP_END,
@@ -15,7 +17,9 @@ from .ram import (
 __all__ = [
     "RAM", "ram",
     "RAM_SIZE", "WORD_SIZE",
-    "SYS_START", "SYS_END",
+    "SYS_START", "VECTOR_TABLE",
+    "SUBROUTINES", "INTR_BUFFER",
+    "SYS_END",
     "CODE_START", "CODE_END",
     "DATA_START", "DATA_END",
     "HEAP_START", "HEAP_END",
@@ -23,4 +27,5 @@ __all__ = [
     "SP_INITIAL", "PC_INITIAL",
     "RAMError", "AddressOutOfRange", "AlignmentError",
     "WriteProtectionError", "InvalidSizeError",
+    "cargar_rom", "ROMError",
 ]

@@ -1,12 +1,3 @@
-from memoria.ram import ram, SP_INITIAL
-from .alu import ALU
-from .decoder import Decoder
-from .microinstructions_mixin import MicroinstructionMixin
-from .instruction_map import get_methods_map
-
-RUNNING = 1
-HALTED = 0
-
 """Control Unit Module
 ====================
 
@@ -31,6 +22,17 @@ Ejemplo de uso:
     cu.boot(start_address=0)
     cu.run_full_exec()  # Ejecutar programa completo
 """
+
+from memoria.ram import ram, SP_INITIAL
+from .alu import ALU
+from .float_aritmethic_unit import FloatAritmethicUnit
+from .decoder import Decoder
+from .microinstructions_mixin import MicroinstructionMixin
+from .instruction_map import get_methods_map
+from peripherals.io_controller import io_controller
+
+RUNNING = 1
+HALTED = 0
 
 class ControlUnit(MicroinstructionMixin):
     """Unidad de Control del procesador Cacao Core 64.
@@ -85,22 +87,28 @@ class ControlUnit(MicroinstructionMixin):
         Crea todos los registros, la ALU y el Decodificador. El estado
         inicial es HALTED hasta que se ejecute _boot().
         """
+        super().__init__()
         self.state = HALTED
+
+        self.ram = ram
+        self.io_controller = io_controller
         self.INTR = False
         self.INTA = False
 
         self._registers =[
-            bytearray(8) for _ in range(0, 16)
+            bytearray(8) for _ in range(16)
         ]
         self.global_index = 0
         self._pc = bytearray(8)
         self._ir = bytearray(8)
         self._mar = bytearray(4)
         self._mdr = bytearray(6)
-        self._fr = bytearray(1)
+        self._fr = bytearray(1)     # DZ, Z, S, C, V, I
+        self._fp_flags = bytearray(1)
         self._dp = bytearray(1)
 
         self._alu = ALU(self._registers[15], self._fr)
+        self._fau = FloatAritmethicUnit(self._registers[15], self._fp_flags, self._fr)
         self._decoder = Decoder(self._dp)
 
         self._methods = get_methods_map(self)
@@ -186,7 +194,7 @@ class ControlUnit(MicroinstructionMixin):
         self._ir[:] = self._mdr[:]
 
         acc = self._registers[15][:]
-        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)))
+        self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)), False)
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc
         print("Completó FETCH")
@@ -227,7 +235,7 @@ class ControlUnit(MicroinstructionMixin):
             initial_pos = int.from_bytes(self._dp, byteorder='little', signed=False) * 4
             final_pos = initial_pos + self._mode_length[mode]
             cod_i = self._to_binary(self._ir, 64, False)[initial_pos: final_pos]
-            if mode == "r":
+            if mode == "r" or mode == "n":
                 ops[i] = self._registers[int(cod_i, 2)]
 
             elif mode == "i":
@@ -235,13 +243,12 @@ class ControlUnit(MicroinstructionMixin):
             
             elif mode == "m":
                 ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True)) # ¿Por qué no int?
-            
-            elif mode == "n": # ¿Por qué no int?^^
-                self._mar[:] = self._registers[int(cod_i, 2)]
-                ops[i] = self._mdr[:]
+    
 
             acc = self._registers[15]
+            flgs=self._fr[:]
             self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)))
+            self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
         self._methods[name+"_"+modes](ops[0], ops[1])
@@ -258,25 +265,12 @@ class ControlUnit(MicroinstructionMixin):
         en la pila y llama al manejador de interrupciones.
         """
         if self.INTR == True:
-            self.push(self._pc)
-            self.push(self._fr)
-            for reg in self._registers:
-                self.push(reg)
             self.INTA = True
-            #TODO Pedir al controlador de int el vector
-            vector = self.bytes_to_int(self._mdr)
-            self._interruption_handler(vector)
-            
-                
-    def _interruption_handler(self, vector):
-        """Manejador de interrupciones.
-        
-        Parámetros
-        ----------
-        vector : int
-            Vector de interrupción que identifica el tipo de interrupción.
-        """
-        pass
+            vector = self._mdr
+            self.io_controller.handle_interrupt(vector, [self._registers[11], self._registers[12]])
+            self.iret()
+            self.INTA = False
+
 
     #################################
     #   INTERACCIÓN CON MEMORIA     #
@@ -292,7 +286,7 @@ class ControlUnit(MicroinstructionMixin):
             Número de bytes a leer (default: 8).
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
-        self._mdr[:] = ram.read(direccion, size)
+        self._mdr[:] = self.ram.read(direccion, size)
 
     def _write_to_ram(self, size=8):
         """Escribe datos en RAM desde MDR usando dirección en MAR.
@@ -304,7 +298,7 @@ class ControlUnit(MicroinstructionMixin):
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         value = self._mdr[:size]
-        ram.write(direccion, value)
+        self.ram.write(direccion, value)
     
     #################################
     #     FUNCIONES AUXILIARES      #

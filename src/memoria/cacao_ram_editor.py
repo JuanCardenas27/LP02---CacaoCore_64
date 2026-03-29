@@ -130,6 +130,7 @@ def read_ram(addr, length):
 class CacaoRAMEditor(tk.Tk):
 
     def __init__(self):
+        
         super().__init__()
         self.title("CACAO_Core-64  ·  Editor de RAM")
         self.geometry("1260x820")
@@ -140,6 +141,8 @@ class CacaoRAMEditor(tk.Tk):
         self._build_ui()
         self._refresh_hex_view(0x00001000, 16)
         self.loaded_file_path = None
+
+        
 
     # ─── UI PRINCIPAL ─────────────────────────────
     def _build_ui(self):
@@ -583,9 +586,10 @@ class CacaoRAMEditor(tk.Tk):
     
     def _load_txt_file(self):
         path = filedialog.askopenfilename(
-            title="Seleccionar archivo .txt",
-            filetypes=[("Text files", "*.txt")]
-        )
+        parent=self,                    # ← esta línea
+        title="Seleccionar archivo .txt",
+        filetypes=[("Text files", "*.txt")]
+    )
 
         if not path:
             return
@@ -606,87 +610,13 @@ class CacaoRAMEditor(tk.Tk):
             return
 
         try:
-            with open(self.loaded_file_path, "r") as f:
-                lines = f.readlines()
+            mode = self.data_mode.get()
+        
+            lines = self.loader_mod.read_and_load(self.loaded_file_path, base_addr, mode)
+
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}")
             return
-
-        current_addr = base_addr
-        bytes_per_line = 8
-        step = 8
-
-        for idx, line in enumerate(lines):
-
-            line = line.strip()
-            if not line:
-                current_addr += step
-                continue
-
-            mode = self.data_mode.get()
-            tokens = line.replace(",", " ").split()
-            parsed_bytes = []
-
-            for t in tokens:
-                t = t.strip()
-                if not t:
-                    continue
-
-                if mode == "hex":
-                    if not re.fullmatch(r"[0-9A-Fa-f]{1,2}", t):
-                        messagebox.showerror(
-                            "Error de formato",
-                            f"Línea {idx+1}: token hex inválido '{t}'"
-                        )
-                        return
-                    parsed_bytes.append(int(t, 16))
-
-                elif mode == "bin":
-                    if not re.fullmatch(r"[01]{1,8}", t):
-                        messagebox.showerror(
-                            "Error de formato",
-                            f"Línea {idx+1}: token binario inválido '{t}'"
-                        )
-                        return
-                    parsed_bytes.append(int(t, 2))
-
-                elif mode == "dec":
-                    try:
-                        val = int(t)
-                        if not (0 <= val <= 255):
-                            raise ValueError
-                        parsed_bytes.append(val)
-                    except ValueError:
-                        messagebox.showerror(
-                            "Error de formato",
-                            f"Línea {idx+1}: token decimal inválido '{t}'"
-                        )
-                        return
-
-            if len(parsed_bytes) > bytes_per_line:
-                messagebox.showerror(
-                    "Error",
-                    f"Línea {idx+1} excede 32 bytes."
-                )
-                return
-
-            # rellenar con ceros
-            while len(parsed_bytes) < bytes_per_line:
-                parsed_bytes.append(0)
-
-            ok, msg = write_ram(current_addr, bytes(parsed_bytes))
-
-            if not ok:
-                messagebox.showerror("Error de escritura", msg)
-                return
-
-            seg_name, _ = get_segment(current_addr)
-            self._log(
-                f"[FILE WRITE] 0x{current_addr:08X} [{seg_name}] ← línea {idx+1}",
-                "ok"
-            )
-
-            current_addr += step
 
         self._refresh_hex_view(base_addr, min(32, len(lines)))
         self._log("Escritura de archivo completada.", "ok")

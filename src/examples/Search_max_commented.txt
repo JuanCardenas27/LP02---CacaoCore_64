@@ -1,0 +1,71 @@
+### Convención de uso de registros
+R0 = n (Numero de elementos)
+R1 = i (Indice para recorrer el arreglo)
+R2 = max (Valor Maximo encontrado)
+R4 = i*8 (index * 8)
+R5 = dir array[i] (direccion a comparar)
+R6 =  value array[i] (valor a comparar)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
+
+-- Declaramos el arreglo en la zona de datos esaticos
+[1, 8, 4, 2, 10]
+-- movh_mi [00 04 00 00] 1
+01 00 00 00 04 00 19 F0
+-- movh_mi [00 04 00 08] 8
+08 00 08 00 04 00 19 F0
+-- movh_mi [00 04 00 10] 4
+04 00 10 00 04 00 19 F0
+-- movh_mi [00 04 00 18] 2
+02 00 18 00 04 00 19 F0
+-- movh_mi [00 04 00 20] A
+0A 00 20 00 04 00 19 F0
+-- Declaramos el tamaño luego del arreglo
+-- movh_mi [00 04 00 28] 5
+05 00 28 00 04 00 19 F0
+
+-- Código de busqueda Maximo
+-- movh_rm 0 size
+28 00 04 00 20 01 FF FF
+-- movh_ri 1 0
+00 00 11 01 FF FF FF FF 
+-- movh_rm 2 [00 04 00 00]
+00 00 04 00 22 01 FF FF 
+-- inc_r 1
+01 22 FF FF FF FF FF FF
+-- dec_r 0
+40 52 FF FF FF FF FF FF
+{loop} -- cmp_rr 1 0
+01 B0 60 FF FF FF FF FF
+-- jg_m {end}
+B8 10 00 00 8E FF FF FF
+-- movd_rr 4 1
+41 30 F0 FF FF FF FF FF
+-- mul_ri 4 8
+08 00 14 0B F3 FF FF FF
+-- lea_rm 5 [00 04 00 00]
+00 00 04 00 25 15 FF FF
+-- add_rr 5 4
+45 40 00 FF FF FF FF FF
+-- movh_rn 6 4
+64 13 F0 FF FF FF FF FF
+-- cmp_rr 6 2
+62 B0 60 FF FF FF FF FF
+-- jle_m {no_reasign}
+A8 10 00 00 96 FF FF FF
+-- mov_rr 2 6
+26 30 F0 FF FF FF FF FF
+{no_reasign} -- inc_r 1
+01 22 FF FF FF FF FF FF
+jmp {loop}
+58 10 00 00 52 FF FF FF
+{end} -- mov_mr buffer 2
+0 2 D0 00 00 8 0 02 FF FF
+-- lea B buffer
+00 0D 00 00 2B 15 FF FF
+-- movw_ri C 8
+08 00 1C 02 FF FF FF FF
+-- intr 0
+00 00 45 FF FF FF FF FF
+-- HLT
+00 00 00 00 00 00 00 00

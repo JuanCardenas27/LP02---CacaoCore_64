@@ -1,0 +1,36 @@
+### Convención de uso de registros
+R0 = A (primer operando, el que se suma)
+R1 = B (segundo operando, contador de veces)
+R2 = resultado (acumulador)
+R3 = i (contador del bucle, decremental)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
+
+-- MOV R0, 6
+06 00 10 01 FF FF FF FF
+-- MOV R1, 4
+04 00 11 01 FF FF FF FF
+-- MOV R2, 0
+00 00 12 01 FF FF FF FF
+-- MOV R3, R1
+31 10 F0 FF FF FF FF FF
+-- LOOP: CMP R3, 0
+00 00 13 10 F6 FF FF FF
+-- JLE FIN
+{FIN} 96 FF FF FF
+-- ADD R2, R0
+20 40 00 FF FF FF FF FF
+-- DEC R3
+43 52 FF FF FF FF FF FF
+-- JMP LOOP
+{LOOP} 52 FF FF FF
+-- FIN: MOV R2, BUFFER
+02 D0 00 00 80 02 FF FF
+-- LEA R11, BUFFER
+00 0D 00 00 2B 15 FF FF
+-- MOV R12, 8
+08 00 1C 02 FF FF FF FF
+-- INT 0 (Escribir en consola)
+00 00 45 FF FF FF FF FF
+-- HALT
+00 00 00 00 00 00 00 00
