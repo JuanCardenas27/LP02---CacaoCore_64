@@ -195,17 +195,19 @@ def get_methods_map(cu):
             "call_m": lambda x, y: cu.call_m(x),
 
             #Artimética de punto flotante
-            "fp_add_rr": lambda x, y: cu.fp_operacion_rr(x, y, "+"),
-            "fp_add_rm": lambda x, y: cu.fp_operacion_rm(x, y, "+"),
-            "fp_add_rn": lambda x, y: cu.fp_operacion_rn(x, y, "+"),
-            "fp_sub_rm": lambda x, y: cu.fp_operacion_rm(x, y, "-"),
-            "fp_sub_rr": lambda x, y: cu.fp_operacion_rr(x, y, "-"),
-            "fp_sub_rn": lambda x, y: cu.fp_operacion_rn(x, y, "-"),
-            "fp_mul_rr": lambda x, y: cu.fp_operacion_rr(x, y, "*"),
-            "fp_mul_rm": lambda x, y: cu.fp_operacion_rm(x, y, "*"),
-            "fp_mul_rn": lambda x, y: cu.fp_operacion_rn(x, y, "*"),
-            "fp_div_rr": lambda x, y: cu.fp_operacion_rr(x, y, "/"),
-            "fp_div_rm": lambda x, y: cu.fp_operacion_rm(x, y, "/"),
-            "fp_div_rn": lambda x, y: cu.fp_operacion_rn(x, y, "/"),
-
+            "fpadd_rr": lambda x, y: cu.fp_operacion_rr(x, y, "+"),
+            "fpadd_rm": lambda x, y: cu.fp_operacion_rm(x, y, "+"),
+            "fpadd_rn": lambda x, y: cu.fp_operacion_rn(x, y, "+"),
+            "fpsub_rm": lambda x, y: cu.fp_operacion_rm(x, y, "-"),
+            "fpsub_rr": lambda x, y: cu.fp_operacion_rr(x, y, "-"),
+            "fpsub_rn": lambda x, y: cu.fp_operacion_rn(x, y, "-"),
+            "fpmul_rr": lambda x, y: cu.fp_operacion_rr(x, y, "*"),
+            "fpmul_rm": lambda x, y: cu.fp_operacion_rm(x, y, "*"),
+            "fpmul_rn": lambda x, y: cu.fp_operacion_rn(x, y, "*"),
+            "fpdiv_rr": lambda x, y: cu.fp_operacion_rr(x, y, "/"),
+            "fpdiv_rm": lambda x, y: cu.fp_operacion_rm(x, y, "/"),
+            "fpdiv_rn": lambda x, y: cu.fp_operacion_rn(x, y, "/"),
+            "fptof_r": lambda x, y: cu.fp_tof_r(x),
+            "fptof_ri": lambda x, y: cu.fp_tof_ri(x, y),
+            "fptoi_r": lambda x, y: cu.fp_toi_r(x)
         }

@@ -283,40 +283,40 @@ MICROINSTRUCTION_SPECS = [
     # Aritmética de punto flotante
     # ==============================
     
-    {"name": "fp_add_m", "opcode": 0xFFFFFF9A},
-    {"name": "fp_add_r", "opcode": 0xFFFFFFFFFFFFF54},
-    {"name": "fp_add_i", "opcode": 0xFFFFFFFFFF49},
-    {"name": "fp_add_rr", "opcode": 0xFFFFFFFFFFF0E0},
-    {"name": "fp_add_ri", "opcode": 0xFFFFFFFF161},
-    {"name": "fp_add_rm", "opcode": 0xFFFF162},
-    {"name": "fp_add_rn", "opcode": 0xFFFFFFFFFFF0E3},
+    {"name": "fpadd_m", "opcode": 0xFFFFFF9A},
+    {"name": "fpadd_r", "opcode": 0xFFFFFFFFFFFFF54},
+    {"name": "fpadd_i", "opcode": 0xFFFFFFFFFF49},
+    {"name": "fpadd_rr", "opcode": 0xFFFFFFFFFFF0E0},
+    {"name": "fpadd_ri", "opcode": 0xFFFFFFFF161},
+    {"name": "fpadd_rm", "opcode": 0xFFFF162},
+    {"name": "fpadd_rn", "opcode": 0xFFFFFFFFFFF0E3},
 
-    {"name": "fp_sub_m", "opcode": 0xFFFFFF9E},
-    {"name": "fp_sub_r", "opcode": 0xFFFFFFFFFFFFF58},
-    {"name": "fp_sub_i", "opcode": 0xFFFFFFFFFF4D},
-    {"name": "fp_sub_rr", "opcode": 0xFFFFFFFFFFF0F0},
-    {"name": "fp_sub_ri", "opcode": 0xFFFFFFFF171},
-    {"name": "fp_sub_rm", "opcode": 0xFFFF172},
-    {"name": "fp_sub_rn", "opcode": 0xFFFFFFFFFFF0F3},
+    {"name": "fpsub_m", "opcode": 0xFFFFFF9E},
+    {"name": "fpsub_r", "opcode": 0xFFFFFFFFFFFFF58},
+    {"name": "fpsub_i", "opcode": 0xFFFFFFFFFF4D},
+    {"name": "fpsub_rr", "opcode": 0xFFFFFFFFFFF0F0},
+    {"name": "fpsub_ri", "opcode": 0xFFFFFFFF171},
+    {"name": "fpsub_rm", "opcode": 0xFFFF172},
+    {"name": "fpsub_rn", "opcode": 0xFFFFFFFFFFF0F3},
 
-    {"name": "fp_mul_m", "opcode": 0xFFFFFFA2},
-    {"name": "fp_mul_r", "opcode": 0xFFFFFFFFFFFFF5C},
-    {"name": "fp_mul_i", "opcode": 0xFFFFFFFFFF51},
-    {"name": "fp_mul_rr", "opcode": 0xFFFFFFFFFFF100},
-    {"name": "fp_mul_ri", "opcode": 0xFFFFFFFF181},
-    {"name": "fp_mul_rm", "opcode": 0xFFFF182},
-    {"name": "fp_mul_rn", "opcode": 0xFFFFFFFFFFF103},
+    {"name": "fpmul_m", "opcode": 0xFFFFFFA2},
+    {"name": "fpmul_r", "opcode": 0xFFFFFFFFFFFFF5C},
+    {"name": "fpmul_i", "opcode": 0xFFFFFFFFFF51},
+    {"name": "fpmul_rr", "opcode": 0xFFFFFFFFFFF100},
+    {"name": "fpmul_ri", "opcode": 0xFFFFFFFF181},
+    {"name": "fpmul_rm", "opcode": 0xFFFF182},
+    {"name": "fpmul_rn", "opcode": 0xFFFFFFFFFFF103},
 
-    {"name": "fp_div_m", "opcode": 0xFFFFFFA6},
-    {"name": "fp_div_r", "opcode": 0xFFFFFFFFFFFFF60},
-    {"name": "fp_div_i", "opcode": 0xFFFFFFFFFF55},
-    {"name": "fp_div_rr", "opcode": 0xFFFFFFFFFFF110},
-    {"name": "fp_div_ri", "opcode": 0xFFFFFFFF191},
-    {"name": "fp_div_rm", "opcode": 0xFFFF192},
-    {"name": "fp_div_rn", "opcode": 0xFFFFFFFFFFF113},
+    {"name": "fpdiv_m", "opcode": 0xFFFFFFA6},
+    {"name": "fpdiv_r", "opcode": 0xFFFFFFFFFFFFF60},
+    {"name": "fpdiv_i", "opcode": 0xFFFFFFFFFF55},
+    {"name": "fpdiv_rr", "opcode": 0xFFFFFFFFFFF110},
+    {"name": "fpdiv_ri", "opcode": 0xFFFFFFFF191},
+    {"name": "fpdiv_rm", "opcode": 0xFFFF192},
+    {"name": "fpdiv_rn", "opcode": 0xFFFFFFFFFFF113},
 
-    {"name": "fp_neg_r", "opcode": 0xFFFFFFFFFFFFF64},
-    {"name": "fp_neg_m", "opcode": 0xFFFFFFAA},
+    {"name": "fpneg_r", "opcode": 0xFFFFFFFFFFFFF64},
+    {"name": "fpneg_m", "opcode": 0xFFFFFFAA},
 
     {"name": "cmp_m", "opcode": 0xFFFFFFAE},
     {"name": "cmp_r", "opcode": 0xFFFFFFFFFFFFF68},
@@ -326,14 +326,15 @@ MICROINSTRUCTION_SPECS = [
     {"name": "cmp_rm", "opcode": 0xFFFF1A2},
     {"name": "cmp_rn", "opcode": 0xFFFFFFFFFFF123},
 
-    {"name": "fp_tof_r", "opcode": 0xFFFFFFFFFFFFF6A},
-    {"name": "fp_toi_r", "opcode": 0xFFFFFFFFFFFFF70},
+    {"name": "fptof_r", "opcode": 0xFFFFFFFFFFFFF6A},
+    {"name": "fptof_ri", "opcode": 0xFFFFFFFF1B1},
+    {"name": "fptoi_r", "opcode": 0xFFFFFFFFFFFFF70},
 
     # ==============================
     # Saltos de punto flotante
     # ==============================
 
-    {"name": "ju_m", "opcode": 0xFFFFFF6E},
-    {"name": "jnu_m", "opcode": 0xFFFFFF72}
+    {"name": "ju_m", "opcode": 0xFFFFF06E},
+    {"name": "jnu_m", "opcode": 0xFFFFF072}
 
 ]

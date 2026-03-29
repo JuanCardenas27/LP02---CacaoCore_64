@@ -87,7 +87,6 @@ class ControlUnit(MicroinstructionMixin):
         Crea todos los registros, la ALU y el Decodificador. El estado
         inicial es HALTED hasta que se ejecute _boot().
         """
-        super().__init__()
         self.state = HALTED
 
         self.ram = ram
@@ -112,6 +111,12 @@ class ControlUnit(MicroinstructionMixin):
         self._decoder = Decoder(self._dp)
 
         self._methods = get_methods_map(self)
+        self._fau_operation = {
+            '+': self._fau.fp_add ,
+            '-': self._fau.fp_sub,
+            '*':self._fau.fp_mul,
+            '/':self._fau.fp_div
+            }
 
     def get_registers(self):
         values_dict = {}
@@ -165,13 +170,13 @@ class ControlUnit(MicroinstructionMixin):
         Realiza el ciclo fetch-decode-execute repetidamente hasta que
         el procesador pasa a estado HALTED o ocurre una excepción.
         """
-        try:
-            while self.state == RUNNING:
-                self._fetch()
+        # try:
+        while self.state == RUNNING:
+            self._fetch()
                 
-        except Exception as e:
-            print(f"Error de ejecución: {e}")
-            self.state = HALTED
+        # except Exception as e:
+        #     print(f"Error de ejecución: {e}")
+        #     self.state = HALTED
     
     def run_step(self):
         """Ejecuta un paso (instrucción) del programa.

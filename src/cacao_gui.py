@@ -611,35 +611,35 @@ class CacaoCoreGUI(tk.Tk):
             messagebox.showerror("Error de BOOT", str(e))
 
     def _do_run_full(self):
-        try:
-            self._core.run_full()
-            self._refresh_registers()
-            msg = "RUN FULL completado  ·  procesador detenido (HLT)"
-            self._set_status(msg, ACCENT2)
-            if self.console:
-                self.console.write_ok(msg)
-        except Exception as e:
-            self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
-            if self.console:
-                self.console.write_error(f"ERROR en RUN FULL: {e}")
-            messagebox.showerror("Error FULL", str(e))
+        # try:
+        self._core.run_full()
+        self._refresh_registers()
+        msg = "RUN FULL completado  ·  procesador detenido (HLT)"
+        self._set_status(msg, ACCENT2)
+        if self.console:
+            self.console.write_ok(msg)
+        # except Exception as e:
+        #     self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
+        #     if self.console:
+        #         self.console.write_error(f"ERROR en RUN FULL: {e}")
+        #     messagebox.showerror("Error FULL", str(e))
 
     def _do_run_step(self):
-        try:
-            self._core.run_step()
-            self._refresh_registers()
-            msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
-            self._set_status(msg, ACCENT5)
-            if self.console:
-                regs = self._core.processor.get_registers()
-                self.console.write_info(msg)
-                self.console.write_hex("PC", regs.get("pc", 0), bits=64)
-                self.console.write_hex("IR", regs.get("ir", 0), bits=64)
-        except Exception as e:
-            self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
-            if self.console:
-                self.console.write_error(f"ERROR en RUN STEP: {e}")
-            messagebox.showerror("Error EN STEP", str(e))
+        # try:
+        self._core.run_step()
+        self._refresh_registers()
+        msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
+        self._set_status(msg, ACCENT5)
+        if self.console:
+            regs = self._core.processor.get_registers()
+            self.console.write_info(msg)
+            self.console.write_hex("PC", regs.get("pc", 0), bits=64)
+            self.console.write_hex("IR", regs.get("ir", 0), bits=64)
+        # except Exception as e:
+        #     self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
+        #     if self.console:
+        #         self.console.write_error(f"ERROR en RUN STEP: {e}")
+        #     messagebox.showerror("Error EN STEP", str(e))
 
     # ─────────────────────────────────────────────────────────────────────
     #  RAM EDITOR (ventana independiente)
