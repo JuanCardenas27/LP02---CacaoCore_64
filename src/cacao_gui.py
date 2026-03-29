@@ -10,6 +10,7 @@ Cambios respecto a la versión anterior:
   - self.loader_panel disponible como atributo público
   - Importa CacaoConsole desde cacao_console.py  →  self.console
 """
+# TODO: Refactorizar cacao_gui.py y añadir FAU flags.
 
 import tkinter as tk
 from tkinter import messagebox
@@ -58,22 +59,6 @@ FM_TITLE = ("Courier New", 20, "bold")
 FM_LABEL = ("Courier New", 10)
 FM_BTN   = ("Courier New", 11, "bold")
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  MOCK (sin cacao_core.py)
-# ══════════════════════════════════════════════════════════════════════════════
-class _MockCU:
-    def get_registers(self):
-        d = {f"r{i}": i * 256 for i in range(13)}
-        d.update({"sp": 0x000FFFFF, "lr": 0, "acc": 42,
-                  "pc": 0x00001000, "ir": 0xDEADBEEFCAFEBABE,
-                  "mar": 0x1000, "mdr": 0, "fr": 0b00000101, "dp": 0})
-        return d
-
-class _MockCore:
-    def __init__(self):  self.processor = _MockCU()
-    def boot(self, a):   pass
-    def run_full(self):  pass
-    def run_step(self):  pass
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELPERS UI
@@ -103,7 +88,7 @@ class CacaoCoreGUI(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self._core = CacaoCore64() if CacaoCore64 else _MockCore()
+        self._core = CacaoCore64()
         self._fmt  = tk.StringVar(value="hex")
         self._reg_labels   = {}
         self._flag_widgets = {}
@@ -131,6 +116,8 @@ class CacaoCoreGUI(tk.Tk):
             print(f"Backend: {BACKEND}")
             if not CONSOLE_OK:
                 print("cacao_console.py no encontrado — usando consola minima")
+        
+        self._core.processor.io_controller.console = self.console
 
     # ─────────────────────────────────────────────────────────────────────
     #  HEADER
@@ -728,5 +715,4 @@ class CacaoCoreGUI(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     app = CacaoCoreGUI()
-    app._core.processor.io_controller.console = app.console
     app.mainloop()
