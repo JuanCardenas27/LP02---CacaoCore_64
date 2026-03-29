@@ -326,6 +326,9 @@ MICROINSTRUCTION_SPECS = [
     {"name": "cmp_rm", "opcode": 0xFFFF1A2},
     {"name": "cmp_rn", "opcode": 0xFFFFFFFFFFF123},
 
+    {"name": "fp_tof_r", "opcode": 0xFFFFFFFFFFFFF6A},
+    {"name": "fp_toi_r", "opcode": 0xFFFFFFFFFFFFF70},
+
     # ==============================
     # Saltos de punto flotante
     # ==============================
