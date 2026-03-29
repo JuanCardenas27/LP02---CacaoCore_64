@@ -1,1 +1,52 @@
-#
+#1 - poner x en R4 - j(num_max_iter) en r0 - i(indice) en r1
+#2 - empezando desde uno esperar a romper restriccion de y0^2 < x
+    - poner 1 en un registro 2
+    - while v_r ** 2 < x:
+        valor_r += 1
+    - valor_R - 1 --> yo es este
+#3 - registro 3 yi+1
+#4 - while i < j:
+        resgitro3 = 1/2 (resgitro2 + x/registro2)
+        rsgistro2 = resgitro3
+        resgitro1 += 1
+#5 el valor aprox se encuentra en resgistro2
+#6 imprimirlo en consola
+
+### ASM
+### Convención de uso de registros
+R0 = j (número máximo de iteraciones)
+R1 = i (indice)
+R2 = y_i (empieza en y_0, se usa para el cálculo de yi+1, valor de la aproximación en la i-ésima iteración)
+R3 = y_i+1
+R4 = x (número del que se quiere calcular la raiz)
+R5 = tmp (Calculos para hallar y0)
+R11 = Dirección de inicio de impresión
+R12 = Longitud (bytes) de impresión
+
+-- movd_ri 4 x
+7D 00 14 03 FF FF FF FF
+-- movd_ri 0 15
+0F 00 10 03 FF FF FF FF
+-- movd_ri 1 0
+00 00 11 03 FF FF FF FF
+-- movd_ri 2 1
+01 00 12 03 FF FF FF FF
+--WHILE_1: movd_rr 5 2
+52 30 F0 FF FF FF FF FF 
+-- mul_rr 5 5
+55 60 30 FF FF FF FF FF
+-- cmp_rr 5 4
+54 B0 60 FF FF FF FF FF   
+-- jg_m END1
+8E FF FF FF {END1}
+-- inc_r 2
+02 22 FF FF FF FF FF FF
+-- jmp_m {WHILE_1}
+52 FF FF FF {WHILE_1}
+--END_1: dec_r 2
+42 52 FF FF FF FF FF FF
+--WHILE_2: cmp_rr 1 0
+10 B0 60 FF FF FF FF FF
+-- jg_m {END2}
+8E FF FF FF {END2}
+#### Tenemos que pner 1/2 en float en nuestro r3 para operar convertir r2 a flotante y x a flotante
