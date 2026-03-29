@@ -1,0 +1,28 @@
+movd_ri 4 125
+movd_ri 0 15
+movd_ri 1 0
+movd_ri 2 1
+WHILE_1: movd_rr 5 2
+    mul_rr 5 5
+    cmp_rr 5 4
+    jg_m END1
+    inc_r 2
+    jmp_m {WHILE_1}
+END_1: dec_r 2
+    fp_tof_r 2
+WHILE_2: cmp_rr 1 0
+    jg_m {END2}
+    fp_tof_ri 6 2
+    movd_rr 3 4
+    fp_tof_r 3
+    fp_div_rr 3 2
+    fp_add_rr 3 2
+    fp_div_rr 3 6
+    movd_rr 2 3
+    inc_r 1
+    jmp_m {WHILE_2}
+END2: movd_mr buffer 2
+    lea B buffer
+    movw_ri C 8
+    intr 0
+    HLT
