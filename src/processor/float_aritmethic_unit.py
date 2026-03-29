@@ -59,6 +59,11 @@ class FloatAritmethicUnit:
             return NAN
         return False
 
+    def _check_nan(self, op):
+        if op[1] == 1024 and op[2] != 0:
+            self.flags[0] += 4
+            return NAN
+
     def _check_overflow(self, sign, exp):
         if exp > 1023:
             self.cu_flags[0] += 2
@@ -80,7 +85,7 @@ class FloatAritmethicUnit:
 
     def _check_zero(self, op):
         if op[0] == 0 and op[1] == 0:
-            self.cu_flags += 16
+            self.cu_flags[0] += 16
     
     def _raise_inex(self):
         self.flags[0] += 4
@@ -470,6 +475,47 @@ class FloatAritmethicUnit:
         float_p = struct.unpack('<d', op1)[0]
         self.fp_acm[:] = int(float_p).to_bytes(8, byteorder='little', signed=True)
 
+    def fp_f2i(self, op1:bytearray):
+        float_p = struct.unpack('<d', op1)[0]
+        self.fp_acm[:] = int(float_p).to_bytes(8, byteorder='little', signed=True)
+
+    def _check_op_sqrt(self, unp):
+        if unp[1:] == ZERO:
+            self.cu_flags[0] += 16
+            return (unp[0],) + ZERO
+        if unp[0] == 1:
+            self.flags[0] += 4
+            return NAN
+        self._check_nan(unp)
+        if unp[1:] == INF:
+            return (1,) + INF
+        return False
+        
+    def fp_sqrt(self, op1:bytearray):
+        unp = self._unpack(op1)
+        sign, exp, mant = unp
+        # Check op
+        result = self._check_op_sqrt(unp)
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
+        
+        #Si no hay caso especial
+        m_full = (1 << 52) | mant
+        # Ajustar si exponente es impar
+        if exp % 2 != 0:
+            m_full *= 2
+            exp -= 1
+        exp = exp//2
+        
+        sqrt_m = int((m_full << 52)**0.5)
+
+        # reconstruir mantisa
+        mant = sqrt_m & ((1 << 52) - 1)
+
+        self.fp_acm[:] = self._pack(sign, exp, mant)
+        
+        
 
 
 if __name__ == "__main__":
@@ -478,7 +524,7 @@ if __name__ == "__main__":
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(acm, fp_flags, cu_flags)
 
-    a = 0
+    a = 8
     b = 7.0
     c = -1
     d = -3.03
@@ -488,7 +534,7 @@ if __name__ == "__main__":
     op3 = bytearray((c).to_bytes(8, byteorder='little', signed=True))
     op4 = bytearray(struct.pack('<d', d))
 
-    objeto.fp_div(op1, op2)
+    objeto.fp_sqrt(op1)
     # objeto.fp_i2f(op3)
     # objeto.fp_f2i(op4)
     # print("Conversión i2f:", struct.unpack('<d', op3)[0])
