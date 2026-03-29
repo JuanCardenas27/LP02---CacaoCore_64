@@ -1,3 +1,5 @@
+import struct
+
 INF = (1024, 0)
 ZERO = (-1023, 0)
 NAN = (0, 1024, 1)
@@ -458,6 +460,14 @@ class FloatAritmethicUnit:
         self._check_sign(signo_resultado)
         self._check_zero((nuevo_expo, mantisa_final))
 
+    def fp_i2f(self, op1:bytearray):
+        integer = int.from_bytes(op1, byteorder='little', signed=True)
+        self.fp_acm[:] = bytearray(struct.pack('<d', integer))
+
+    def fp_f2i(self, op1:bytearray):
+        float_p = struct.unpack('<d', op1)[0]
+        self.fp_acm[:] = int(float_p).to_bytes(8, byteorder='little', signed=True)
+
 
 
 if __name__ == "__main__":
@@ -465,15 +475,22 @@ if __name__ == "__main__":
     fp_flags = bytearray(1)
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(acm, fp_flags, cu_flags)
-    import struct
 
-    a = 0.0
+    a = 1
     b = -7.0
+    c = -1
+    d = -3.03
 
     op1 = bytearray(struct.pack('<d', a))
     op2 = bytearray(struct.pack('<d', b))
+    op3 = bytearray((c).to_bytes(8, byteorder='little', signed=True))
+    op4 = bytearray(struct.pack('<d', d))
 
     objeto.fp_div(op1, op2)
+    objeto.fp_i2f(op3)
+    objeto.fp_f2i(op4)
+    print("Conversión i2f:", struct.unpack('<d', op3)[0])
+    print("Conversión f2i:", int.from_bytes(op4, 'little', signed=True))
     print("Acum:", struct.unpack('<d', acm)[0])
     print("FP Flags:", bin(int.from_bytes(objeto.flags, 'little', signed=False))[2:])
     print("CU Flags:", bin(int.from_bytes(objeto.cu_flags, 'little', signed=False))[2:])
