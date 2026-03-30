@@ -11,12 +11,16 @@ a partir de ahi vamos a iterar del 3 hasta que contemos con primos gemelos
 
 ### ASM
 ### Convención de uso de registros
-R0 = x (numero de primos)
+R0 = x (numero de primos),
+     Suma acumulada (parte 2)
 R1 = y (numero de primos gemelos)
-R2 = i (indice, de la lista de primos general)
+R2 = i (indice, de la lista de primos general),
+     1 flotante (parte 2)
 R3 = j (indice, de la lista de primos gemelos)
-R4 = n (numero que se revisa, comienza en 3, float)
-R5 = m (numero primo con el que se compara)
+R4 = n (numero que se revisa, comienza en 3, float),
+     g1 (parte 2)
+R5 = m (numero primo con el que se compara),
+     g2(parte 2)
 R6 = sqrt (cálculo de la raíz cuadrada de n)
 R7 = Dirección de inicio de primos
 R8 = Dirección de inicio de primos gemelos
@@ -36,7 +40,7 @@ while y < 50
     i = 0
     sqrt = int(sqrt(n))
     m = lista_primos[i]
-    while m < sqrt:
+    while m <= sqrt:
         if n % m == 0:
             n += 1
             jmp inicio_while
@@ -52,14 +56,27 @@ while y < 50
     n += 1
     jmp  inicio_while
 
+sum = 0
+j = 0
+while j < y
+    g1 = lista_primos_gemelos[j]
+    g2 = g1 - 2
+    g1 = 1/float(g1)
+    g2 = 1/float(g2)
+    g1 += g2
+    sum += g1
+    j += 1
+print(sum)
 
 
 -ASM
 
--- lea_rm 7 [00 04 00 64]
-64 00 04 00 27 15 FF FF
+-- lea_rm 7 [00 04 00 78]
+78 00 04 00 27 15 FF FF
 -- lea_rm 8 [00 04 00 00]
 00 00 04 00 28 15 FF FF
+-- movh_ri 2 2
+02 00 12 01 FF FF FF FF
 -- movh_nr 7 2
 72 1C F0 FF FF FF FF FF
 -- movh_ri 0 1
@@ -68,8 +85,8 @@ while y < 50
 00 00 11 01 FF FF FF FF
 -- movh_ri 4 3
 03 00 14 01 FF FF FF FF
--- WHILE1: cmp_ri 1 50
-32 00 11 10 F6 FF FF FF
+-- WHILE1: cmp_ri 1 10
+0A 00 11 10 F6 FF FF FF
 -- jge_m {END1}
 {END1} 92 FF FF FF
 -- movh_ri 2 0
@@ -92,8 +109,8 @@ A6 F6 FF FF FF FF FF FF
 59 03 F0 FF FF FF FF FF
 -- WHILE2: cmp_rr 5 6
 56 B0 60 FF FF FF FF FF
--- jge_m {END2}
-{END2} 92 FF FF FF
+-- jg_m {END2}
+{END2} 8E FF FF FF
 -- movh_rr 9 4
 94 10 F0 FF FF FF FF FF
 -- movh_rr A 5
@@ -131,11 +148,11 @@ A5 10 F0 FF FF FF FF FF
 -- inc_r 0
 00 22 FF FF FF FF FF FF
 -- IF2: sub_ri 9 4
-04 00 19 0A FF FF FF F1
+04 00 19 0A F1 FF FF FF
 -- mov_rn A 9
 A9 03 F0 FF FF FF FF FF
 -- add_ri A 2
-02 00 1A 09 FF FF FF F0
+02 00 1A 09 F0 FF FF FF
 -- cmp_rr A 4
 A4 B0 60 FF FF FF FF FF
 -- jnz_m {ELSE2}
@@ -154,7 +171,56 @@ A4 B0 60 FF FF FF FF FF
 04 22 FF FF FF FF FF FF
 -- jmp_m {WHILE1}
 {WHILE1} 52 FF FF FF
--- END1:
 
+## Parte 2
+
+-- END1: movh_ri 0 0
+00 00 10 01 FF FF FF FF
+-- movh_ri 3 0
+00 00 13 01 FF FF FF FF
+-- WHILE3: cmp_rr 3 1
+31 B0 60 FF FF FF FF FF
+-- jge_m {END3}
+{END3} 92 FF FF FF
+-- movh_rr 9 3
+93 10 F0 FF FF FF FF FF
+-- mul_ri 9 4
+04 00 19 0B F3 FF FF FF
+-- add_rr 9 8
+98 40 00 FF FF FF FF FF
+-- mov_rn 4 9
+49 03 F0 FF FF FF FF FF
+-- movh_rr 5 4
+54 10 F0 FF FF FF FF FF
+-- sub_ri 5 2
+04 00 15 0A F1 FF FF FF
+-- fptof_r 4
+A4 F6 FF FF FF FF FF FF
+-- fptof_r 5
+A5 F6 FF FF FF FF FF FF
+-- fptof_ri 2 1
+01 00 12 1B FF FF FF FF
+-- fpdiv_rr 2 4
+24 10 F1 FF FF FF FF FF
+-- fpadd_rr 0 2
+02 E0 F0 FF FF FF FF FF
+-- fptof_ri 2 1
+01 00 12 1B FF FF FF FF
+-- fpdiv_rr 2 5
+25 10 F1 FF FF FF FF FF
+-- fpadd_rr 0 2
+02 E0 F0 FF FF FF FF FF
+-- inc_r 3
+03 22 FF FF FF FF FF FF
+-- jmp_m {WHILE3}
+{WHILE3} 52 FF FF FF
+-- END3: movd_mr buffer 0     (0x000010B8)
+00 D0 00 00 80 03 FF FF
+-- lea B buffer
+00 0D 00 00 2B 15 FF FF
+-- movw_ri C 8
+08 00 1C 02 FF FF FF FF
+-- intr 0
+00 00 45 FF FF FF FF FF
 -- hlt
 00 00 00 00 00 00 00 00

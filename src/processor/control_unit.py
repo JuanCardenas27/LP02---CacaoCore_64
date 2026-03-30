@@ -172,9 +172,11 @@ class ControlUnit(MicroinstructionMixin):
         el procesador pasa a estado HALTED o ocurre una excepción.
         """
         # try:
-        while self.state == RUNNING:
+        i = 0
+        while self.state == RUNNING and i < 100:
             self._fetch()
-                
+            i += 1
+
         # except Exception as e:
         #     print(f"Error de ejecución: {e}")
         #     self.state = HALTED
