@@ -193,7 +193,7 @@ A4 B0 60 FF FF FF FF FF
 -- movh_rr 5 4
 54 10 F0 FF FF FF FF FF
 -- sub_ri 5 2
-04 00 15 0A F1 FF FF FF
+02 00 15 0A F1 FF FF FF
 -- fptof_r 4
 A4 F6 FF FF FF FF FF FF
 -- fptof_r 5
