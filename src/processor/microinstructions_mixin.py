@@ -627,7 +627,7 @@ class MicroinstructionMixin:
         op2 : bytearray
             Divisor.
         """
-        self._alu.div(op1, op2)
+        op2[:] = self._alu.div(op1, op2)
         op1[:] = self._registers[15][:]
     
     def div_rm(self, op1, op2):

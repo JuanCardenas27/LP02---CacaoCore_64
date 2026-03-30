@@ -127,7 +127,6 @@ MICROINSTRUCTION_SPECS = [
 
     {"name": "storeh_m", "opcode": 0xFFFFFF16},
     {"name": "storeh_r", "opcode": 0xFFFFFFFFFFFFF04},
-    {"name": "storeh_nr", "opcode": 0xFFFFFFFFFFFF04},  # TODO: Pasar solo a mov o arreglar doc y hacer todas.
     {"name": "storeh_mr", "opcode": 0xFFFF098},
     {"name": "storeh_mi", "opcode": 0xF059},
 
