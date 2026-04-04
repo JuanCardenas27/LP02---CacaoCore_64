@@ -204,7 +204,7 @@ class CacaoRAMEditor(tk.Tk):
                  fg=TEXT_MAIN, bg=BG_PANEL, width=18, anchor="w").pack(side="left")
 
         self.data_mode = tk.StringVar(value="hex")
-        for val, lbl in [("hex","HEX"), ("bin","BIN"), ("dec","DEC")]:
+        for val, lbl in [("hex","HEX"), ("bin","BIN"), ("dec","DEC"), ("utf-8", "UTF-8")]:
             rb = tk.Radiobutton(row2, text=lbl, variable=self.data_mode, value=val,
                                 font=FONT_SMALL, fg=ACCENT2, bg=BG_PANEL,
                                 selectcolor=BG_INPUT, activebackground=BG_PANEL,
@@ -504,7 +504,10 @@ class CacaoRAMEditor(tk.Tk):
                 except ValueError:
                     return None, f"Token decimal inválido: '{t}'"
             return bytes(result), None
-
+        
+        elif mode == 'utf-8':
+            return raw.encode('utf-8'), None
+        
         return None, "Modo de datos desconocido."
 
     # ─── LÓGICA: PARSEO DE DIRECCIÓN ─────────────
