@@ -60,8 +60,8 @@ R8 = límite interno (n - 1 - i)
 45 B0 60 FF FF FF FF FF
 -- JLE Noswap
 {reloc #} 96 FF FF FF
--- [R6] <- R5 store_nr
-65 04 FF FF FF FF FF FF
+-- [R6] <- R5 moveh_nr
+65 1C F0 FF FF FF FF FF
 -- [R7] <- R4
 74 04 FF FF FF FF FF FF
 -- NOSWAP: R3 inc_r {0x000010D8}

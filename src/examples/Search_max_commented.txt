@@ -60,7 +60,7 @@ A8 10 00 00 96 FF FF FF
 jmp {loop}
 58 10 00 00 52 FF FF FF
 {end} -- mov_mr buffer 2
-0 2 D0 00 00 8 0 02 FF FF
+02 D0 00 00 80 02 FF FF
 -- lea B buffer
 00 0D 00 00 2B 15 FF FF
 -- movw_ri C 8

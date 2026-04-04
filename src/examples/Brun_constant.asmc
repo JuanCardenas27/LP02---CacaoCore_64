@@ -1,0 +1,75 @@
+lea_rm 7 [00 04 00 78]
+lea_rm 8 [00 04 00 00]
+movh_ri 2 2
+movh_nr 7 2
+movh_ri 0 1
+movh_ri 1 0
+movh_ri 4 3
+WHILE1: cmp_ri 1 10
+    jge_m {END1}
+    movh_ri 2 0
+    movd_rr 6 4
+    fptof_r 6
+    fpsqrt_r 6
+    fptoi_r 6
+    movh_rr 9 2
+    mul_ri 9 4
+    add_rr 9 7
+    mov_rn 5 9
+    WHILE2: cmp_rr 5 6
+        jg_m {END2}
+        movh_rr 9 4
+        movh_rr A 5
+        div_rr 9 A
+        IF1: cmp_ri A 0
+            jnz_m {ELSE1}
+            inc_r 4
+            jmp_m {WHILE1}
+        ELSE1: inc_r 2
+            movh_rr 9 2
+            mul_ri 9 4
+            add_rr 9 7
+            mov_rn 5 9
+            jmp_m {WHILE2}
+    END2: movh_rr 9 0
+        mul_ri 9 4
+        add_rr 9 7
+        movh_nr 9 4
+        inc_r 0
+        IF2: sub_ri 9 4
+            mov_rn A 9
+            add_ri A 2
+            cmp_rr A 4
+            jnz_m {ELSE2}
+            movh_rr 9 1
+            mul_ri 9 4
+            add_rr 9 8
+            movh_nr 9 4
+            inc_r 1
+        ELSE2: inc_r 4
+            jmp_m {WHILE1}
+END1: movh_ri 0 0
+    movh_ri 3 0
+    WHILE3: cmp_rr 3 1
+        jge_m {END3}
+        movh_rr 9 3
+        mul_ri 9 4
+        add_rr 9 8
+        mov_rn 4 9
+        movh_rr 5 4
+        sub_ri 5 2
+        fptof_r 4
+        fptof_r 5
+        fptof_ri 2 1
+        fpdiv_rr 2 4
+        fpadd_rr 0 2
+        fptof_ri 2 1
+        fpdiv_rr 2 5
+        fpadd_rr 0 2
+        inc_r 3
+        jmp_m {WHILE3}
+    END3: movd_mr [00 00 10 B8] 0
+        lea B [00 00 10 B8]
+        movw_ri C 8
+        intr 0
+        hlt

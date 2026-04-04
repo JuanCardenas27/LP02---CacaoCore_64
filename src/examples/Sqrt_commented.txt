@@ -18,12 +18,13 @@ R0 = j (número máximo de iteraciones)
 R1 = i (indice)
 R2 = y_i (empieza en y_0, se usa para el cálculo de yi+1, valor de la aproximación en la i-ésima iteración)
 R3 = y_i+1
-R4 = x (número del que se quiere calcular la raiz)
-R5 = tmp (Calculos para hallar y0)
+R4 = x (número del que se quiere calcular la raíz)
+R5 = tmp (cálculos para hallar y0)
+R6 = tmp (cálculos para hallar y(i+1))
 R11 = Dirección de inicio de impresión
 R12 = Longitud (bytes) de impresión
 
--- movd_ri 4 x
+-- movd_ri 4 x (125)
 7D 00 14 03 FF FF FF FF
 -- movd_ri 0 15
 0F 00 10 03 FF FF FF FF
@@ -31,22 +32,51 @@ R12 = Longitud (bytes) de impresión
 00 00 11 03 FF FF FF FF
 -- movd_ri 2 1
 01 00 12 03 FF FF FF FF
---WHILE_1: movd_rr 5 2
+--WHILE_1: movd_rr 5 2      (0x00001020)
 52 30 F0 FF FF FF FF FF 
 -- mul_rr 5 5
 55 60 30 FF FF FF FF FF
 -- cmp_rr 5 4
 54 B0 60 FF FF FF FF FF   
 -- jg_m END1
-8E FF FF FF {END1}
+{END1} 8E FF FF FF
 -- inc_r 2
 02 22 FF FF FF FF FF FF
 -- jmp_m {WHILE_1}
-52 FF FF FF {WHILE_1}
---END_1: dec_r 2
+{WHILE_1} 52 FF FF FF 
+--END_1: dec_r 2            (0x00001050)
 42 52 FF FF FF FF FF FF
---WHILE_2: cmp_rr 1 0
+-- fp_tof_r 2
+A2 F6 FF FF FF FF FF FF
+--WHILE_2: cmp_rr 1 0       (0x00001060)
 10 B0 60 FF FF FF FF FF
 -- jg_m {END2}
-8E FF FF FF {END2}
-#### Tenemos que pner 1/2 en float en nuestro r3 para operar convertir r2 a flotante y x a flotante
+{END2} 8E FF FF FF
+-- fp_tof_ri 6 2
+02 00 16 1B FF FF FF FF
+-- movd_rr 3 4
+34 30 F0 FF FF FF FF FF
+-- fp_tof_r 3
+A3 F6 FF FF FF FF FF FF
+-- fp_div_rr 3 2
+32 10 F1 FF FF FF FF FF
+-- fp_add_rr 3 2
+32 E0 F0 FF FF FF FF FF
+-- fp_div_rr 3 6
+36 10 F1 FF FF FF FF FF
+-- movd_rr 2 3
+23 30 F0 FF FF FF FF FF
+-- inc_r 1
+01 22 FF FF FF FF FF FF
+-- jmp_m {WHILE_2}
+{WHILE_2} 52 FF FF FF 
+--END2: movd_mr buffer 2     (0x000010B8)
+02 D0 00 00 80 03 FF FF
+-- lea B buffer
+00 0D 00 00 2B 15 FF FF
+-- movw_ri C 8
+08 00 1C 02 FF FF FF FF
+-- intr 0
+00 00 45 FF FF FF FF FF
+-- HLT
+00 00 00 00 00 00 00 00

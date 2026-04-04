@@ -3,14 +3,6 @@ HALTED = 0
 
 class MicroinstructionMixin:
 
-    def __init__(self):
-        self._fau_operation = {
-            '+': self._fau.fp_add ,
-            '-': self._fau.fp_sub,
-            '*':self._fau.fp_mul,
-            '/':self._fau.fp_div
-            }
-
     #################################
     #       MICROINSTRUCCIONES      #
     #################################
@@ -295,7 +287,8 @@ class MicroinstructionMixin:
             Dirección de la subrutina.
         """
         self._registers[14][:] = self._pc[:]
-        self.push(op1)
+        # Guarda la dirección de retorno en la pila para que RET vuelva al sitio correcto.
+        self.push(self._registers[14])
         self.jmp(op1)
     
     def ret(self):
@@ -433,7 +426,7 @@ class MicroinstructionMixin:
         """
         self._alu.add(self._registers[15], op1)
 
-    def add_ra(self, op1, op2, change_flags=True):
+    def add_ra(self, op1, op2):
         """ADD registro-acumulador: op1 = op1 + op2.
         
         Suma dos valores (registros o inmediatos).
@@ -446,7 +439,7 @@ class MicroinstructionMixin:
         op2 : bytearray
             Valor a sumar.
         """
-        self._alu.add(op1, op2, change_flags)
+        self._alu.add(op1, op2)
         op1[:] = self._registers[15][:]
     
     def add_rm(self, op1, op2):
@@ -635,7 +628,7 @@ class MicroinstructionMixin:
         op2 : bytearray
             Divisor.
         """
-        self._alu.div(op1, op2)
+        op2[:] = self._alu.div(op1, op2)
         op1[:] = self._registers[15][:]
     
     def div_rm(self, op1, op2):
@@ -1234,18 +1227,34 @@ class MicroinstructionMixin:
         self._read_from_ram()
         self.cmp_ra(self.int_to_bytes(0, 8), self._mdr)
 
-    def fp_operacion_rm(self, op1, op2, operador, change_flags=True):
+    def fp_operacion_rm(self, op1, op2, operador):
         self._mar[:] = op2[:]
         self._read_from_ram()
-        self._fau_operation[operador](op1, self._mdr, change_flags)
+        self._fau_operation[operador](op1, self._mdr)
         op1[:] = self._registers[15][:]
 
-    def fp_operacion_rr(self, op1, op2, operador, change_flags=True):
-        self._fau_operation[operador](op1, op2, change_flags)
+    def fp_operacion_rr(self, op1, op2, operador):
+        self._fau_operation[operador](op1, op2)
         op1[:] = self._registers[15][:]
 
-    def fp_operacion_rn(self, op1, op2, operador, change_flags=True):
+    def fp_operacion_rn(self, op1, op2, operador):
         self._mar[:] = op2[:]
         self._read_from_ram()
-        self._fau_operation[operador](op1, self._mdr, change_flags)
+        self._fau_operation[operador](op1, self._mdr)
+        op1[:] = self._registers[15][:]
+
+    def fp_sqrt_r(self, op1):
+        self._fau.fp_sqrt(op1)
+        op1[:] = self._registers[15][:]
+
+    def fp_tof_r(self, op1):
+        self._fau.fp_i2f(op1)
+        op1[:] = self._registers[15][:]
+
+    def fp_tof_ri(self, op1, op2):
+        self._fau.fp_i2f(op2)
+        op1[:] = self._registers[15][:]
+
+    def fp_toi_r(self, op1):
+        self._fau.fp_f2i(op1)
         op1[:] = self._registers[15][:]
