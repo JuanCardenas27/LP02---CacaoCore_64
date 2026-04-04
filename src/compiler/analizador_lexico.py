@@ -69,7 +69,7 @@ class AnalizadorLexico:
         'for':       'FOR',
         'in':        'IN',
         'deliver':   'DELIVER',
-        'announce':  'ANNOUNCE',
+        'show':      'SHOW',
         'oops':      'OOPS',
         'int':       'INT_TYPE',
         'float':     'FLOAT_TYPE',
@@ -103,6 +103,10 @@ class AnalizadorLexico:
     t_DOT      = r'\.'
     t_ignore = ' \t'
 
+    def __init__(self) -> None:
+        self.lexer = lex.lex(module=self)
+        self.symbol_table = {}
+
     @staticmethod
     def t_FLOAT_TYPE(t):
         r'\d+\.\d+'
@@ -121,10 +125,24 @@ class AnalizadorLexico:
         t.value = str(t.value)[1:-1]   # quitar comillas
         return t
     
-    @staticmethod
-    def t_ID(t):
+    def t_ID(self, t):
         r'[a-zA-Z_][a-zA-Z_0-9]*'
         t.type = AnalizadorLexico.reserved.get(t.value, 'ID')
+
+        if t.type == 'ID':
+            if t.value not in self.symbol_table:
+                self.symbol_table[t.value] = {
+                    'kind':  None, # Para el futuro, me lo dio Claude, indica su rol (si es variable, funcion, parametro, etc)
+                    'type':  None, # Para el futuro, indica el tipo de dato (para variables unicamente) (int, float, str, bool)
+                    'value': None, # Para el futuro, indica el valor inicial asignado (para variable unicamente)
+                    'scope': None, # Para el futuro, indica el alcance de una definición (si es global o de una función)
+                    'lexeme': t.value,
+                    'length': len(t.value),
+                    'lines': [t.lineno]
+                }
+            else:
+                self.symbol_table[t.value]['lines'].append(t.lineno)
+
         return t
     
     @staticmethod
@@ -143,11 +161,16 @@ class AnalizadorLexico:
         t.lexer.skip(1)
 
     def analize(self, code):
-        self.lexer.input(code)
-        return list(self.lexer)
+        # Limpiar el lexer
+        self.symbol_table = {}
+        self.lexer.lineno = 1
 
-    def __init__(self) -> None:
-        self.lexer = lex.lex(module=self)
+        self.lexer.input(code)
+        tokens = list(self.lexer)
+
+        return tokens, self.symbol_table
+
+
 
 if __name__ == '__main__':
 
