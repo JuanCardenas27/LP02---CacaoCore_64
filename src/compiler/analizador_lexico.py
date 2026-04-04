@@ -143,7 +143,6 @@ class AnalizadorLexico:
         t.lexer.skip(1)
 
     def analize(self, code):
-        print("code del lexer: ", code)
         self.lexer.input(code)
         return list(self.lexer)
 

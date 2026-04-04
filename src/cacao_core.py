@@ -29,10 +29,8 @@ class CacaoCore64:
     
     def compile(self, file_addr, file_len):
         file = self.ram_memory.read(file_addr, file_len)
-        print("file:  ", file)
         data = file.replace(b'\x00', b'')
         code = data.decode('utf-8')
-        print("code: ", code)
         return self.compiler.compile(code)
 
 

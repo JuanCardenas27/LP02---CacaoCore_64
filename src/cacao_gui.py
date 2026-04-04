@@ -632,7 +632,7 @@ class CacaoCoreGUI(tk.Tk):
     def _do_compile(self):
         # TODO ¿Como vamos a manejar los archivos? necesitamos un filesystem que dado el filename retorne addres y length
         address = 0x00001000
-        len = 544
+        len = 600
         self._core.compile(address, len)
 
     # ─────────────────────────────────────────────────────────────────────
