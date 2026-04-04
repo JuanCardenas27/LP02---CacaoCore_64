@@ -236,6 +236,7 @@ class CacaoCoreGUI(tk.Tk):
             ("⚡  BOOT",       ACCENT,  self._do_boot),
             ("▶▶  RUN FULL",  ACCENT2, self._do_run_full),
             ("▶|  RUN STEP",  ACCENT5, self._do_run_step),
+            ("⚙️ COMPILE", ACCENT3, self._do_compile),
         ]:
             make_button(pf, label, color, cmd).pack(fill="x", pady=3)
 
@@ -627,6 +628,12 @@ class CacaoCoreGUI(tk.Tk):
         #     if self.console:
         #         self.console.write_error(f"ERROR en RUN STEP: {e}")
         #     messagebox.showerror("Error EN STEP", str(e))
+    
+    def _do_compile(self):
+        # TODO ¿Como vamos a manejar los archivos? necesitamos un filesystem que dado el filename retorne addres y length
+        address = 0x00001000
+        len = 544
+        self._core.compile(address, len)
 
     # ─────────────────────────────────────────────────────────────────────
     #  RAM EDITOR (ventana independiente)
