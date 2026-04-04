@@ -231,7 +231,7 @@ class ALU:
 
         self.acm[:] = result.to_bytes(8, byteorder='little', signed=True)
 
-        return num1%num2
+        return (num1%num2).to_bytes(8, byteorder='little', signed=True)
     
     def dec(self, op1:bytearray):
         """Decrementa un operando de 64 bits en 1.

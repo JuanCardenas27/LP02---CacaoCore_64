@@ -1,3 +1,5 @@
+import struct
+
 INF = (1024, 0)
 ZERO = (-1023, 0)
 NAN = (0, 1024, 1)
@@ -57,9 +59,15 @@ class FloatAritmethicUnit:
             return NAN
         return False
 
+    def _check_nan(self, op):
+        if op[1] == 1024 and op[2] != 0:
+            self.flags[0] += 4
+            return NAN
+
     def _check_overflow(self, sign, exp):
         if exp > 1023:
             self.cu_flags[0] += 2
+            self._check_sign(sign)
             return (sign, ) + INF
         return False
 
@@ -67,6 +75,7 @@ class FloatAritmethicUnit:
         if exp < -1022:
             self.flags[0] += 1
             self.cu_flags[0] += 16
+            self._check_sign(sign)
             return (sign, ) + ZERO
         return False
     
@@ -76,7 +85,7 @@ class FloatAritmethicUnit:
 
     def _check_zero(self, op):
         if op[0] == 0 and op[1] == 0:
-            self.cu_flags += 16
+            self.cu_flags[0] += 16
     
     def _raise_inex(self):
         self.flags[0] += 4
@@ -334,7 +343,7 @@ class FloatAritmethicUnit:
             return
 
         self._check_sign(sign)
-        self._check_zero((exp, mant))
+        self._check_zero((exp, mant, sign))
 
         self.fp_acm[:] = self._pack(sign, exp, mant)
     
@@ -458,6 +467,55 @@ class FloatAritmethicUnit:
         self._check_sign(signo_resultado)
         self._check_zero((nuevo_expo, mantisa_final))
 
+    def fp_i2f(self, op1:bytearray, change_flags:bool=True):
+        integer = int.from_bytes(op1, byteorder='little', signed=True)
+        self.fp_acm[:] = bytearray(struct.pack('<d', integer))
+
+    def fp_f2i(self, op1:bytearray):
+        float_p = struct.unpack('<d', op1)[0]
+        self.fp_acm[:] = int(float_p).to_bytes(8, byteorder='little', signed=True)
+
+    def fp_f2i(self, op1:bytearray):
+        float_p = struct.unpack('<d', op1)[0]
+        self.fp_acm[:] = int(float_p).to_bytes(8, byteorder='little', signed=True)
+
+    def _check_op_sqrt(self, unp):
+        if unp[1:] == ZERO:
+            self.cu_flags[0] += 16
+            return (unp[0],) + ZERO
+        if unp[0] == 1:
+            self.flags[0] += 4
+            return NAN
+        self._check_nan(unp)
+        if unp[1:] == INF:
+            return (1,) + INF
+        return False
+        
+    def fp_sqrt(self, op1:bytearray):
+        unp = self._unpack(op1)
+        sign, exp, mant = unp
+        # Check op
+        result = self._check_op_sqrt(unp)
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
+        
+        #Si no hay caso especial
+        m_full = (1 << 52) | mant
+        # Ajustar si exponente es impar
+        if exp % 2 != 0:
+            m_full *= 2
+            exp -= 1
+        exp = exp//2
+        
+        sqrt_m = int((m_full << 52)**0.5)
+
+        # reconstruir mantisa
+        mant = sqrt_m & ((1 << 52) - 1)
+
+        self.fp_acm[:] = self._pack(sign, exp, mant)
+        
+        
 
 
 if __name__ == "__main__":
@@ -465,15 +523,24 @@ if __name__ == "__main__":
     fp_flags = bytearray(1)
     acm = bytearray(8)
     objeto = FloatAritmethicUnit(acm, fp_flags, cu_flags)
-    import struct
 
-    a = 0.0
-    b = -7.0
+    a = 5
+    b = 7.0
+    c = -1
+    d = -3.03
 
     op1 = bytearray(struct.pack('<d', a))
     op2 = bytearray(struct.pack('<d', b))
+    op3 = bytearray((c).to_bytes(8, byteorder='little', signed=True))
+    op4 = bytearray(struct.pack('<d', d))
 
-    objeto.fp_div(op1, op2)
+    objeto.fp_sqrt(op1)
+    # objeto.fp_i2f(op3)
+    # objeto.fp_f2i(op4)
+    # print("Conversión i2f:", struct.unpack('<d', op3)[0])
+    # print("Conversión f2i:", int.from_bytes(op4, 'little', signed=True))
     print("Acum:", struct.unpack('<d', acm)[0])
     print("FP Flags:", bin(int.from_bytes(objeto.flags, 'little', signed=False))[2:])
     print("CU Flags:", bin(int.from_bytes(objeto.cu_flags, 'little', signed=False))[2:])
+    # - Inex - InvOp - Underflow
+    # - DZ - Z - S - C - V - I

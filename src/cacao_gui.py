@@ -10,6 +10,7 @@ Cambios respecto a la versión anterior:
   - self.loader_panel disponible como atributo público
   - Importa CacaoConsole desde cacao_console.py  →  self.console
 """
+# TODO: Refactorizar cacao_gui.py y añadir FAU flags.
 
 import tkinter as tk
 from tkinter import messagebox
@@ -58,22 +59,6 @@ FM_TITLE = ("Courier New", 20, "bold")
 FM_LABEL = ("Courier New", 10)
 FM_BTN   = ("Courier New", 11, "bold")
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  MOCK (sin cacao_core.py)
-# ══════════════════════════════════════════════════════════════════════════════
-class _MockCU:
-    def get_registers(self):
-        d = {f"r{i}": i * 256 for i in range(13)}
-        d.update({"sp": 0x000FFFFF, "lr": 0, "acc": 42,
-                  "pc": 0x00001000, "ir": 0xDEADBEEFCAFEBABE,
-                  "mar": 0x1000, "mdr": 0, "fr": 0b00000101, "dp": 0})
-        return d
-
-class _MockCore:
-    def __init__(self):  self.processor = _MockCU()
-    def boot(self, a):   pass
-    def run_full(self):  pass
-    def run_step(self):  pass
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELPERS UI
@@ -103,7 +88,7 @@ class CacaoCoreGUI(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self._core = CacaoCore64() if CacaoCore64 else _MockCore()
+        self._core = CacaoCore64()
         self._fmt  = tk.StringVar(value="hex")
         self._reg_labels   = {}
         self._flag_widgets = {}
@@ -131,6 +116,8 @@ class CacaoCoreGUI(tk.Tk):
             print(f"Backend: {BACKEND}")
             if not CONSOLE_OK:
                 print("cacao_console.py no encontrado — usando consola minima")
+        
+        self._core.processor.io_controller.console = self.console
 
     # ─────────────────────────────────────────────────────────────────────
     #  HEADER
@@ -611,35 +598,35 @@ class CacaoCoreGUI(tk.Tk):
             messagebox.showerror("Error de BOOT", str(e))
 
     def _do_run_full(self):
-        try:
-            self._core.run_full()
-            self._refresh_registers()
-            msg = "RUN FULL completado  ·  procesador detenido (HLT)"
-            self._set_status(msg, ACCENT2)
-            if self.console:
-                self.console.write_ok(msg)
-        except Exception as e:
-            self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
-            if self.console:
-                self.console.write_error(f"ERROR en RUN FULL: {e}")
-            messagebox.showerror("Error FULL", str(e))
+        # try:
+        self._core.run_full()
+        self._refresh_registers()
+        msg = "RUN FULL completado  ·  procesador detenido (HLT)"
+        self._set_status(msg, ACCENT2)
+        if self.console:
+            self.console.write_ok(msg)
+        # except Exception as e:
+        #     self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
+        #     if self.console:
+        #         self.console.write_error(f"ERROR en RUN FULL: {e}")
+        #     messagebox.showerror("Error FULL", str(e))
 
     def _do_run_step(self):
-        try:
-            self._core.run_step()
-            self._refresh_registers()
-            msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
-            self._set_status(msg, ACCENT5)
-            if self.console:
-                regs = self._core.processor.get_registers()
-                self.console.write_info(msg)
-                self.console.write_hex("PC", regs.get("pc", 0), bits=64)
-                self.console.write_hex("IR", regs.get("ir", 0), bits=64)
-        except Exception as e:
-            self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
-            if self.console:
-                self.console.write_error(f"ERROR en RUN STEP: {e}")
-            messagebox.showerror("Error EN STEP", str(e))
+        # try:
+        self._core.run_step()
+        self._refresh_registers()
+        msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
+        self._set_status(msg, ACCENT5)
+        if self.console:
+            regs = self._core.processor.get_registers()
+            self.console.write_info(msg)
+            self.console.write_hex("PC", regs.get("pc", 0), bits=64)
+            self.console.write_hex("IR", regs.get("ir", 0), bits=64)
+        # except Exception as e:
+        #     self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
+        #     if self.console:
+        #         self.console.write_error(f"ERROR en RUN STEP: {e}")
+        #     messagebox.showerror("Error EN STEP", str(e))
 
     # ─────────────────────────────────────────────────────────────────────
     #  RAM EDITOR (ventana independiente)
@@ -728,5 +715,4 @@ class CacaoCoreGUI(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     app = CacaoCoreGUI()
-    app._core.processor.io_controller.console = app.console
     app.mainloop()

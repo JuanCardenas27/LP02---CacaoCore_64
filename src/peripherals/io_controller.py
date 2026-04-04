@@ -1,3 +1,4 @@
+import struct
 from memoria.ram import ram
 
 # Códigos de acción
@@ -32,7 +33,8 @@ class IOController:
             return
 
         data = ram.read(addr, length) # TODO: Agregar formato.
-        self.console.write_ok(int.from_bytes(data, byteorder="little", signed=False))
+        self.console.write_ok(struct.unpack('<d', data)[0])
+        # self.console.write_ok((int.from_bytes(data, byteorder="little", signed=False)))
 
 
 # ------------------------------------------------------------------
