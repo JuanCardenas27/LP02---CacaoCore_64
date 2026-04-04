@@ -2,6 +2,7 @@ from os import path
 from processor.control_unit import ControlUnit
 from memoria.ram import VECTOR_TABLE, SUBROUTINES, ram
 from loader.cacao_loader import loader
+from compiler import compiler
 
 BASE_PATH = path.dirname(path.abspath(__file__))
 VECTOR_PATH = path.join(BASE_PATH, "memoria", "system_rom", "rom_vectors.txt")
@@ -15,6 +16,7 @@ class CacaoCore64:
         self.loader.read_and_load(VECTOR_PATH, VECTOR_TABLE, "hex")
         self.loader.read_and_load(ROUTINE_PATH, SUBROUTINES, "hex")
         self.processor = ControlUnit()
+        self.compiler = compiler
 
     def boot(self, start_address):
         self.processor.boot(start_address)
@@ -24,6 +26,15 @@ class CacaoCore64:
 
     def run_step(self):
         self.processor.run_step()
+    
+    def compile(self, file_addr, file_len):
+        file = self.ram_memory.read(file_addr, file_len)
+        print("file:  ", file)
+        data = file.replace(b'\x00', b'')
+        code = data.decode('utf-8')
+        print("code: ", code)
+        return self.compiler.compile(code)
+
 
 if __name__=="__main__":
     compu = CacaoCore64()
