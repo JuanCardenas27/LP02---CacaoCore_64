@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import messagebox
 import sys, os
 from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
+from enlazador_cargador.loader_txt import loader_txt
 
 # ── Backend del procesador ────────────────────────────────────────────────────
 try:
@@ -672,7 +673,7 @@ class CacaoCoreGUI(tk.Tk):
                 self.geometry("1260x820")
                 self.minsize(1100, 700)
                 self.configure(bg=mod.BG_DARK)
-                self.loader_mod = loader
+                self.loader_mod = loader_txt
                 self.resizable(True, True)
                 self.addr_var      = tk.StringVar(self, value="00001000")
                 self.data_mode     = tk.StringVar(self, value="hex")
