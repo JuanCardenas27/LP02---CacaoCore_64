@@ -1,0 +1,495 @@
+
+; lib_vectores.txt — Librería de Vectores (Listas)
+; Cacao Core 64 — Tarea 29
+
+; Formato: 8 bytes por instrucción, little-endian, relleno FF
+; Se carga en RAM a partir de 0x00001000 (CODE_START)
+;
+; CONVENCIÓN DE REGISTROS:
+;   r0  = dirección base del vector
+;   r1  = longitud del vector (número de elementos)
+;   r2  = índice / argumento general
+;   r3  = valor a escribir / resultado temporal
+;   r4  = dirección calculada (base + índice*8)
+;   r5  = valor de retorno / resultado
+;   r13 = SP (stack pointer, gestionado automáticamente)
+;   r14 = LR (link register / dirección de retorno)
+;   r15 = ACC (acumulador, resultado ALU)
+;
+; MAPA DE SUBRUTINAS (offsets desde CODE_START = 0x00001000):
+;   VECTORES:
+;   0x00001000  vec_init        — inicializar vector con ceros
+;   0x00001080  vec_set         — escribir elemento en índice i
+;   0x000010C0  vec_get         — leer elemento en índice i
+;   0x00001100  vec_len         — retornar longitud
+;   0x00001140  vec_sum         — sumar todos los elementos
+;   0x000011C0  vec_max         — encontrar el máximo
+;   0x00001248  vec_min         — encontrar el mínimo
+;   0x000012D0  vec_copy        — copiar vector src -> dst
+;   0x00001348  vec_swap_elem   — intercambiar dos elementos
+;   MATRICES (almacenamiento lineal):
+;   0x000013E0  matrix_get_linear      — leer mat[row][col]
+;   0x00001428  matrix_set_linear      — escribir mat[row][col]
+;   0x00001478  matrix_sum_row         — sumar una fila
+;   0x000014F8  matrix_find_max        — encontrar máximo de matriz
+;   0x00001578  matrix_sum_all         — sumar todos los elementos
+; ============================================================
+
+
+; ============================================================
+; vec_init(r0=base, r1=len)
+; Inicializa len elementos a 0 a partir de dirección base
+; ============================================================
+
+; 0x00001000: mov r4, r0   (r4 = base)
+40 30 F0 FF FF FF FF FF
+; 0x00001008: mov r3, 0    (r3 = 0, valor inicial)
+00 00 13 03 FF FF FF FF
+; 0x00001010: mov r2, 0    (r2 = contador i = 0)
+00 00 12 03 FF FF FF FF
+; --- loop_init: ---
+; 0x00001018: cmp r2, r1   (i < len ?)
+21 B0 60 FF FF FF FF FF
+; 0x00001020: jge .end_init (si i >= len, saltar al ret)
+48 10 00 00 92 FF FF FF
+; 0x00001028: stored_mr r4, r3  (mem[r4] = 0)
+43 3C F0 FF FF FF FF FF
+; 0x00001030: add r4, 8    (r4 += 8, siguiente elemento)
+08 00 14 09 F0 FF FF FF
+; 0x00001038: inc r2       (i++)
+02 22 FF FF FF FF FF FF
+; 0x00001040: jmp .loop_init
+18 10 00 00 52 FF FF FF
+; --- end_init: ---
+; 0x00001048: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001050 – 0x00001078, 6 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_set(r0=base, r2=index, r3=valor)
+; Escribe valor en vector[index]
+; r4 = base + index * 8
+; ============================================================
+
+; 0x00001080: mov r4, r2   (r4 = index)
+42 30 F0 FF FF FF FF FF
+; 0x00001088: mul r4, 8    (r4 = index * 8)
+08 00 14 0B F3 FF FF FF
+; 0x00001090: add r4, r0   (r4 = base + index*8)
+40 40 00 FF FF FF FF FF
+; 0x00001098: stored_mr r4, r3
+43 3C F0 FF FF FF FF FF
+; 0x000010A0: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x000010A8 – 0x000010B8, 3 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_get(r0=base, r2=index) -> r5=valor
+; Lee vector[index] y lo deja en r5
+; ============================================================
+
+; 0x000010C0: mov r4, r2
+42 30 F0 FF FF FF FF FF
+; 0x000010C8: mul r4, 8
+08 00 14 0B F3 FF FF FF
+; 0x000010D0: add r4, r0
+40 40 00 FF FF FF FF FF
+; 0x000010D8: loadd_rm r5, r4  (r5 = mem[base + i*8])
+54 33 F0 FF FF FF FF FF
+; 0x000010E0: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x000010E8 – 0x000010F8, 3 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_len(r1=len) -> r5=len
+; Retorna la longitud del vector
+; ============================================================
+
+; 0x00001100: mov r5, r1
+51 30 F0 FF FF FF FF FF
+; 0x00001108: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001110 – 0x00001138, 6 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_sum(r0=base, r1=len) -> r5=suma
+; Suma todos los elementos del vector
+; ============================================================
+
+; 0x00001140: mov r5, 0    (suma = 0)
+00 00 15 03 FF FF FF FF
+; 0x00001148: mov r2, 0    (i = 0)
+00 00 12 03 FF FF FF FF
+; 0x00001150: mov r4, r0   (r4 = base)
+40 30 F0 FF FF FF FF FF
+; --- loop_sum: ---
+; 0x00001158: cmp r2, r1
+21 B0 60 FF FF FF FF FF
+; 0x00001160: jge .end_sum
+90 11 00 00 92 FF FF FF
+; 0x00001168: loadd_rm r3, r4
+34 33 F0 FF FF FF FF FF
+; 0x00001170: add r5, r3   (suma += vec[i])
+53 40 00 FF FF FF FF FF
+; 0x00001178: add r4, 8
+08 00 14 09 F0 FF FF FF
+; 0x00001180: inc r2
+02 22 FF FF FF FF FF FF
+; 0x00001188: jmp .loop_sum
+58 11 00 00 52 FF FF FF
+; --- end_sum: ---
+; 0x00001190: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001198 – 0x000011B8, 5 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_max(r0=base, r1=len) -> r5=máximo
+; Encuentra el máximo del vector
+; ============================================================
+
+; 0x000011C0: loadd_rm r5, r0   (r5 = vec[0], máximo inicial)
+50 33 F0 FF FF FF FF FF
+; 0x000011C8: mov r2, 1    (i = 1)
+01 00 12 03 FF FF FF FF
+; 0x000011D0: mov r4, r0
+40 30 F0 FF FF FF FF FF
+; 0x000011D8: add r4, 8    (r4 apunta a vec[1])
+08 00 14 09 F0 FF FF FF
+; --- loop_max: ---
+; 0x000011E0: cmp r2, r1
+21 B0 60 FF FF FF FF FF
+; 0x000011E8: jge .end_max (si i >= len, saltar al ret)
+28 12 00 00 92 FF FF FF
+; 0x000011F0: loadd_rm r3, r4
+34 33 F0 FF FF FF FF FF
+; 0x000011F8: cmp r3, r5
+35 B0 60 FF FF FF FF FF
+; 0x00001200: jle .no_update_max (si vec[i] <= max, no actualizar)
+10 12 00 00 96 FF FF FF
+; 0x00001208: mov r5, r3   (max = vec[i])
+53 30 F0 FF FF FF FF FF
+; --- no_update_max: ---
+; 0x00001210: add r4, 8
+08 00 14 09 F0 FF FF FF
+; 0x00001218: inc r2
+02 22 FF FF FF FF FF FF
+; 0x00001220: jmp .loop_max
+E0 11 00 00 52 FF FF FF
+; --- end_max: ---
+; 0x00001228: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001228 – 0x00001238, 3 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_min(r0=base, r1=len) -> r5=mínimo
+; Encuentra el mínimo del vector
+; ============================================================
+
+; 0x00001248: loadd_rm r5, r0   (r5 = vec[0], mínimo inicial)
+50 33 F0 FF FF FF FF FF
+; 0x00001250: mov r2, 1    (i = 1)
+01 00 12 03 FF FF FF FF
+; 0x00001258: mov r4, r0
+40 30 F0 FF FF FF FF FF
+; 0x00001260: add r4, 8    (r4 apunta a vec[1])
+08 00 14 09 F0 FF FF FF
+; --- loop_min: ---
+; 0x00001268: cmp r2, r1
+21 B0 60 FF FF FF FF FF
+; 0x00001270: jge .end_min (si i >= len, saltar al ret)
+B0 12 00 00 92 FF FF FF
+; 0x00001278: loadd_rm r3, r4
+34 33 F0 FF FF FF FF FF
+; 0x00001280: cmp r3, r5
+35 B0 60 FF FF FF FF FF
+; 0x00001288: jge .no_update_min (si vec[i] >= min, no actualizar)
+98 12 00 00 92 FF FF FF
+; 0x00001290: mov r5, r3   (min = vec[i])
+53 30 F0 FF FF FF FF FF
+; --- no_update_min: ---
+; 0x00001298: add r4, 8
+08 00 14 09 F0 FF FF FF
+; 0x000012A0: inc r2
+02 22 FF FF FF FF FF FF
+; 0x000012A8: jmp .loop_min
+68 12 00 00 52 FF FF FF
+; --- end_min: ---
+; 0x000012B0: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x000012A8 – 0x000012B8, 3 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_copy(r0=src_base, r1=len, r6=dst_base)
+; Copia src -> dst elemento a elemento
+; ============================================================
+
+; 0x000012D0: mov r4, r0   (r4 = src ptr)
+40 30 F0 FF FF FF FF FF
+; 0x000012D8: mov r7, r6   (r7 = dst ptr)
+76 30 F0 FF FF FF FF FF
+; 0x000012E0: mov r2, 0    (i = 0)
+00 00 12 03 FF FF FF FF
+; --- loop_copy: ---
+; 0x000012E8: cmp r2, r1
+21 B0 60 FF FF FF FF FF
+; 0x000012F0: jge .end_copy
+28 13 00 00 92 FF FF FF
+; 0x000012F8: loadd_rm r3, r4   (r3 = src[i])
+34 33 F0 FF FF FF FF FF
+; 0x00001300: stored_mr r7, r3  (dst[i] = r3)
+73 3C F0 FF FF FF FF FF
+; 0x00001308: add r4, 8
+08 00 14 09 F0 FF FF FF
+; 0x00001310: add r7, 8
+08 00 17 09 F0 FF FF FF
+; 0x00001318: inc r2
+02 22 FF FF FF FF FF FF
+; 0x00001320: jmp .loop_copy
+E8 12 00 00 52 FF FF FF
+; --- end_copy: ---
+; 0x00001328: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001320 – 0x00001338, 3 instrucciones)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; vec_swap_elem(r0=base, r2=i, r3=j)
+; Intercambia los elementos en posición i y j
+; ============================================================
+
+; 0x00001348: mov r4, r2    (r4 = i)
+42 30 F0 FF FF FF FF FF
+; 0x00001350: mul r4, 8     (r4 = i*8)
+08 00 14 0B F3 FF FF FF
+; 0x00001358: add r4, r0    (r4 = &vec[i])
+40 40 00 FF FF FF FF FF
+; 0x00001360: mov r8, r3    (r8 = j)
+83 30 F0 FF FF FF FF FF
+; 0x00001368: mul r8, 8     (r8 = j*8)
+08 00 18 0B F3 FF FF FF
+; 0x00001370: add r8, r0    (r8 = &vec[j])
+80 40 00 FF FF FF FF FF
+; 0x00001378: loadd_rm r9, r4   (r9 = vec[i])
+94 33 F0 FF FF FF FF FF
+; 0x00001380: loadd_rm r10, r8  (r10 = vec[j])
+A8 33 F0 FF FF FF FF FF
+; 0x00001388: stored_mr r4, r10 (vec[i] = vec[j])
+4A 3C F0 FF FF FF FF FF
+; 0x00001390: stored_mr r8, r9  (vec[j] = vec[i_original])
+89 3C F0 FF FF FF FF FF
+; 0x00001398: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001398 alineamiento)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; matrix_get_linear(r0=base, r1=cols, r2=row, r3=col) -> r5=valor
+; Lee mat[row][col] = mem[base + (row*cols+col)*8]
+; r4 = dirección calculada
+; ============================================================
+
+; 0x000013E0: mov r4, r2        (r4 = row)
+42 30 F0 FF FF FF FF FF
+; 0x000013E8: mul r4, r1        (r4 = row * cols)
+41 60 30 FF FF FF FF FF
+; 0x000013F0: add r4, r3        (r4 = row*cols + col)
+43 40 00 FF FF FF FF FF
+; 0x000013F8: mul r4, 8         (r4 = index * 8)
+08 00 14 0B F3 FF FF FF
+; 0x00001400: add r4, r0        (r4 = base + offset)
+40 40 00 FF FF FF FF FF
+; 0x00001408: loadd_rm r5, r4   (r5 = mat[row][col])
+54 33 F0 FF FF FF FF FF
+; 0x00001410: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x000013D0 – 0x000013D8)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; matrix_set_linear(r0=base, r1=cols, r2=row, r3=col, r4=value)
+; Escribe mat[row][col] = value
+; ============================================================
+
+; 0x00001428: mov r8, r2        (r8 = row)
+82 30 F0 FF FF FF FF FF
+; 0x00001430: mul r8, r1        (r8 = row * cols)
+81 60 30 FF FF FF FF FF
+; 0x00001438: add r8, r3        (r8 = row*cols + col)
+83 40 00 FF FF FF FF FF
+; 0x00001440: mul r8, 8         (r8 = index * 8)
+08 00 18 0B F3 FF FF FF
+; 0x00001448: add r8, r0        (r8 = base + offset)
+80 40 00 FF FF FF FF FF
+; 0x00001450: stored_mr r8, r4  (mat[row][col] = value)
+84 3C F0 FF FF FF FF FF
+; 0x00001458: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001418 – 0x00001420)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; matrix_sum_row(r0=base, r1=cols, r2=row) -> r5=suma
+; Suma todos los elementos de la fila row
+; Cálculo de dirección inicial: base + row*cols*8
+; ============================================================
+
+; 0x00001478: mov r4, r2        (r4 = row)
+42 30 F0 FF FF FF FF FF
+; 0x00001480: mul r4, r1        (r4 = row * cols)
+41 60 30 FF FF FF FF FF
+; 0x00001488: mul r4, 8         (r4 = offset en bytes)
+08 00 14 0B F3 FF FF FF
+; 0x00001490: add r4, r0        (r4 = puntero a inicio de fila)
+40 40 00 FF FF FF FF FF
+; 0x00001498: mov r5, 0         (suma = 0)
+00 00 15 03 FF FF FF FF
+; 0x000014A0: mov r2, 0         (i = 0, iterador)
+00 00 12 03 FF FF FF FF
+; --- loop_sum_row: ---
+; 0x000014A8: cmp r2, r1        (i < cols?)
+21 B0 60 FF FF FF FF FF
+; 0x000014B0: jge .end_sum_row  (si i >= cols, saltar)
+E0 14 00 00 92 FF FF FF
+; 0x000014B8: loadd_rm r3, r4   (r3 = mat[row][i])
+34 33 F0 FF FF FF FF FF
+; 0x000014C0: add r5, r3        (suma += elemento)
+53 40 00 FF FF FF FF FF
+; 0x000014C8: add r4, 8         (siguiente elemento)
+08 00 14 09 F0 FF FF FF
+; 0x000014D0: inc r2             (i++)
+02 22 FF FF FF FF FF FF
+; 0x000014D8: jmp .loop_sum_row
+A8 14 00 00 52 FF FF FF
+; --- end_sum_row: ---
+; 0x000014E0: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001498 – 0x000014A0)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; matrix_find_max(r0=base, r1=total_elements) -> r5=máximo
+; Encuentra el máximo elemento en la matriz (almacenada linealmente)
+; r1 = número total de elementos
+; ============================================================
+
+; 0x000014F8: loadd_rm r5, r0   (r5 = mat[0], máximo inicial)
+50 33 F0 FF FF FF FF FF
+; 0x00001500: mov r2, 1         (i = 1)
+01 00 12 03 FF FF FF FF
+; 0x00001508: mov r4, r0        (r4 = base)
+40 30 F0 FF FF FF FF FF
+; 0x00001510: add r4, 8         (r4 apunta a mat[1])
+08 00 14 09 F0 FF FF FF
+; --- loop_find_max: ---
+; 0x00001518: cmp r2, r1        (i < total?)
+21 B0 60 FF FF FF FF FF
+; 0x00001520: jge .end_find_max (si i >= total, saltar)
+58 15 00 00 92 FF FF FF
+; 0x00001528: loadd_rm r3, r4   (r3 = mat[i])
+34 33 F0 FF FF FF FF FF
+; 0x00001530: jle .no_update_max2 (si mat[i] <= max, no actualizar)
+40 15 00 00 96 FF FF FF
+; 0x00001538: mov r5, r3        (max = mat[i])
+53 30 F0 FF FF FF FF FF
+; --- no_update_max2: ---
+; 0x00001540: add r4, 8         (siguiente elemento)
+08 00 14 09 F0 FF FF FF
+; 0x00001548: inc r2             (i++)
+02 22 FF FF FF FF FF FF
+; 0x00001550: jmp .loop_find_max
+18 15 00 00 52 FF FF FF
+; --- end_find_max: ---
+; 0x00001558: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP  (0x00001510 – 0x00001520)
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+F0 FF FF FF FF FF FF FF
+
+
+; ============================================================
+; matrix_sum_all(r0=base, r1=total_elements) -> r5=suma
+; Suma todos los elementos de la matriz (almacenada linealmente)
+; r1 = número total de elementos
+; ============================================================
+
+; 0x00001578: mov r5, 0         (suma = 0)
+00 00 15 03 FF FF FF FF
+; 0x00001580: mov r2, 0         (i = 0)
+00 00 12 03 FF FF FF FF
+; 0x00001588: mov r4, r0        (r4 = base)
+40 30 F0 FF FF FF FF FF
+; --- loop_sum_all: ---
+; 0x00001590: cmp r2, r1        (i < total?)
+21 B0 60 FF FF FF FF FF
+; 0x00001598: jge .end_sum_all  (si i >= total, saltar)
+C8 15 00 00 92 FF FF FF
+; 0x000015A0: loadd_rm r3, r4   (r3 = mat[i])
+34 33 F0 FF FF FF FF FF
+; 0x000015A8: add r5, r3        (suma += elemento)
+53 40 00 FF FF FF FF FF
+; 0x000015B0: add r4, 8         (siguiente elemento)
+08 00 14 09 F0 FF FF FF
+; 0x000015B8: inc r2             (i++)
+02 22 FF FF FF FF FF FF
+; 0x000015C0: jmp .loop_sum_all
+90 15 00 00 52 FF FF FF
+; --- end_sum_all: ---
+; 0x000015C8: ret
+F2 FF FF FF FF FF FF FF
+; relleno NOP
+F0 FF FF FF FF FF FF FF

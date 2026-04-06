@@ -287,7 +287,8 @@ class MicroinstructionMixin:
             Dirección de la subrutina.
         """
         self._registers[14][:] = self._pc[:]
-        self.push(op1)
+        # Guarda la dirección de retorno en la pila para que RET vuelva al sitio correcto.
+        self.push(self._registers[14])
         self.jmp(op1)
     
     def ret(self):
