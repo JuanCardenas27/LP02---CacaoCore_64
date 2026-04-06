@@ -494,7 +494,9 @@ class FloatAritmethicUnit:
     def fp_sqrt(self, op1:bytearray):
         unp = self._unpack(op1)
         sign, exp, mant = unp
-        # Check op
+
+        #Check Operands
+        self._reset_flags()
         result = self._check_op_sqrt(unp)
         if result:
             self.fp_acm[:] = self._pack(*result)
@@ -509,9 +511,16 @@ class FloatAritmethicUnit:
         exp = exp//2
         
         sqrt_m = int((m_full << 52)**0.5)
+        self._raise_inex()
 
         # reconstruir mantisa
         mant = sqrt_m & ((1 << 52) - 1)
+
+        #Check Underflow
+        result = self._check_underflow(sign, exp)
+        if result:
+            self.fp_acm[:] = self._pack(*result)
+            return
 
         self.fp_acm[:] = self._pack(sign, exp, mant)
         
