@@ -56,6 +56,11 @@ class AnalizadorLexico:
         'COLON',      # :
         'COMMA',      # ,
         'DOT',        # .
+
+        # Paradigma Orientado a Objetos
+        'MOLD',       # class - definición de TDA
+        'OHMY',       # self  - referencia al objeto actual
+        'SUMMON',     # new   - creación explícita
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -78,6 +83,9 @@ class AnalizadorLexico:
         'indeed':    'INDEED',
         'nope':      'NOPE',
         'nothing':   'NOTHING',
+        'mold':      'MOLD',
+        'ohmy':      'OHMY',
+        'summon':    'SUMMON',
     }
 
     t_EQ       = r'=='
@@ -132,7 +140,7 @@ class AnalizadorLexico:
         if t.type == 'ID':
             if t.value not in self.symbol_table:
                 self.symbol_table[t.value] = {
-                    'kind':  None, # Para el futuro, me lo dio Claude, indica su rol (si es variable, funcion, parametro, etc)
+                    'kind':  None, # Para el futuro, podría ser útil, indica su rol (si es variable, funcion, parametro, etc)
                     'type':  None, # Para el futuro, indica el tipo de dato (para variables unicamente) (int, float, str, bool)
                     'value': None, # Para el futuro, indica el valor inicial asignado (para variable unicamente)
                     'scope': None, # Para el futuro, indica el alcance de una definición (si es global o de una función)
