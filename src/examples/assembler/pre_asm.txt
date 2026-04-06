@@ -1,0 +1,16 @@
+.data
+    pi:    3.14159
+    e:     52
+    cero:  0
+.text
+    inicio:
+        #coment
+        jmp fin
+        MOVH R1, 10
+        MOVH 0x00040000, R1
+        MOVH R4, [R9]
+        ADD R0, R10
+        JZ fin
+        movb R2, R0
+    fin:
+        hlt
