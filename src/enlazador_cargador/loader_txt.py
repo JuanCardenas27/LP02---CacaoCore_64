@@ -1,33 +1,32 @@
 """
-CACAO_Core-64 — Cargador de Programas
-======================================
-Adaptador que mantiene compatibilidad con los archivos .txt antiguos
-pero usa internamente el nuevo sistema de enlazador-cargador.
+Cargador de Archivos de Texto (.txt)
+====================================
+Compatible con el formato antiguo (hex/bin/dec) pero usa internamente
+el nuevo sistema de enlazador-cargador.
 
 Funcionalidad:
-  - Lee archivos .txt en formato hexadecimal
+  - Lee archivos .txt en formato hexadecimal, binario o decimal
   - Convierte internamente a módulos objeto
   - Usa el nuevo cargador para cargar a memoria
   - Mantiene la misma API pública
 
 Ejemplo:
-  from loader.cacao_loader import loader
-  loader.read_and_load('examples/Short_example.txt', 0x1000, 'hex')
+  from enlazador_cargador.loader_txt import loader_txt
+  loader_txt.read_and_load('examples/Short_example.txt', 0x1000, 'hex')
 """
 
 import re
 from typing import List, Optional
-from tkinter import messagebox
 from memoria.ram import ram
-from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
+from .gestor_enlazador_cargador import GestorEnlazadorCargador
 
 
-class Loader:
+class LoaderTxt:
     """
-    Cargador compatible con la API antigua pero implementado con el nuevo sistema.
+    Cargador de archivos .txt compatible con la API antigua.
     
-    Convierte archivos .txt a módulos objeto y los carga usando el nuevo
-    gestor de enlazador-cargador.
+    Mantiene la interfaz original pero usa internamente el nuevo sistema
+    de enlazador-cargador.
     """
 
     def __init__(self):
@@ -36,9 +35,6 @@ class Loader:
     def load_to_ram(self, lines: List[str], base_addr: int, mode: str) -> None:
         """
         Carga líneas de código a memoria RAM.
-        
-        Antes (versión antigua): Procesaba líneas directamente y escribía a RAM
-        Ahora (versión nueva): Convierte a módulo objeto y usa el nuevo cargador
         
         Para direcciones de sistema (< 0x1000), carga directamente en RAM.
         Para direcciones de usuario (>= 0x1000), usa el nuevo cargador.
@@ -49,18 +45,14 @@ class Loader:
             mode: Formato ('hex', 'bin' o 'dec')
         
         Raises:
-            messagebox.showerror: Si hay error en el formato
+            RuntimeError: Si hay error en el formato
         """
         try:
             # Parsear líneas a bytes
             parsed_bytes = self._parse_lines(lines, mode)
             
             if not parsed_bytes:
-                messagebox.showerror(
-                    "Error",
-                    "No se encontraron bytes válidos para cargar"
-                )
-                return
+                raise RuntimeError("No se encontraron bytes válidos para cargar")
 
             # Casos especiales: direcciones de sistema (ROM/vectores)
             if base_addr < 0x1000:
@@ -76,16 +68,12 @@ class Loader:
                 )
                 
                 if not exito:
-                    messagebox.showerror(
-                        "Error de carga",
+                    raise RuntimeError(
                         f"Error al cargar: {self.gestor.obtener_ultimo_error()}"
                     )
 
         except Exception as e:
-            messagebox.showerror(
-                "Error inesperado",
-                f"Error al cargar: {e}"
-            )
+            raise RuntimeError(f"Error en cargador: {e}")
 
     def _cargar_directo_en_ram(self, datos: bytearray, base_addr: int) -> None:
         """
@@ -95,8 +83,7 @@ class Loader:
             datos: Bytes a cargar
             base_addr: Dirección base
         """
-        for i, byte in enumerate(datos):
-            ram.write(base_addr + i, byte)
+        ram.write(base_addr, bytes(datos))
 
     def _parse_lines(self, lines: List[str], mode: str) -> bytearray:
         """
@@ -131,49 +118,33 @@ class Loader:
                 try:
                     if mode == "hex":
                         if not re.fullmatch(r"[0-9A-Fa-f]{1,2}", t):
-                            messagebox.showerror(
-                                "Error de formato",
-                                f"Línea {idx+1}: token hex inválido '{t}'"
-                            )
-                            return bytearray()
+                            raise ValueError(f"Token hex inválido: {t}")
                         line_bytes.append(int(t, 16))
 
                     elif mode == "bin":
                         if not re.fullmatch(r"[01]{1,8}", t):
-                            messagebox.showerror(
-                                "Error de formato",
-                                f"Línea {idx+1}: token binario inválido '{t}'"
-                            )
-                            return bytearray()
+                            raise ValueError(f"Token binario inválido: {t}")
                         line_bytes.append(int(t, 2))
 
                     elif mode == "dec":
                         val = int(t)
                         if not (0 <= val <= 255):
-                            raise ValueError
+                            raise ValueError(f"Valor fuera de rango: {val}")
                         line_bytes.append(val)
 
                     else:
-                        messagebox.showerror(
-                            "Error",
-                            f"Modo de lectura inválido: {mode}"
-                        )
-                        return bytearray()
+                        raise ValueError(f"Modo de lectura inválido: {mode}")
 
-                except ValueError:
-                    messagebox.showerror(
-                        "Error de formato",
-                        f"Línea {idx+1}: token '{t}' inválido en modo {mode}"
+                except ValueError as e:
+                    raise ValueError(
+                        f"Línea {idx+1}: token '{t}' inválido en modo {mode} - {e}"
                     )
-                    return bytearray()
 
             # Validar límite de bytes
             if len(line_bytes) > bytes_per_line:
-                messagebox.showerror(
-                    "Error",
+                raise ValueError(
                     f"Línea {idx+1} excede {bytes_per_line} bytes."
                 )
-                return bytearray()
 
             # Rellenar con ceros hasta completar bytes_per_line
             while len(line_bytes) < bytes_per_line:
@@ -186,13 +157,6 @@ class Loader:
     def _crear_modulo_objeto(self, codigo_bytes: bytearray, base_addr: int) -> str:
         """
         Crea un módulo objeto en formato de texto a partir de bytes.
-        
-        Formato:
-            [MODULE nombre]
-            [CODE] ...hex bytes...
-            [DATA]
-            [SYMBOLS] simbolo:tipo:valor
-            [EXTERNAL]
         
         Args:
             codigo_bytes: Bytes del programa
@@ -237,18 +201,10 @@ class Loader:
             return lines
 
         except FileNotFoundError:
-            messagebox.showerror(
-                "Error",
-                f"Archivo no encontrado: {path}"
-            )
-            return None
+            raise FileNotFoundError(f"Archivo no encontrado: {path}")
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Error al leer archivo: {e}"
-            )
-            return None
+            raise RuntimeError(f"Error al leer archivo: {e}")
 
 
 # Instancia global del cargador
-loader = Loader()
+loader_txt = LoaderTxt()
