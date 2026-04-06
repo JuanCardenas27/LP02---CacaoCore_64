@@ -1,2 +1,35 @@
-__pycache__
-*.pyc
+# Documentation
+GUIA_ENLAZADOR_RAPIDA.md
+MANUAL_ENLAZADOR_CARGADOR.md
+
+# Test files
+test_enlazador_cargador.py
+src/test_enlazador_cargador.py
+
+# Example modules
+src/ejemplos_modulos/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PLY generated files
+parser.out
+parsetab.py

@@ -15,7 +15,7 @@ Cambios respecto a la versión anterior:
 import tkinter as tk
 from tkinter import messagebox
 import sys, os
-from loader.cacao_loader import loader
+from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
 
 # ── Backend del procesador ────────────────────────────────────────────────────
 try:
