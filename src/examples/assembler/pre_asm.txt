@@ -4,7 +4,7 @@
     cero:  0
 .text
     inicio:
-        #coment
+        ;coment
         jmp fin
         MOVH R1, 10
         MOVH 0x00040000, R1

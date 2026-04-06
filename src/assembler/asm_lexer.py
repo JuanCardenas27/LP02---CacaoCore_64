@@ -70,7 +70,7 @@ class AsmLexer:
         return t    
     
     def t_COMMENT(self, t):
-        r'\#[^\n]*'
+        r'(\#|\;)[^\n]*'
         pass
     
     def t_error(self, t):
