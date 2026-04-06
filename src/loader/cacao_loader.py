@@ -49,6 +49,9 @@ class Loader:
                 continue
 
             tokens = line.replace(",", " ").split()
+            if len(tokens) == 1 and len(tokens[0]) == 16:
+                tokens = [tokens[0][i]+tokens[0][i+1] for i in range(16) if i % 2 == 0]
+                print(tokens)
             parsed_bytes = []
 
             for t in tokens:
