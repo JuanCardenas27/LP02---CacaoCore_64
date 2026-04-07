@@ -332,7 +332,7 @@ class ControlUnit(MicroinstructionMixin):
         bytes
             Representación en bytes.
         """
-        return ((value << (64 - size)) >> (64-size)).to_bytes(8, byteorder='little', signed=True)
+        return (value & ((1 << size) - 1)).to_bytes(8, byteorder='little', signed=True)
     
     @staticmethod
     def bytes_to_int(b_array, signo=True):

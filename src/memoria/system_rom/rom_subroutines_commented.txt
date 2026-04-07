@@ -1,2 +1,28 @@
--- iret
+# Subrutina 0
+-- movd_mr (buffer+1) C     (0x00000D01)
+1B D0 00 00 80 03 FF FF
+-- movd_mr (buffer+2) A     (0x00000D02)
+2A D0 00 00 80 03 FF FF
+-- lea A (buffer+3)         (0x00000D03)
+03 0D 00 00 2A 15 FF FF
+-- movh_ri 9 0
+00 00 19 01 FF FF FF FF
+-- WHILE: cmp_rr 9 C
+9C B0 60 FF FF FF FF FF
+-- jge_m {END}              (0x00000160)
+60 01 00 00 92 FF FF FF
+-- movd_rn 8 B
+8B 33 F0 FF FF FF FF FF
+-- movd_nr A 8
+A8 3C F0 FF FF FF FF FF
+-- inc_r B
+0B 22 FF FF FF FF FF FF
+-- inc_r A
+0A 22 FF FF FF FF FF FF
+-- inc_r 9
+09 22 FF FF FF FF FF FF
+-- jmp_m {WHILE}            (0x00000120)
+20 01 00 00 52 FF FF FF
+-- END: iret
 F5 FF FF FF FF FF FF FF
+# Subrutina 1

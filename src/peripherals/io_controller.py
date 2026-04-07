@@ -67,8 +67,9 @@ class IOController:
         format_func = self._FORMAT_FUNCS.get(format)
         if not format_func:
             print(f"[Controlador I/O] Formato {format} sin manejador registrado.")
+            return
         
-        data = ram.read(addr + 2, length)
+        data = ram.read(addr + 2, length * 8)
 
         self.console.write_ok(format_func(data))
 
