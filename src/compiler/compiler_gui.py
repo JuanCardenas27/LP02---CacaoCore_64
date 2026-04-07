@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.ttk as ttk
 from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
@@ -22,6 +23,9 @@ class CompilerGui:
         self.compiler_step   = 0
         self._carry_compiler = ""   # texto que viaja de pre-processor → compiler
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
+
+        # Incializa estilos 
+        setup_styles()
 
         self._create_body()
         self._setup_header()
@@ -173,6 +177,32 @@ class CompilerGui:
         return tk.Button(parent, text=text, bg=color, fg=BG_DARK,
                          font=FM_BTN_1, bd=0, padx=18, pady=10,
                          cursor="hand2", command=cmd)
+    
+    def _scrollable_table(self, parent, columns):
+        frame = tk.Frame(parent, bg=BG_INPUT,
+                        highlightbackground=BORDER, highlightthickness=1)
+
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        table = ttk.Treeview(frame, columns=columns, show="headings", style="SymbolTable.Treeview")
+        for col in columns:
+            table.heading(col, text=col)
+            table.column(col, anchor="center", width=100, stretch=True)
+
+        table.grid(row=0, column=0, sticky="nsew")
+
+        # Scroll vertical
+        vsb = tk.Scrollbar(frame, orient="vertical", command=table.yview)
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        # Scroll horizontal
+        hsb = tk.Scrollbar(frame, orient="horizontal", command=table.xview)
+        hsb.grid(row=1, column=0, sticky="ew")
+
+        table.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        return frame, table
 
     # ══════════════════════════════════════════════════════════════════════
     # FASE 0 – PRE-PROCESSOR
@@ -336,7 +366,9 @@ class CompilerGui:
 
         self._section_label(right, "◈  Symbol Table", ACCENT4
                             ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
-        tf_r, self.lex_symbol = self._scrollable_text(right, fg=ACCENT4, state="disabled", font=FM_SM)
+        columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
+        tf_r, self.lex_symbol = self._scrollable_table(right, columns)
+        tf_r.grid(row=1, column=0, sticky="nsew")
         tf_r.grid(row=1, column=0, sticky="nsew")
 
         self._section_label(right, "◈  Errores", ACCENT5
@@ -577,14 +609,27 @@ class CompilerGui:
 
     def _do_lexical(self):
         resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
-        symbol_table = resultado[0]
-        tokens = resultado[1]
+        lex_errors = resultado[0]
+        symbol_table = resultado[1]
+        tokens = resultado[2]
 
         self.lex_tokens.config(state="normal")
         self.lex_tokens.delete("1.0", tk.END)
         for tkn in tokens:
             self.lex_tokens.insert(tk.END, f"{tkn.type}: {tkn.value}\n")
         self.lex_tokens.config(state="disabled")
+
+        for row in self.lex_symbol.get_children():
+            self.lex_symbol.delete(row)
+        for val in symbol_table.values():
+            self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        self.lex_error.config(state="normal")
+        self.lex_error.delete("1.0", tk.END)
+        self.lex_error.update()
+        for err in lex_errors:
+            self.lex_error.insert(tk.END, err+"\n-------------\n")
+        self.lex_error.config(state="disabled")
 
     def _translate_asm(self):
         asm_mod = ASM()

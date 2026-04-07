@@ -6,9 +6,9 @@ class Compiler:
     
     def compile(self, file_content:str):
         # 1. Paso del analisis: Léxico
-        sym_table, tokens = self._lexer.analize(file_content)
+        errors, sym_table, tokens = self._lexer.analize(file_content)
         # TODO: los otros análisis
-        return sym_table, tokens
+        return errors, sym_table, tokens
 
 
 # Instancia global
