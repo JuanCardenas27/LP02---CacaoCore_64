@@ -1,6 +1,6 @@
 # Subrutina 0
 -- movd_mr (buffer+1) C     (0x00000D01)
-1B D0 00 00 80 03 FF FF
+1C D0 00 00 80 03 FF FF
 -- movd_mr (buffer+2) A     (0x00000D02)
 2A D0 00 00 80 03 FF FF
 -- lea A (buffer+3)         (0x00000D03)
