@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
+from compiler import compiler
 
 
 class CompilerGui:
@@ -533,8 +534,19 @@ class CompilerGui:
         """Esta funcion es llamada cuando hacemos el lexico el entry con el texto del lexico es self.lex_input y la salida es self.lex_tokens
         Los metodos de los text son .get("1.0", "end") para tarer todo lo de un text desde la linea 1 caracter 0
         .delete() para borrar el text y el insert para cargarlo, las operaciones son permitidas siempre que su state este normal"""
-        self.lex
-        pass
+        resultado =  compiler.compile(self.lex_input.get("1.0", "end"))
+        symbol_table = resultado[0]
+        tokens = resultado[1]
+        
+        self.lex_tokens.config(state="normal")
+        self.lex_tokens.delete("1.0", tk.END)
+
+        for tkn in tokens:
+            print(tkn)
+            info = f"{tkn.type}: {tkn.value}\n"
+            self.lex_tokens.insert(tk.END, info)
+        
+        self.lex_tokens.config(state="disabled")
 
     def _translate_asm(self):
         asm_mod = ASM()
