@@ -1,13 +1,5 @@
-# Documentation
-GUIA_ENLAZADOR_RAPIDA.md
 MANUAL_ENLAZADOR_CARGADOR.md
 
-# Test files
-test_enlazador_cargador.py
-src/test_enlazador_cargador.py
-
-# Example modules
-src/ejemplos_modulos/
 
 # Python
 __pycache__/
