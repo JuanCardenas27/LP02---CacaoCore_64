@@ -3,7 +3,7 @@ from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
 from compiler import compiler
-
+from loader import loader
 
 class CompilerGui:
     def __init__(self, master):
@@ -493,7 +493,7 @@ class CompilerGui:
             highlightthickness=1, justify="center", width=12
         )
         self.ll_base_addr.grid(row=0, column=1, sticky="ew", padx=(6, 0))
-        self.ll_base_addr.insert(0, "0000")
+        self.ll_base_addr.insert(0, "00001000")
 
         tf_r, self.ll_loaded = self._scrollable_text(right, fg=ACCENT, state="disabled")
         tf_r.grid(row=2, column=0, sticky="nsew")
@@ -511,7 +511,17 @@ class CompilerGui:
 
     def _do_link_load(self):
         """Placeholder – conectar lógica de link & load aquí."""
-        pass
+        base_addr = int("0x" + self.ll_base_addr.get(), 16)
+        reloc_code = self.ll_reloc.get("1.0", "end")
+
+        #TODO Conectar el linker, hacer que devuelva un string con el codigo absoluto
+        linked_code = reloc_code
+
+        lines = []
+        for line in linked_code.split("\n"):
+            lines.append(line)
+
+        loader.load_to_ram(lines, base_addr, "hex")
 
     def _ll_load(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
@@ -568,7 +578,7 @@ class CompilerGui:
     def _do_lexical(self):
         resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
         symbol_table = resultado[0]
-        tokens       = resultado[1]
+        tokens = resultado[1]
 
         self.lex_tokens.config(state="normal")
         self.lex_tokens.delete("1.0", tk.END)
