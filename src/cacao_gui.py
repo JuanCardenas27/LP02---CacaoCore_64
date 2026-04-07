@@ -16,23 +16,16 @@ import tkinter as tk
 from tkinter import messagebox
 import sys, os
 from loader.cacao_loader import loader
+from compiler.compiler_gui import CompilerGui
 
 # ── Backend del procesador ────────────────────────────────────────────────────
-try:
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from cacao_core import CacaoCore64
-    BACKEND = "cacao_core.py OK"
-except ImportError:
-    CacaoCore64 = None
-    BACKEND = "SIMULADO (cacao_core.py no encontrado)"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cacao_core import CacaoCore64
+BACKEND = "cacao_core.py OK"
 
 # ── Consola ───────────────────────────────────────────────────────────────────
-try:
-    from peripherals.cacao_console import CacaoConsole
-    CONSOLE_OK = True
-except ImportError:
-    CacaoConsole = None
-    CONSOLE_OK = False
+from peripherals.cacao_console import CacaoConsole
+CONSOLE_OK = True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -58,6 +51,7 @@ FM_XL    = ("Courier New", 20, "bold")
 FM_TITLE = ("Courier New", 20, "bold")
 FM_LABEL = ("Courier New", 10)
 FM_BTN   = ("Courier New", 11, "bold")
+FM_BTN_CMP   = ("Courier New", 15, "bold")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -364,6 +358,11 @@ class CacaoCoreGUI(tk.Tk):
                            relief="flat", padx=4, pady=3)
             lbl.pack(fill="x")
             self._reg_labels[name] = lbl
+
+        #BOTON a compilacion
+
+        compile_button = tk.Button(master = parent, text="Open Language Processing", bg = ACCENT5, font = FM_BTN_CMP, command=self._open_compiler)
+        compile_button.grid(row=4, column=0, sticky="new")
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA C — row 0: FLAGS
@@ -710,6 +709,9 @@ class CacaoCoreGUI(tk.Tk):
     def _set_status(self, msg, color=ACCENT):
         self._status_var.set(f"  {msg}")
         self._status_lbl.config(fg=color)
+    
+    def _open_compiler(self):
+        compiler = CompilerGui(self)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

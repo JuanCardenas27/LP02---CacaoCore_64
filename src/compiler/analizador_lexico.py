@@ -176,8 +176,7 @@ class AnalizadorLexico:
         self.lexer.input(code)
         tokens = list(self.lexer)
 
-        return tokens, self.symbol_table
-
+        return self.symbol_table, tokens
 
 
 if __name__ == '__main__':
