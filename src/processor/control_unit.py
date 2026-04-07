@@ -23,7 +23,7 @@ Ejemplo de uso:
     cu.run_full_exec()  # Ejecutar programa completo
 """
 
-from memoria.ram import ram, SP_INITIAL
+from memoria.ram import ram, SP_INITIAL, INTR_BUFFER
 from .alu import ALU
 from .float_aritmethic_unit import FloatAritmethicUnit
 from .decoder import Decoder
@@ -91,8 +91,9 @@ class ControlUnit(MicroinstructionMixin):
 
         self.ram = ram
         self.io_controller = io_controller
+        self.io_controller.cu = self
         self.INTR = False
-        self.INTA = False
+        self.io_controller.INTA = False
 
         self._registers =[
             bytearray(8) for _ in range(16)
@@ -245,14 +246,14 @@ class ControlUnit(MicroinstructionMixin):
                 ops[i] = self._registers[int(cod_i, 2)]
 
             elif mode == "i":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True)) # ¿2 u 8 bytes?
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
             
             elif mode == "m":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True)) # ¿Por qué no int?
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
     
 
-            acc = self._registers[15]
-            flgs=self._fr[:]
+            acc = self._registers[15][:]
+            flgs = self._fr[:]
             self.add_ra(self._dp, bytearray((self._mode_length[mode]//4).to_bytes(8, byteorder='little', signed=True)))
             self._fr[:] = flgs
             self._registers[15][:] = acc[:]
@@ -270,12 +271,18 @@ class ControlUnit(MicroinstructionMixin):
         Si hay una interrupción pendiente, guarda el estado del procesador
         en la pila y llama al manejador de interrupciones.
         """
-        if self.INTR == True:
-            self.INTA = True
-            vector = self._mdr
-            self.io_controller.handle_interrupt(vector, [self._registers[11], self._registers[12]])
-            self.iret()
-            self.INTA = False
+        # Interrupciones enmascarables
+        flags = self.bytes_to_int(self._fr, False)
+        if self.INTR and not (flags & 1):
+            self.INTR = False
+
+            buffer_address = bytearray(INTR_BUFFER.to_bytes(8, byteorder='little', signed=False))
+            self._mar[:] = buffer_address
+            self._read_from_ram(1)
+            vector_num = self._mdr
+            self.int(vector_num)
+
+        self.io_controller.handle_interrupt()
 
 
     #################################

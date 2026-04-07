@@ -28,7 +28,30 @@ class Loader:
                 current_addr += step   # líneas vacías avanzan igualmente
                 continue
 
+            if mode == "utf-8":
+                try:
+                    encoded = (line + "\n").encode("utf-8")
+
+                    for i in range(0, len(encoded), bytes_per_line):
+                        chunk = list(encoded[i:i + bytes_per_line])
+
+                        while len(chunk) < bytes_per_line:
+                            chunk.append(0)
+
+                        ram.write(current_addr, bytes(chunk))
+                        current_addr += step
+
+                except Exception as e:
+                    messagebox.showerror(
+                        "Error", f"Línea {idx+1}: error al codificar UTF-8 ({e})")
+                    return
+
+                continue
+
             tokens = line.replace(",", " ").split()
+            if len(tokens) == 1 and len(tokens[0]) == 16:
+                tokens = [tokens[0][i]+tokens[0][i+1] for i in range(16) if i % 2 == 0]
+                print(tokens)
             parsed_bytes = []
 
             for t in tokens:
@@ -66,7 +89,7 @@ class Loader:
                             f"Línea {idx+1}: token decimal inválido '{t}'"
                         )
                         return
-
+                    
                 else: 
                     messagebox.showerror(
                         "Error",

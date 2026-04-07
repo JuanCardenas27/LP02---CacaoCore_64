@@ -1,4 +1,4 @@
-from memoria.ram import VECTOR_TABLE
+from memoria.ram import VECTOR_TABLE, INTR_BUFFER
 HALTED = 0
 
 class MicroinstructionMixin:
@@ -344,29 +344,38 @@ class MicroinstructionMixin:
             self.pop(self._registers[reg])
         self.pop(self._fr)
         self.pop(self._pc)
-
-        self.INTR = False
     
     def int(self, vector_num):
-        """INT - Generar interrupción de software."""
-        self.INTR = True
+        """
+        INT - Generar interrupción de software.
+        - 0: Impresión en consola
+            r10: formato (0=int, 1=float, 2=string)
+            r11: dirección
+            r12: longitud (en bytes)
+        """
+        self.io_controller.INTA = True
 
         self.push(self._pc)
         self.push(self._fr)
         for reg in self._registers:
             self.push(reg)
         
-        vector_address = bytearray(VECTOR_TABLE.to_bytes(8, byteorder='little', signed=True))
-        acc = self._registers[15]
+        vector_address = bytearray(VECTOR_TABLE.to_bytes(8, byteorder='little', signed=False))
+        
+        acc = self._registers[15][:]
+
         self._alu.add(vector_address, vector_num, False)
         self._mar[:] = self._registers[15][:]
         self._read_from_ram()
-        self.mov_ra(acc, self._mdr, 4)
-        self._mar[:] = acc[:]
-        self._read_from_ram(1)
+        subroutine_address = self._mdr[:]
 
         self._registers[15][:] = acc[:]
 
+        self._mdr[:] = vector_num
+        self._mar[:] = bytearray(INTR_BUFFER.to_bytes(8, byteorder='little', signed=False))
+        self._write_to_ram(1)
+
+        self.jmp(subroutine_address)
 
     def nop(self):
         """NOP - Operación nula (sin operación)."""
@@ -375,19 +384,19 @@ class MicroinstructionMixin:
     def ei(self):
         """EI - Habilitar interrupciones.
         
-        Activa el bit de habilitar interrupciones (bit 0 de FR).
+        Desactiva el bit de deshabilitar interrupciones (bit 0 de FR).
         """
         flags = int.from_bytes(self._fr, byteorder='little', signed=False)
-        flags |= 1
+        flags &= ~1
         self._fr[:] = flags.to_bytes(1, byteorder='little', signed=False)
 
     def di(self):
         """DI - Deshabilitar interrupciones.
         
-        Desactiva el bit de habilitar interrupciones (bit 0 de FR).
+        Activa el bit de deshabilitar interrupciones (bit 0 de FR).
         """
         flags = int.from_bytes(self._fr, byteorder='little', signed=False)
-        flags &= ~1
+        flags |= 1
         self._fr[:] = flags.to_bytes(1, byteorder='little', signed=False)
         
     def sext(self):

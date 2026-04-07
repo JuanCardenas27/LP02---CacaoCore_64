@@ -1,0 +1,466 @@
+Created by PLY version 3.11 (http://www.dabeaz.com/ply)
+
+Grammar
+
+Rule 0     S' -> program
+Rule 1     program -> line
+Rule 2     program -> program line
+Rule 3     line -> LABEL COLON NEWLINE
+Rule 4     line -> LABEL COLON FLOAT
+Rule 5     line -> LABEL COLON NUMBER
+Rule 6     line -> SECTION
+Rule 7     line -> instruction NEWLINE
+Rule 8     line -> instruction
+Rule 9     line -> NEWLINE
+Rule 10    instruction -> MNEMONIC REGISTER COMMA REGISTER
+Rule 11    instruction -> MNEMONIC REGISTER COMMA NUMBER
+Rule 12    instruction -> MNEMONIC REGISTER COMMA MEMORY
+Rule 13    instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET
+Rule 14    instruction -> MNEMONIC MEMORY COMMA REGISTER
+Rule 15    instruction -> MNEMONIC MEMORY COMMA NUMBER
+Rule 16    instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER
+Rule 17    instruction -> MNEMONIC MEMORY
+Rule 18    instruction -> MNEMONIC REGISTER
+Rule 19    instruction -> MNEMONIC NUMBER
+Rule 20    instruction -> MNEMONIC LABEL
+Rule 21    instruction -> MNEMONIC
+
+Terminals, with rules where they appear
+
+COLON                : 3 4 5
+COMMA                : 10 11 12 13 14 15 16
+FLOAT                : 4
+LABEL                : 3 4 5 20
+LBRACKET             : 13 16
+MEMORY               : 12 14 15 17
+MNEMONIC             : 10 11 12 13 14 15 16 17 18 19 20 21
+NEWLINE              : 3 7 9
+NUMBER               : 5 11 15 19
+RBRACKET             : 13 16
+REGISTER             : 10 10 11 12 13 13 14 16 16 18
+SECTION              : 6
+error                : 
+
+Nonterminals, with rules where they appear
+
+instruction          : 7 8
+line                 : 1 2
+program              : 2 0
+
+Parsing method: LALR
+
+state 0
+
+    (0) S' -> . program
+    (1) program -> . line
+    (2) program -> . program line
+    (3) line -> . LABEL COLON NEWLINE
+    (4) line -> . LABEL COLON FLOAT
+    (5) line -> . LABEL COLON NUMBER
+    (6) line -> . SECTION
+    (7) line -> . instruction NEWLINE
+    (8) line -> . instruction
+    (9) line -> . NEWLINE
+    (10) instruction -> . MNEMONIC REGISTER COMMA REGISTER
+    (11) instruction -> . MNEMONIC REGISTER COMMA NUMBER
+    (12) instruction -> . MNEMONIC REGISTER COMMA MEMORY
+    (13) instruction -> . MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET
+    (14) instruction -> . MNEMONIC MEMORY COMMA REGISTER
+    (15) instruction -> . MNEMONIC MEMORY COMMA NUMBER
+    (16) instruction -> . MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER
+    (17) instruction -> . MNEMONIC MEMORY
+    (18) instruction -> . MNEMONIC REGISTER
+    (19) instruction -> . MNEMONIC NUMBER
+    (20) instruction -> . MNEMONIC LABEL
+    (21) instruction -> . MNEMONIC
+
+    LABEL           shift and go to state 3
+    SECTION         shift and go to state 5
+    NEWLINE         shift and go to state 4
+    MNEMONIC        shift and go to state 7
+
+    program                        shift and go to state 1
+    line                           shift and go to state 2
+    instruction                    shift and go to state 6
+
+state 1
+
+    (0) S' -> program .
+    (2) program -> program . line
+    (3) line -> . LABEL COLON NEWLINE
+    (4) line -> . LABEL COLON FLOAT
+    (5) line -> . LABEL COLON NUMBER
+    (6) line -> . SECTION
+    (7) line -> . instruction NEWLINE
+    (8) line -> . instruction
+    (9) line -> . NEWLINE
+    (10) instruction -> . MNEMONIC REGISTER COMMA REGISTER
+    (11) instruction -> . MNEMONIC REGISTER COMMA NUMBER
+    (12) instruction -> . MNEMONIC REGISTER COMMA MEMORY
+    (13) instruction -> . MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET
+    (14) instruction -> . MNEMONIC MEMORY COMMA REGISTER
+    (15) instruction -> . MNEMONIC MEMORY COMMA NUMBER
+    (16) instruction -> . MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER
+    (17) instruction -> . MNEMONIC MEMORY
+    (18) instruction -> . MNEMONIC REGISTER
+    (19) instruction -> . MNEMONIC NUMBER
+    (20) instruction -> . MNEMONIC LABEL
+    (21) instruction -> . MNEMONIC
+
+    LABEL           shift and go to state 3
+    SECTION         shift and go to state 5
+    NEWLINE         shift and go to state 4
+    MNEMONIC        shift and go to state 7
+
+    line                           shift and go to state 8
+    instruction                    shift and go to state 6
+
+state 2
+
+    (1) program -> line .
+
+    LABEL           reduce using rule 1 (program -> line .)
+    SECTION         reduce using rule 1 (program -> line .)
+    NEWLINE         reduce using rule 1 (program -> line .)
+    MNEMONIC        reduce using rule 1 (program -> line .)
+    $end            reduce using rule 1 (program -> line .)
+
+
+state 3
+
+    (3) line -> LABEL . COLON NEWLINE
+    (4) line -> LABEL . COLON FLOAT
+    (5) line -> LABEL . COLON NUMBER
+
+    COLON           shift and go to state 9
+
+
+state 4
+
+    (9) line -> NEWLINE .
+
+    LABEL           reduce using rule 9 (line -> NEWLINE .)
+    SECTION         reduce using rule 9 (line -> NEWLINE .)
+    NEWLINE         reduce using rule 9 (line -> NEWLINE .)
+    MNEMONIC        reduce using rule 9 (line -> NEWLINE .)
+    $end            reduce using rule 9 (line -> NEWLINE .)
+
+
+state 5
+
+    (6) line -> SECTION .
+
+    LABEL           reduce using rule 6 (line -> SECTION .)
+    SECTION         reduce using rule 6 (line -> SECTION .)
+    NEWLINE         reduce using rule 6 (line -> SECTION .)
+    MNEMONIC        reduce using rule 6 (line -> SECTION .)
+    $end            reduce using rule 6 (line -> SECTION .)
+
+
+state 6
+
+    (7) line -> instruction . NEWLINE
+    (8) line -> instruction .
+
+  ! shift/reduce conflict for NEWLINE resolved as shift
+    NEWLINE         shift and go to state 10
+    LABEL           reduce using rule 8 (line -> instruction .)
+    SECTION         reduce using rule 8 (line -> instruction .)
+    MNEMONIC        reduce using rule 8 (line -> instruction .)
+    $end            reduce using rule 8 (line -> instruction .)
+
+  ! NEWLINE         [ reduce using rule 8 (line -> instruction .) ]
+
+
+state 7
+
+    (10) instruction -> MNEMONIC . REGISTER COMMA REGISTER
+    (11) instruction -> MNEMONIC . REGISTER COMMA NUMBER
+    (12) instruction -> MNEMONIC . REGISTER COMMA MEMORY
+    (13) instruction -> MNEMONIC . REGISTER COMMA LBRACKET REGISTER RBRACKET
+    (14) instruction -> MNEMONIC . MEMORY COMMA REGISTER
+    (15) instruction -> MNEMONIC . MEMORY COMMA NUMBER
+    (16) instruction -> MNEMONIC . LBRACKET REGISTER RBRACKET COMMA REGISTER
+    (17) instruction -> MNEMONIC . MEMORY
+    (18) instruction -> MNEMONIC . REGISTER
+    (19) instruction -> MNEMONIC . NUMBER
+    (20) instruction -> MNEMONIC . LABEL
+    (21) instruction -> MNEMONIC .
+
+  ! shift/reduce conflict for LABEL resolved as shift
+    REGISTER        shift and go to state 11
+    MEMORY          shift and go to state 13
+    LBRACKET        shift and go to state 14
+    NUMBER          shift and go to state 12
+    LABEL           shift and go to state 15
+    NEWLINE         reduce using rule 21 (instruction -> MNEMONIC .)
+    SECTION         reduce using rule 21 (instruction -> MNEMONIC .)
+    MNEMONIC        reduce using rule 21 (instruction -> MNEMONIC .)
+    $end            reduce using rule 21 (instruction -> MNEMONIC .)
+
+  ! LABEL           [ reduce using rule 21 (instruction -> MNEMONIC .) ]
+
+
+state 8
+
+    (2) program -> program line .
+
+    LABEL           reduce using rule 2 (program -> program line .)
+    SECTION         reduce using rule 2 (program -> program line .)
+    NEWLINE         reduce using rule 2 (program -> program line .)
+    MNEMONIC        reduce using rule 2 (program -> program line .)
+    $end            reduce using rule 2 (program -> program line .)
+
+
+state 9
+
+    (3) line -> LABEL COLON . NEWLINE
+    (4) line -> LABEL COLON . FLOAT
+    (5) line -> LABEL COLON . NUMBER
+
+    NEWLINE         shift and go to state 16
+    FLOAT           shift and go to state 17
+    NUMBER          shift and go to state 18
+
+
+state 10
+
+    (7) line -> instruction NEWLINE .
+
+    LABEL           reduce using rule 7 (line -> instruction NEWLINE .)
+    SECTION         reduce using rule 7 (line -> instruction NEWLINE .)
+    NEWLINE         reduce using rule 7 (line -> instruction NEWLINE .)
+    MNEMONIC        reduce using rule 7 (line -> instruction NEWLINE .)
+    $end            reduce using rule 7 (line -> instruction NEWLINE .)
+
+
+state 11
+
+    (10) instruction -> MNEMONIC REGISTER . COMMA REGISTER
+    (11) instruction -> MNEMONIC REGISTER . COMMA NUMBER
+    (12) instruction -> MNEMONIC REGISTER . COMMA MEMORY
+    (13) instruction -> MNEMONIC REGISTER . COMMA LBRACKET REGISTER RBRACKET
+    (18) instruction -> MNEMONIC REGISTER .
+
+    COMMA           shift and go to state 19
+    NEWLINE         reduce using rule 18 (instruction -> MNEMONIC REGISTER .)
+    LABEL           reduce using rule 18 (instruction -> MNEMONIC REGISTER .)
+    SECTION         reduce using rule 18 (instruction -> MNEMONIC REGISTER .)
+    MNEMONIC        reduce using rule 18 (instruction -> MNEMONIC REGISTER .)
+    $end            reduce using rule 18 (instruction -> MNEMONIC REGISTER .)
+
+
+state 12
+
+    (19) instruction -> MNEMONIC NUMBER .
+
+    NEWLINE         reduce using rule 19 (instruction -> MNEMONIC NUMBER .)
+    LABEL           reduce using rule 19 (instruction -> MNEMONIC NUMBER .)
+    SECTION         reduce using rule 19 (instruction -> MNEMONIC NUMBER .)
+    MNEMONIC        reduce using rule 19 (instruction -> MNEMONIC NUMBER .)
+    $end            reduce using rule 19 (instruction -> MNEMONIC NUMBER .)
+
+
+state 13
+
+    (14) instruction -> MNEMONIC MEMORY . COMMA REGISTER
+    (15) instruction -> MNEMONIC MEMORY . COMMA NUMBER
+    (17) instruction -> MNEMONIC MEMORY .
+
+    COMMA           shift and go to state 20
+    NEWLINE         reduce using rule 17 (instruction -> MNEMONIC MEMORY .)
+    LABEL           reduce using rule 17 (instruction -> MNEMONIC MEMORY .)
+    SECTION         reduce using rule 17 (instruction -> MNEMONIC MEMORY .)
+    MNEMONIC        reduce using rule 17 (instruction -> MNEMONIC MEMORY .)
+    $end            reduce using rule 17 (instruction -> MNEMONIC MEMORY .)
+
+
+state 14
+
+    (16) instruction -> MNEMONIC LBRACKET . REGISTER RBRACKET COMMA REGISTER
+
+    REGISTER        shift and go to state 21
+
+
+state 15
+
+    (20) instruction -> MNEMONIC LABEL .
+
+    NEWLINE         reduce using rule 20 (instruction -> MNEMONIC LABEL .)
+    LABEL           reduce using rule 20 (instruction -> MNEMONIC LABEL .)
+    SECTION         reduce using rule 20 (instruction -> MNEMONIC LABEL .)
+    MNEMONIC        reduce using rule 20 (instruction -> MNEMONIC LABEL .)
+    $end            reduce using rule 20 (instruction -> MNEMONIC LABEL .)
+
+
+state 16
+
+    (3) line -> LABEL COLON NEWLINE .
+
+    LABEL           reduce using rule 3 (line -> LABEL COLON NEWLINE .)
+    SECTION         reduce using rule 3 (line -> LABEL COLON NEWLINE .)
+    NEWLINE         reduce using rule 3 (line -> LABEL COLON NEWLINE .)
+    MNEMONIC        reduce using rule 3 (line -> LABEL COLON NEWLINE .)
+    $end            reduce using rule 3 (line -> LABEL COLON NEWLINE .)
+
+
+state 17
+
+    (4) line -> LABEL COLON FLOAT .
+
+    LABEL           reduce using rule 4 (line -> LABEL COLON FLOAT .)
+    SECTION         reduce using rule 4 (line -> LABEL COLON FLOAT .)
+    NEWLINE         reduce using rule 4 (line -> LABEL COLON FLOAT .)
+    MNEMONIC        reduce using rule 4 (line -> LABEL COLON FLOAT .)
+    $end            reduce using rule 4 (line -> LABEL COLON FLOAT .)
+
+
+state 18
+
+    (5) line -> LABEL COLON NUMBER .
+
+    LABEL           reduce using rule 5 (line -> LABEL COLON NUMBER .)
+    SECTION         reduce using rule 5 (line -> LABEL COLON NUMBER .)
+    NEWLINE         reduce using rule 5 (line -> LABEL COLON NUMBER .)
+    MNEMONIC        reduce using rule 5 (line -> LABEL COLON NUMBER .)
+    $end            reduce using rule 5 (line -> LABEL COLON NUMBER .)
+
+
+state 19
+
+    (10) instruction -> MNEMONIC REGISTER COMMA . REGISTER
+    (11) instruction -> MNEMONIC REGISTER COMMA . NUMBER
+    (12) instruction -> MNEMONIC REGISTER COMMA . MEMORY
+    (13) instruction -> MNEMONIC REGISTER COMMA . LBRACKET REGISTER RBRACKET
+
+    REGISTER        shift and go to state 22
+    NUMBER          shift and go to state 23
+    MEMORY          shift and go to state 24
+    LBRACKET        shift and go to state 25
+
+
+state 20
+
+    (14) instruction -> MNEMONIC MEMORY COMMA . REGISTER
+    (15) instruction -> MNEMONIC MEMORY COMMA . NUMBER
+
+    REGISTER        shift and go to state 26
+    NUMBER          shift and go to state 27
+
+
+state 21
+
+    (16) instruction -> MNEMONIC LBRACKET REGISTER . RBRACKET COMMA REGISTER
+
+    RBRACKET        shift and go to state 28
+
+
+state 22
+
+    (10) instruction -> MNEMONIC REGISTER COMMA REGISTER .
+
+    NEWLINE         reduce using rule 10 (instruction -> MNEMONIC REGISTER COMMA REGISTER .)
+    LABEL           reduce using rule 10 (instruction -> MNEMONIC REGISTER COMMA REGISTER .)
+    SECTION         reduce using rule 10 (instruction -> MNEMONIC REGISTER COMMA REGISTER .)
+    MNEMONIC        reduce using rule 10 (instruction -> MNEMONIC REGISTER COMMA REGISTER .)
+    $end            reduce using rule 10 (instruction -> MNEMONIC REGISTER COMMA REGISTER .)
+
+
+state 23
+
+    (11) instruction -> MNEMONIC REGISTER COMMA NUMBER .
+
+    NEWLINE         reduce using rule 11 (instruction -> MNEMONIC REGISTER COMMA NUMBER .)
+    LABEL           reduce using rule 11 (instruction -> MNEMONIC REGISTER COMMA NUMBER .)
+    SECTION         reduce using rule 11 (instruction -> MNEMONIC REGISTER COMMA NUMBER .)
+    MNEMONIC        reduce using rule 11 (instruction -> MNEMONIC REGISTER COMMA NUMBER .)
+    $end            reduce using rule 11 (instruction -> MNEMONIC REGISTER COMMA NUMBER .)
+
+
+state 24
+
+    (12) instruction -> MNEMONIC REGISTER COMMA MEMORY .
+
+    NEWLINE         reduce using rule 12 (instruction -> MNEMONIC REGISTER COMMA MEMORY .)
+    LABEL           reduce using rule 12 (instruction -> MNEMONIC REGISTER COMMA MEMORY .)
+    SECTION         reduce using rule 12 (instruction -> MNEMONIC REGISTER COMMA MEMORY .)
+    MNEMONIC        reduce using rule 12 (instruction -> MNEMONIC REGISTER COMMA MEMORY .)
+    $end            reduce using rule 12 (instruction -> MNEMONIC REGISTER COMMA MEMORY .)
+
+
+state 25
+
+    (13) instruction -> MNEMONIC REGISTER COMMA LBRACKET . REGISTER RBRACKET
+
+    REGISTER        shift and go to state 29
+
+
+state 26
+
+    (14) instruction -> MNEMONIC MEMORY COMMA REGISTER .
+
+    NEWLINE         reduce using rule 14 (instruction -> MNEMONIC MEMORY COMMA REGISTER .)
+    LABEL           reduce using rule 14 (instruction -> MNEMONIC MEMORY COMMA REGISTER .)
+    SECTION         reduce using rule 14 (instruction -> MNEMONIC MEMORY COMMA REGISTER .)
+    MNEMONIC        reduce using rule 14 (instruction -> MNEMONIC MEMORY COMMA REGISTER .)
+    $end            reduce using rule 14 (instruction -> MNEMONIC MEMORY COMMA REGISTER .)
+
+
+state 27
+
+    (15) instruction -> MNEMONIC MEMORY COMMA NUMBER .
+
+    NEWLINE         reduce using rule 15 (instruction -> MNEMONIC MEMORY COMMA NUMBER .)
+    LABEL           reduce using rule 15 (instruction -> MNEMONIC MEMORY COMMA NUMBER .)
+    SECTION         reduce using rule 15 (instruction -> MNEMONIC MEMORY COMMA NUMBER .)
+    MNEMONIC        reduce using rule 15 (instruction -> MNEMONIC MEMORY COMMA NUMBER .)
+    $end            reduce using rule 15 (instruction -> MNEMONIC MEMORY COMMA NUMBER .)
+
+
+state 28
+
+    (16) instruction -> MNEMONIC LBRACKET REGISTER RBRACKET . COMMA REGISTER
+
+    COMMA           shift and go to state 30
+
+
+state 29
+
+    (13) instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER . RBRACKET
+
+    RBRACKET        shift and go to state 31
+
+
+state 30
+
+    (16) instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA . REGISTER
+
+    REGISTER        shift and go to state 32
+
+
+state 31
+
+    (13) instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .
+
+    NEWLINE         reduce using rule 13 (instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .)
+    LABEL           reduce using rule 13 (instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .)
+    SECTION         reduce using rule 13 (instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .)
+    MNEMONIC        reduce using rule 13 (instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .)
+    $end            reduce using rule 13 (instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET .)
+
+
+state 32
+
+    (16) instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .
+
+    NEWLINE         reduce using rule 16 (instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .)
+    LABEL           reduce using rule 16 (instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .)
+    SECTION         reduce using rule 16 (instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .)
+    MNEMONIC        reduce using rule 16 (instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .)
+    $end            reduce using rule 16 (instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER .)
+
+WARNING: 
+WARNING: Conflicts:
+WARNING: 
+WARNING: shift/reduce conflict for NEWLINE in state 6 resolved as shift
+WARNING: shift/reduce conflict for LABEL in state 7 resolved as shift
