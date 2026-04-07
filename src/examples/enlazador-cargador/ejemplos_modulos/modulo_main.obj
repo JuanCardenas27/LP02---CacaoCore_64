@@ -1,0 +1,5 @@
+[MODULE main]
+[CODE] 48 89 C3 FF E0 90 90 90
+[DATA] 00 01 02 03
+[SYMBOLS] inicio:code:0x1000,terminar:code:0x1005
+[EXTERNAL] imprimir:0x4:32bits
