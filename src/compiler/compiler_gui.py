@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
+from compiler import compiler
 
 
 class CompilerGui:
@@ -17,24 +18,26 @@ class CompilerGui:
         self.window.focus_force()
         self.window.grab_set()
 
-        self.index          = 0          # fase activa (0-3)
-        self.compiler_step  = 0          # sub-paso del compilador (0=léxico, 1=sintáctico, 2=semántico)
+        self.index           = 0
+        self.compiler_step   = 0
+        self._carry_compiler = ""   # texto que viaja de pre-processor → compiler
+        self._carry_loader   = ""   # texto que viaja de assembler     → link&load
 
         self._create_body()
         self._setup_header()
         self._setup_body()
         self._set_menu()
-        self._pre_compiler()             # fase inicial
+        self._pre_compiler()
 
     # ══════════════════════════════════════════════════════════════════════
     # ESTRUCTURA BASE
     # ══════════════════════════════════════════════════════════════════════
 
     def _create_body(self):
-        self.window.grid_rowconfigure(0, weight=1)
+        self.window.grid_rowconfigure(0, weight=0)
         self.window.grid_rowconfigure(1, weight=0)
-        self.window.grid_rowconfigure(2, weight=4)
-        self.window.grid_rowconfigure(3, weight=40)
+        self.window.grid_rowconfigure(2, weight=0)
+        self.window.grid_rowconfigure(3, weight=10)
         self.window.grid_columnconfigure(0, weight=1)
 
         self.header = tk.Frame(self.window, bg=BG_MID,
@@ -75,9 +78,9 @@ class CompilerGui:
                          highlightbackground=BORDER, highlightthickness=2)
         panel.grid(row=0, column=0)
 
-        phases  = ["Pre-Compiler", "Compiler", "Assembler", "Loader / Linker"]
-        colors  = [ACCENT, ACCENT2, ACCENT3, ACCENT4]
-        cmds    = [self._pre_compiler, self._compiler, self._assembler, self._link_load]
+        phases = ["Pre-Processor", "Compiler", "Assembler", "Loader / Linker"]
+        colors = [ACCENT, ACCENT2, ACCENT3, ACCENT4]
+        cmds   = [self._pre_compiler, self._compiler, self._assembler, self._link_load]
 
         self._phase_btns = []
         for i, (text, color, cmd) in enumerate(zip(phases, colors, cmds)):
@@ -90,6 +93,7 @@ class CompilerGui:
             self._phase_btns.append(btn)
 
     def _switch_phase(self, cmd, idx):
+        """Botones del header: navegan sin carry (acceso directo)."""
         self.index = idx
         self._set_menu()
         cmd()
@@ -113,7 +117,7 @@ class CompilerGui:
         self.menu.grid_rowconfigure(1, weight=1)
         self.menu.grid_columnconfigure(0, weight=1)
 
-        phase_names = ["Pre-Compiler", "Compiler", "Assembler", "Loader / Linker"]
+        phase_names = ["Pre-Processor", "Compiler", "Assembler", "Loader / Linker"]
         colors      = [ACCENT, ACCENT2, ACCENT3, ACCENT4]
 
         tk.Label(self.menu,
@@ -135,14 +139,12 @@ class CompilerGui:
     def _clear_content(self):
         for w in self.content.winfo_children():
             w.destroy()
-        # Reset grid configs
         for r in range(10):
             self.content.grid_rowconfigure(r, weight=0)
         for c in range(10):
             self.content.grid_columnconfigure(c, weight=0)
 
     def _scrollable_text(self, parent, fg=TEXT_MAIN, state="normal", font=None):
-        """Devuelve un Text con scrollbar vertical dentro de parent (que debe tener grid listo)."""
         if font is None:
             font = FM
         frame = tk.Frame(parent, bg=BG_INPUT,
@@ -173,10 +175,10 @@ class CompilerGui:
                          cursor="hand2", command=cmd)
 
     # ══════════════════════════════════════════════════════════════════════
-    # FASE 0 – PRE-COMPILER
+    # FASE 0 – PRE-PROCESSOR
     # ══════════════════════════════════════════════════════════════════════
 
-    def _pre_compiler(self):
+    def _pre_compiler(self, carry=""):
         self._clear_content()
 
         self.content.grid_rowconfigure(0, weight=1)
@@ -202,7 +204,7 @@ class CompilerGui:
         right.grid_rowconfigure(1, weight=1)
         right.grid_columnconfigure(0, weight=1)
 
-        self._section_label(right, "◈  PRE-COMPILED OUTPUT", ACCENT
+        self._section_label(right, "◈  PRE-PROCESSED OUTPUT", ACCENT
                             ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
 
         tf_r, self.pc_out = self._scrollable_text(right, fg=ACCENT, state="disabled")
@@ -212,7 +214,7 @@ class CompilerGui:
         btn_bar = tk.Frame(self.content, bg=BG_PANEL)
         btn_bar.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
-        self._action_btn(btn_bar, "⚙  Pre-compile", ACCENT,
+        self._action_btn(btn_bar, "⚙  Pre-process", ACCENT,
                          self._do_precompile).pack(side="left", padx=10)
         self._action_btn(btn_bar, "⬆  Load file", ACCENT2,
                          self._pc_load_file).pack(side="left", padx=10)
@@ -238,16 +240,17 @@ class CompilerGui:
     # FASE 1 – COMPILER  (léxico / sintáctico / semántico)
     # ══════════════════════════════════════════════════════════════════════
 
-    def _compiler(self):
-        self.compiler_step = 0
+    def _compiler(self, carry=""):
+        self._carry_compiler = carry   # guardar para inyectar en lex_input
+        self.compiler_step   = 0
         self._build_compiler_step()
 
     def _build_compiler_step(self):
         self._clear_content()
 
-        self.content.grid_rowconfigure(0, weight=0)   # nav bar
-        self.content.grid_rowconfigure(1, weight=1)   # área principal
-        self.content.grid_rowconfigure(2, weight=0)   # botones
+        self.content.grid_rowconfigure(0, weight=0)
+        self.content.grid_rowconfigure(1, weight=1)
+        self.content.grid_rowconfigure(2, weight=0)
         self.content.grid_columnconfigure(0, weight=1)
 
         steps      = ["Lexical Analysis", "Syntactic Analysis", "Semantic Analysis"]
@@ -275,18 +278,18 @@ class CompilerGui:
                                   cursor="hand2", command=self._compiler_next)
         self.btn_next.grid(row=0, column=2, padx=(10, 0))
 
-        # Deshabilitar flechas en extremos
         if self.compiler_step == 0:
             self.btn_prev.configure(state="disabled", bg=BG_MID)
         if self.compiler_step == 2:
             self.btn_next.configure(state="disabled", bg=BG_MID)
 
-        # ── Contenido del paso ───────────────────────────────────────────
+        # ── Área de contenido ────────────────────────────────────────────
         area = tk.Frame(self.content, bg=BG_PANEL)
         area.grid(row=1, column=0, sticky="nsew", padx=10, pady=4)
         area.grid_rowconfigure(0, weight=1)
         area.grid_columnconfigure(0, weight=1)
         area.grid_columnconfigure(1, weight=1)
+        area.grid_columnconfigure(2, weight=1)
 
         if self.compiler_step == 0:
             self._build_lexical(area)
@@ -298,27 +301,48 @@ class CompilerGui:
     # ── Paso 0: Léxico ────────────────────────────────────────────────────
 
     def _build_lexical(self, area):
-        # Izquierda: código precompilado
+        # Izquierda: código pre-procesado
         left = tk.Frame(area, bg=BG_PANEL)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         left.grid_rowconfigure(1, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
-        self._section_label(left, "◈  PRE-COMPILED INPUT", ACCENT2
+        self._section_label(left, "◈  PRE-PROCESSED INPUT", ACCENT2
                             ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
         tf_l, self.lex_input = self._scrollable_text(left)
         tf_l.grid(row=1, column=0, sticky="nsew")
 
-        # Derecha: tokens
+        # Inyectar carry proveniente del pre-processor
+        if self._carry_compiler.strip():
+            self.lex_input.insert("1.0", self._carry_compiler.strip())
+
+        # Centro: tokens
+        center = tk.Frame(area, bg=BG_PANEL)
+        center.grid(row=0, column=1, sticky="nsew", padx=(0, 5))
+        center.grid_rowconfigure(1, weight=1)
+        center.grid_columnconfigure(0, weight=1)
+
+        self._section_label(center, "◈  Tokens identified", ACCENT3
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_c, self.lex_tokens = self._scrollable_text(center)
+        tf_c.grid(row=1, column=0, sticky="nsew")
+
+        # Derecha: tabla de símbolos + errores
         right = tk.Frame(area, bg=BG_PANEL)
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
         right.grid_rowconfigure(1, weight=1)
+        right.grid_rowconfigure(3, weight=4)
         right.grid_columnconfigure(0, weight=1)
 
-        self._section_label(right, "◈  TOKENS IDENTIFIED", ACCENT4
+        self._section_label(right, "◈  Symbol Table", ACCENT4
                             ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
-        tf_r, self.lex_tokens = self._scrollable_text(right, fg=ACCENT4, state="disabled", font=FM_SM)
+        tf_r, self.lex_symbol = self._scrollable_text(right, fg=ACCENT4, state="disabled", font=FM_SM)
         tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Errores", ACCENT5
+                            ).grid(row=2, column=0, sticky="ew", pady=(4, 2))
+        tf_e, self.lex_error = self._scrollable_text(right, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=3, column=0, sticky="nsew")
 
         # Botón
         btn_bar = tk.Frame(self.content, bg=BG_PANEL)
@@ -326,19 +350,19 @@ class CompilerGui:
         self._action_btn(btn_bar, "⚙  Start Lexical Analysis", ACCENT2,
                          self._do_lexical).pack()
 
-    # ── Paso 1: Sintáctico (vacío) ────────────────────────────────────────
+    # ── Paso 1: Sintáctico ────────────────────────────────────────────────
 
     def _build_syntactic(self, area):
         tk.Label(area, text="[ Syntactic Analysis — coming soon ]",
                  bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=2, pady=40)
+                 ).grid(row=0, column=0, columnspan=3, pady=40)
 
-    # ── Paso 2: Semántico (vacío) ─────────────────────────────────────────
+    # ── Paso 2: Semántico ─────────────────────────────────────────────────
 
     def _build_semantic(self, area):
         tk.Label(area, text="[ Semantic Analysis — coming soon ]",
                  bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=2, pady=40)
+                 ).grid(row=0, column=0, columnspan=3, pady=40)
 
     def _compiler_prev(self):
         if self.compiler_step > 0:
@@ -354,13 +378,13 @@ class CompilerGui:
     # FASE 2 – ASSEMBLER
     # ══════════════════════════════════════════════════════════════════════
 
-    def _assembler(self):
+    def _assembler(self, carry=""):
         self._clear_content()
 
         self.content.grid_rowconfigure(0, weight=1)
         self.content.grid_rowconfigure(1, weight=0)
         self.content.grid_columnconfigure(0, weight=1)
-        self.content.grid_columnconfigure(1, weight=0)   # botón central
+        self.content.grid_columnconfigure(1, weight=0)
         self.content.grid_columnconfigure(2, weight=1)
 
         # ── Izquierda: fuente ASM ────────────────────────────────────────
@@ -374,12 +398,11 @@ class CompilerGui:
         tf_l, self.asm_src = self._scrollable_text(left)
         tf_l.grid(row=1, column=0, sticky="nsew")
 
-        # ── Centro: botón TRANSLATE ──────────────────────────────────────
+        # ── Centro (separador visual) ────────────────────────────────────
         mid = tk.Frame(self.content, bg=BG_PANEL)
         mid.grid(row=0, column=1, sticky="nsew", pady=10)
         mid.grid_rowconfigure(0, weight=1)
         mid.grid_columnconfigure(0, weight=1)
-
 
         # ── Derecha: código relocalizable ───────────────────────────────
         right = tk.Frame(self.content, bg=BG_PANEL)
@@ -398,11 +421,8 @@ class CompilerGui:
 
         self._action_btn(btn_bar, "⬆  Load ASM file", ACCENT2,
                          self._asm_load).pack(side="left", padx=10)
-        
-        self._action_btn(btn_bar, "▶ TRANSLATE", ACCENT,
-                  self._translate_asm
-                  ).pack(side="left", padx=10)
-        
+        self._action_btn(btn_bar, "▶  TRANSLATE", ACCENT,
+                         self._translate_asm).pack(side="left", padx=10)
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._asm_erase).pack(side="left", padx=10)
 
@@ -425,7 +445,8 @@ class CompilerGui:
     # FASE 3 – LOADER / LINKER
     # ══════════════════════════════════════════════════════════════════════
 
-    def _link_load(self):
+    def _link_load(self, carry=""):
+        self._carry_loader = carry     # guardar para inyectar en ll_reloc
         self._clear_content()
 
         self.content.grid_rowconfigure(0, weight=1)
@@ -444,6 +465,10 @@ class CompilerGui:
         tf_l, self.ll_reloc = self._scrollable_text(left, fg=ACCENT5)
         tf_l.grid(row=1, column=0, sticky="nsew")
 
+        # Inyectar carry proveniente del assembler
+        if self._carry_loader.strip():
+            self.ll_reloc.insert("1.0", self._carry_loader.strip())
+
         # ── Derecha: código cargado en memoria ───────────────────────────
         right = tk.Frame(self.content, bg=BG_PANEL)
         right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
@@ -453,7 +478,6 @@ class CompilerGui:
         self._section_label(right, "◈  MEMORY-LOADED CODE", ACCENT
                             ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
 
-        # Entry dirección base
         addr_row = tk.Frame(right, bg=BG_PANEL)
         addr_row.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         addr_row.grid_columnconfigure(1, weight=1)
@@ -507,46 +531,57 @@ class CompilerGui:
         self.ll_base_addr.insert(0, "0000")
 
     # ══════════════════════════════════════════════════════════════════════
-    # NAVEGACION
+    # NAVEGACIÓN
     # ══════════════════════════════════════════════════════════════════════
 
     def _next_phase(self):
         cmds = [self._pre_compiler, self._compiler, self._assembler, self._link_load]
-        if self.index < len(cmds) - 1:
-            self.index += 1
-            self._set_menu()
-            cmds[self.index]()
+        if self.index >= len(cmds) - 1:
+            return
 
+        carry = ""
+        if self.index == 0:        # pre-processor → compiler: llevar pc_out
+            try:
+                carry = self.pc_out.get("1.0", tk.END)
+            except Exception:
+                carry = ""
+        elif self.index == 2:      # assembler → link&load: llevar asm_out
+            try:
+                carry = self.asm_out.get("1.0", tk.END)
+            except Exception:
+                carry = ""
 
+        self.index += 1
+        self._set_menu()
+        cmds[self.index](carry=carry)
 
     # ══════════════════════════════════════════════════════════════════════
-    # FUNC QUE REQUIEREN COMPILER
+    # LÓGICA DE PROCESAMIENTO
     # ══════════════════════════════════════════════════════════════════════
 
     def _do_precompile(self):
         """Placeholder – conectar lógica de precompilación aquí."""
-        self.pc_hl #entrada con el high level language
-        self.pc_out #salida con el precompiled output
+        # self.pc_hl  → entrada  (high-level source)
+        # self.pc_out → salida   (pre-processed output)
         pass
 
     def _do_lexical(self):
-        """Esta funcion es llamada cuando hacemos el lexico el entry con el texto del lexico es self.lex_input y la salida es self.lex_tokens
-        Los metodos de los text son .get("1.0", "end") para tarer todo lo de un text desde la linea 1 caracter 0
-        .delete() para borrar el text y el insert para cargarlo, las operaciones son permitidas siempre que su state este normal"""
-        self.lex
-        pass
+        resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
+        symbol_table = resultado[0]
+        tokens       = resultado[1]
+
+        self.lex_tokens.config(state="normal")
+        self.lex_tokens.delete("1.0", tk.END)
+        for tkn in tokens:
+            self.lex_tokens.insert(tk.END, f"{tkn.type}: {tkn.value}\n")
+        self.lex_tokens.config(state="disabled")
 
     def _translate_asm(self):
         asm_mod = ASM()
         asm_mod.process(self.asm_src.get("1.0", "end"))
-
         output = asm_mod.get_output()
 
         self.asm_out.configure(state="normal")
         self.asm_out.delete("1.0", "end")
         self.asm_out.insert("1.0", output)
-        self.asm_out.configure(state="disabled") 
-
-    
-
-    
+        self.asm_out.configure(state="disabled")
