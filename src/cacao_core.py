@@ -26,12 +26,6 @@ class CacaoCore64:
 
     def run_step(self):
         self.processor.run_step()
-    
-    def compile(self, file_addr, file_len):
-        file = self.ram_memory.read(file_addr, file_len)
-        data = file.replace(b'\x00', b'')
-        code = data.decode('utf-8')
-        return self.compiler.compile(code)
 
 
 if __name__=="__main__":
