@@ -25,3 +25,5 @@ Thumbs.db
 # PLY generated files
 parser.out
 parsetab.py
+
+*.venv

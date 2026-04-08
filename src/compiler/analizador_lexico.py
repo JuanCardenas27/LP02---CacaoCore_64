@@ -56,6 +56,11 @@ class AnalizadorLexico:
         'COLON',      # :
         'COMMA',      # ,
         'DOT',        # .
+
+        # Paradigma Orientado a Objetos
+        'MOLD',       # class - definición de TDA
+        'OHMY',       # self  - referencia al objeto actual
+        'SUMMON',     # new   - creación explícita
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -78,6 +83,9 @@ class AnalizadorLexico:
         'indeed':    'INDEED',
         'nope':      'NOPE',
         'nothing':   'NOTHING',
+        'mold':      'MOLD',
+        'ohmy':      'OHMY',
+        'summon':    'SUMMON',
     }
 
     t_EQ       = r'=='
@@ -106,6 +114,7 @@ class AnalizadorLexico:
     def __init__(self) -> None:
         self.lexer = lex.lex(module=self)
         self.symbol_table = {}
+        self.oops = []
 
     @staticmethod
     def t_FLOAT_TYPE(t):
@@ -132,13 +141,13 @@ class AnalizadorLexico:
         if t.type == 'ID':
             if t.value not in self.symbol_table:
                 self.symbol_table[t.value] = {
-                    'kind':  None, # Para el futuro, me lo dio Claude, indica su rol (si es variable, funcion, parametro, etc)
+                    'lexeme': t.value,
+                    'length': len(t.value),
+                    'lines': [t.lineno],
+                    'kind':  None, # Para el futuro, podría ser útil, indica su rol (si es variable, funcion, parametro, etc)
                     'type':  None, # Para el futuro, indica el tipo de dato (para variables unicamente) (int, float, str, bool)
                     'value': None, # Para el futuro, indica el valor inicial asignado (para variable unicamente)
                     'scope': None, # Para el futuro, indica el alcance de una definición (si es global o de una función)
-                    'lexeme': t.value,
-                    'length': len(t.value),
-                    'lines': [t.lineno]
                 }
             else:
                 self.symbol_table[t.value]['lines'].append(t.lineno)
@@ -155,21 +164,20 @@ class AnalizadorLexico:
         r'\n+'
         t.lexer.lineno += len(t.value)
 
-    @staticmethod
-    def t_error(t):
-        print(f"oops! Unknown character '{t.value[0]}' found at line {t.lexer.lineno}")
+    def t_error(self, t):
+        self.oops.append(f"Oops! Unknown character '{t.value[0]}' found at line {t.lexer.lineno}")
         t.lexer.skip(1)
 
     def analize(self, code):
         # Limpiar el lexer
         self.symbol_table = {}
+        self.oops= []
         self.lexer.lineno = 1
 
         self.lexer.input(code)
         tokens = list(self.lexer)
 
-        return tokens, self.symbol_table
-
+        return self.oops, self.symbol_table, tokens
 
 
 if __name__ == '__main__':
