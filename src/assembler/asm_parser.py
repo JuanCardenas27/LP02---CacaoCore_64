@@ -10,6 +10,7 @@ class AsmParser:
 
     def __init__(self):
         self.symbol_table = {}  # etiqueta -> dirección
+        self.var_table = {}  # variable -> dirección
         self.program_data      = []  # lista de instrucciones
         self.program_text      = []  # lista de instrucciones
         self.program           = []
@@ -30,13 +31,17 @@ class AsmParser:
             self.symbol_table[p[1]] = str(len(cur_program))
 
     def p_line_variable_float(self, p):
-        'line : LABEL COLON FLOAT'
+        'line : VAR COLON FLOAT NEWLINE'
+        self.var_table[p[1]] = len(self.program_data)
+        self.program_data.append(p[1])
         number = bytearray(struct.pack('<d', p[3])).hex()
         p[0] = number
         self.program.append(p[0])
 
     def p_line_variable_number(self, p):
-        'line : LABEL COLON NUMBER'
+        'line : VAR COLON NUMBER NEWLINE'
+        self.var_table[p[1]] = len(self.program_data)
+        self.program_data.append(p[1])
         p[0] = p[3].to_bytes(8, byteorder='little').hex()
         self.program.append(str(p[0]))
 
@@ -78,6 +83,15 @@ class AsmParser:
                 n = len(code)
                 code = str(p[4].to_bytes(4, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
+    
+    def p_instr_reg_var(self, p):
+        'instruction : MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKET'
+        for instruction in MICROINSTRUCTION_SPECS:
+            if instruction["name"] == p[1]+'_rm':
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2])
+                n = len(code)
+                code = '[' + f'{self.var_table[p[5]]}' + ']' + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                p[0] = code
 
     def p_instr_reg_ind(self, p):
         'instruction : MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET'
@@ -93,6 +107,19 @@ class AsmParser:
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(p[4])
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                p[0] = code
+    
+    def p_instr_var_reg(self, p):
+        'instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTER'
+        for instruction in MICROINSTRUCTION_SPECS:
+            if instruction["name"] == p[1]+'_mr':
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '0'
+                print(code)
+                n = len(code)
+                code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                print(code)
+                code = str(p[6]) + '[' + f'{self.var_table[p[3]]}' + ']' + code
+
                 p[0] = code
 
     def p_instr_mem_inm(self, p):

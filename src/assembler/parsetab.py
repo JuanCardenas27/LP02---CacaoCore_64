@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLON COMMA FLOAT LABEL LBRACKET MEMORY MNEMONIC NEWLINE NUMBER RBRACKET REGISTER SECTIONprogram : line\n| program lineline : LABEL COLON NEWLINEline : LABEL COLON FLOATline : LABEL COLON NUMBERline : SECTIONline : instruction NEWLINE\n| instructionline : NEWLINEinstruction : MNEMONIC REGISTER COMMA REGISTERinstruction : MNEMONIC REGISTER COMMA NUMBERinstruction : MNEMONIC REGISTER COMMA MEMORYinstruction : MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKETinstruction : MNEMONIC MEMORY COMMA REGISTERinstruction : MNEMONIC MEMORY COMMA NUMBERinstruction : MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTERinstruction : MNEMONIC MEMORYinstruction : MNEMONIC REGISTERinstruction : MNEMONIC NUMBERinstruction : MNEMONIC LABELinstruction : MNEMONIC'
+_lr_signature = 'COLON COMMA FLOAT LABEL LBRACKET MEMORY MNEMONIC NEWLINE NUMBER RBRACKET REGISTER SECTION VARprogram : line\n                | program lineline : LABEL COLON NEWLINEline : VAR COLON FLOAT NEWLINEline : VAR COLON NUMBER NEWLINEline : SECTIONline : instruction NEWLINE\n                | instructionline : NEWLINEinstruction : MNEMONIC REGISTER COMMA REGISTERinstruction : MNEMONIC REGISTER COMMA NUMBERinstruction : MNEMONIC REGISTER COMMA MEMORYinstruction : MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKETinstruction : MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKETinstruction : MNEMONIC MEMORY COMMA REGISTERinstruction : MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTERinstruction : MNEMONIC MEMORY COMMA NUMBERinstruction : MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTERinstruction : MNEMONIC MEMORYinstruction : MNEMONIC REGISTERinstruction : MNEMONIC NUMBERinstruction : MNEMONIC LABELinstruction : MNEMONIC'
     
-_lr_action_items = {'LABEL':([0,1,2,4,5,6,7,8,10,11,12,13,15,16,17,18,22,23,24,26,27,31,32,],[3,3,-1,-9,-6,-8,15,-2,-7,-18,-19,-17,-20,-3,-4,-5,-10,-11,-12,-14,-15,-13,-16,]),'SECTION':([0,1,2,4,5,6,7,8,10,11,12,13,15,16,17,18,22,23,24,26,27,31,32,],[5,5,-1,-9,-6,-8,-21,-2,-7,-18,-19,-17,-20,-3,-4,-5,-10,-11,-12,-14,-15,-13,-16,]),'NEWLINE':([0,1,2,4,5,6,7,8,9,10,11,12,13,15,16,17,18,22,23,24,26,27,31,32,],[4,4,-1,-9,-6,10,-21,-2,16,-7,-18,-19,-17,-20,-3,-4,-5,-10,-11,-12,-14,-15,-13,-16,]),'MNEMONIC':([0,1,2,4,5,6,7,8,10,11,12,13,15,16,17,18,22,23,24,26,27,31,32,],[7,7,-1,-9,-6,-8,-21,-2,-7,-18,-19,-17,-20,-3,-4,-5,-10,-11,-12,-14,-15,-13,-16,]),'$end':([1,2,4,5,6,7,8,10,11,12,13,15,16,17,18,22,23,24,26,27,31,32,],[0,-1,-9,-6,-8,-21,-2,-7,-18,-19,-17,-20,-3,-4,-5,-10,-11,-12,-14,-15,-13,-16,]),'COLON':([3,],[9,]),'REGISTER':([7,14,19,20,25,30,],[11,21,22,26,29,32,]),'MEMORY':([7,19,],[13,24,]),'LBRACKET':([7,19,],[14,25,]),'NUMBER':([7,9,19,20,],[12,18,23,27,]),'FLOAT':([9,],[17,]),'COMMA':([11,13,28,],[19,20,30,]),'RBRACKET':([21,29,],[28,31,]),}
+_lr_action_items = {'LABEL':([0,1,2,4,6,7,8,9,12,13,14,15,17,18,25,26,27,28,29,31,32,39,40,41,42,],[3,3,-1,-9,-6,-8,17,-2,-7,-20,-21,-19,-22,-3,-4,-5,-10,-11,-12,-15,-17,-14,-13,-16,-18,]),'VAR':([0,1,2,4,6,7,8,9,12,13,14,15,16,17,18,25,26,27,28,29,30,31,32,39,40,41,42,],[5,5,-1,-9,-6,-8,-23,-2,-7,-20,-21,-19,23,-22,-3,-4,-5,-10,-11,-12,36,-15,-17,-14,-13,-16,-18,]),'SECTION':([0,1,2,4,6,7,8,9,12,13,14,15,17,18,25,26,27,28,29,31,32,39,40,41,42,],[6,6,-1,-9,-6,-8,-23,-2,-7,-20,-21,-19,-22,-3,-4,-5,-10,-11,-12,-15,-17,-14,-13,-16,-18,]),'NEWLINE':([0,1,2,4,6,7,8,9,10,12,13,14,15,17,18,19,20,25,26,27,28,29,31,32,39,40,41,42,],[4,4,-1,-9,-6,12,-23,-2,18,-7,-20,-21,-19,-22,-3,25,26,-4,-5,-10,-11,-12,-15,-17,-14,-13,-16,-18,]),'MNEMONIC':([0,1,2,4,6,7,8,9,12,13,14,15,17,18,25,26,27,28,29,31,32,39,40,41,42,],[8,8,-1,-9,-6,-8,-23,-2,-7,-20,-21,-19,-22,-3,-4,-5,-10,-11,-12,-15,-17,-14,-13,-16,-18,]),'$end':([1,2,4,6,7,8,9,12,13,14,15,17,18,25,26,27,28,29,31,32,39,40,41,42,],[0,-1,-9,-6,-8,-23,-2,-7,-20,-21,-19,-22,-3,-4,-5,-10,-11,-12,-15,-17,-14,-13,-16,-18,]),'COLON':([3,5,],[10,11,]),'REGISTER':([8,16,21,22,30,37,38,],[13,24,27,31,35,41,42,]),'MEMORY':([8,21,],[15,29,]),'LBRACKET':([8,21,],[16,30,]),'NUMBER':([8,11,21,22,],[14,20,28,32,]),'FLOAT':([11,],[19,]),'COMMA':([13,15,33,34,],[21,22,37,38,]),'RBRACKET':([23,24,35,36,],[33,34,39,40,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'program':([0,],[1,]),'line':([0,1,],[2,8,]),'instruction':([0,1,],[6,6,]),}
+_lr_goto_items = {'program':([0,],[1,]),'line':([0,1,],[2,9,]),'instruction':([0,1,],[7,7,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -27,25 +27,27 @@ for _k, _v in _lr_goto_items.items():
 del _lr_goto_items
 _lr_productions = [
   ("S' -> program","S'",1,None,None,None),
-  ('program -> line','program',1,'p_program','asm_parser.py',22),
-  ('program -> program line','program',2,'p_program','asm_parser.py',23),
-  ('line -> LABEL COLON NEWLINE','line',3,'p_line_label','asm_parser.py',26),
-  ('line -> LABEL COLON FLOAT','line',3,'p_line_variable_float','asm_parser.py',33),
-  ('line -> LABEL COLON NUMBER','line',3,'p_line_variable_number','asm_parser.py',39),
-  ('line -> SECTION','line',1,'p_line_section','asm_parser.py',44),
-  ('line -> instruction NEWLINE','line',2,'p_line_instr','asm_parser.py',49),
-  ('line -> instruction','line',1,'p_line_instr','asm_parser.py',50),
-  ('line -> NEWLINE','line',1,'p_line_empty','asm_parser.py',55),
-  ('instruction -> MNEMONIC REGISTER COMMA REGISTER','instruction',4,'p_instr_reg_reg','asm_parser.py',58),
-  ('instruction -> MNEMONIC REGISTER COMMA NUMBER','instruction',4,'p_instr_reg_imm','asm_parser.py',65),
-  ('instruction -> MNEMONIC REGISTER COMMA MEMORY','instruction',4,'p_instr_reg_mem','asm_parser.py',74),
-  ('instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET','instruction',6,'p_instr_reg_ind','asm_parser.py',83),
-  ('instruction -> MNEMONIC MEMORY COMMA REGISTER','instruction',4,'p_instr_mem_reg','asm_parser.py',90),
-  ('instruction -> MNEMONIC MEMORY COMMA NUMBER','instruction',4,'p_instr_mem_inm','asm_parser.py',99),
-  ('instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER','instruction',6,'p_instr_ind_reg','asm_parser.py',108),
-  ('instruction -> MNEMONIC MEMORY','instruction',2,'p_instr_mem','asm_parser.py',117),
-  ('instruction -> MNEMONIC REGISTER','instruction',2,'p_instr_reg','asm_parser.py',126),
-  ('instruction -> MNEMONIC NUMBER','instruction',2,'p_instr_inm','asm_parser.py',135),
-  ('instruction -> MNEMONIC LABEL','instruction',2,'p_instr_label','asm_parser.py',144),
-  ('instruction -> MNEMONIC','instruction',1,'p_instr_single','asm_parser.py',159),
+  ('program -> line','program',1,'p_program','asm_parser.py',23),
+  ('program -> program line','program',2,'p_program','asm_parser.py',24),
+  ('line -> LABEL COLON NEWLINE','line',3,'p_line_label','asm_parser.py',27),
+  ('line -> VAR COLON FLOAT NEWLINE','line',4,'p_line_variable_float','asm_parser.py',34),
+  ('line -> VAR COLON NUMBER NEWLINE','line',4,'p_line_variable_number','asm_parser.py',42),
+  ('line -> SECTION','line',1,'p_line_section','asm_parser.py',49),
+  ('line -> instruction NEWLINE','line',2,'p_line_instr','asm_parser.py',54),
+  ('line -> instruction','line',1,'p_line_instr','asm_parser.py',55),
+  ('line -> NEWLINE','line',1,'p_line_empty','asm_parser.py',60),
+  ('instruction -> MNEMONIC REGISTER COMMA REGISTER','instruction',4,'p_instr_reg_reg','asm_parser.py',63),
+  ('instruction -> MNEMONIC REGISTER COMMA NUMBER','instruction',4,'p_instr_reg_imm','asm_parser.py',70),
+  ('instruction -> MNEMONIC REGISTER COMMA MEMORY','instruction',4,'p_instr_reg_mem','asm_parser.py',79),
+  ('instruction -> MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKET','instruction',6,'p_instr_reg_var','asm_parser.py',88),
+  ('instruction -> MNEMONIC REGISTER COMMA LBRACKET REGISTER RBRACKET','instruction',6,'p_instr_reg_ind','asm_parser.py',97),
+  ('instruction -> MNEMONIC MEMORY COMMA REGISTER','instruction',4,'p_instr_mem_reg','asm_parser.py',104),
+  ('instruction -> MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTER','instruction',6,'p_instr_var_reg','asm_parser.py',113),
+  ('instruction -> MNEMONIC MEMORY COMMA NUMBER','instruction',4,'p_instr_mem_inm','asm_parser.py',124),
+  ('instruction -> MNEMONIC LBRACKET REGISTER RBRACKET COMMA REGISTER','instruction',6,'p_instr_ind_reg','asm_parser.py',133),
+  ('instruction -> MNEMONIC MEMORY','instruction',2,'p_instr_mem','asm_parser.py',142),
+  ('instruction -> MNEMONIC REGISTER','instruction',2,'p_instr_reg','asm_parser.py',151),
+  ('instruction -> MNEMONIC NUMBER','instruction',2,'p_instr_inm','asm_parser.py',160),
+  ('instruction -> MNEMONIC LABEL','instruction',2,'p_instr_label','asm_parser.py',169),
+  ('instruction -> MNEMONIC','instruction',1,'p_instr_single','asm_parser.py',184),
 ]

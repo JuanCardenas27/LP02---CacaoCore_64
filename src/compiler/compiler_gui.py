@@ -4,12 +4,9 @@ from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
 from compiler import compiler
-<<<<<<< Updated upstream
 from loader import loader
-=======
 from preprocesador.preprocesador import Preprocesador, PreprocesadorError
 
->>>>>>> Stashed changes
 
 class CompilerGui:
     def __init__(self, master):

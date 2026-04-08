@@ -4,7 +4,7 @@ class AsmLexer:
     tokens = (
     'MNEMONIC', 'REGISTER', 'NUMBER', 'LABEL', 'COLON',
     'COMMA', 'LBRACKET', 'RBRACKET', 'NEWLINE', 'MEMORY',
-    'SECTION', 'FLOAT'
+    'SECTION', 'FLOAT', 'VAR'
     )
 
     t_COLON    = r':'
@@ -56,8 +56,21 @@ class AsmLexer:
         r'\n+'
         return t
 
-    def t_TEXT(self, t):
-        r'[a-zA-Z_][a-zA-Z0-9_]*'
+    def t_VAR(self, t):
+        r'[a-z_][a-z0-9_]*'
+        
+        value = t.value.lower()
+
+        if value in self.mnemonics:
+            t.type = 'MNEMONIC' 
+            t.value = value
+        else:
+            t.type = 'VAR'
+
+        return t    
+    
+    def t_LABEL(self, t):
+        r'[A-Z_][A-Z0-9_]*'
         
         value = t.value.lower()
 
