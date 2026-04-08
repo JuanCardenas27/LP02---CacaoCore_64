@@ -340,6 +340,8 @@ class MicroinstructionMixin:
         Restaura el estado completo del procesador desde la pila:
         PC, FR, y todos los registros.
         """
+        self.io_controller.INTA = True
+
         for reg in range(15,-1, -1):
             self.pop(self._registers[reg])
         self.pop(self._fr)
@@ -351,22 +353,22 @@ class MicroinstructionMixin:
         - 0: Impresión en consola
             r10: formato (0=int, 1=float, 2=string)
             r11: dirección
-            r12: longitud (en bytes)
+            r12: longitud (en palabras de 8 bytes)
         """
-        self.io_controller.INTA = True
-
         self.push(self._pc)
         self.push(self._fr)
         for reg in self._registers:
             self.push(reg)
         
         vector_address = bytearray(VECTOR_TABLE.to_bytes(8, byteorder='little', signed=False))
+        vector_num = int.from_bytes(vector_num, byteorder='little', signed=True) * 4
+        vector_num = bytearray(vector_num.to_bytes(8, byteorder='little', signed=True))
         
         acc = self._registers[15][:]
 
         self._alu.add(vector_address, vector_num, False)
         self._mar[:] = self._registers[15][:]
-        self._read_from_ram()
+        self._read_from_ram(4)
         subroutine_address = self._mdr[:]
 
         self._registers[15][:] = acc[:]
@@ -376,6 +378,7 @@ class MicroinstructionMixin:
         self._write_to_ram(1)
 
         self.jmp(subroutine_address)
+
 
     def nop(self):
         """NOP - Operación nula (sin operación)."""
