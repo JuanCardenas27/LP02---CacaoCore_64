@@ -114,10 +114,8 @@ class AsmParser:
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mr':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '-'
-                print(code)
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
-                print(code)
                 code = str(p[6]) + '[' + f'{self.var_table[p[3]]}' + ']' + code
 
                 p[0] = code
