@@ -4,7 +4,12 @@ from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
 from compiler import compiler
+<<<<<<< Updated upstream
 from loader import loader
+=======
+from preprocesador.preprocesador import Preprocesador, PreprocesadorError
+
+>>>>>>> Stashed changes
 
 class CompilerGui:
     def __init__(self, master):
@@ -602,10 +607,19 @@ class CompilerGui:
     # ══════════════════════════════════════════════════════════════════════
 
     def _do_precompile(self):
-        """Placeholder – conectar lógica de precompilación aquí."""
-        # self.pc_hl  → entrada  (high-level source)
-        # self.pc_out → salida   (pre-processed output)
-        pass
+        codigo = self.pc_hl.get("1.0", tk.END)
+        pre = Preprocesador()
+
+        try:
+            resultado = pre.preprocess(codigo, nombre_fuente="<gui>")
+            salida = resultado.text
+        except PreprocesadorError as exc:
+            salida = str(exc)
+
+        self.pc_out.configure(state="normal")
+        self.pc_out.delete("1.0", tk.END)
+        self.pc_out.insert("1.0", salida)
+        self.pc_out.configure(state="disabled")
 
     def _do_lexical(self):
         resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
