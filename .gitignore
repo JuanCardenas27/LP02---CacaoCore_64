@@ -1,2 +1,27 @@
-__pycache__
-*.pyc
+MANUAL_ENLAZADOR_CARGADOR.md
+
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PLY generated files
+parser.out
+parsetab.py
