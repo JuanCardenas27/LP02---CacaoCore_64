@@ -61,7 +61,9 @@ Procesador de 64 bits con 16 registros de propósito general.
 
 ### `src/enlazador_cargador/` — Enlazador y Cargador
 Resuelve símbolos, genera binarios ejecutables y carga programas en memoria.
-- `enlazador.py`: Resuelve referencias externas, unifica segmentos, genera binario absoluto
+- `enlazador.py`: Resuelve referencias externas entre módulos con análisis léxico FLEX
 - `cargador.py`: Valida memoria, copia código/datos, inicializa registros y entorno
 - `binario.py`: Estructura y serialización del binario ejecutable
+
+Formatos soportados: módulos objeto con estructura `[MODULE]`, `[CODE]`, `[DATA]`, `[SYMBOLS]`, `[EXTERNAL]`
 

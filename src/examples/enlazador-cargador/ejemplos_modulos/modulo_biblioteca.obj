@@ -1,0 +1,5 @@
+[MODULE biblioteca]
+[CODE] 90 90 90 C3 E9 00 00
+[DATA] 04 05 06
+[SYMBOLS] imprimir:function:0x2000,salida:code:0x2003
+[EXTERNAL]
