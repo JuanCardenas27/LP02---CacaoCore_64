@@ -4,7 +4,6 @@ from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
 from compiler import compiler
-from loader import loader
 from preprocesador.preprocesador import Preprocesador, PreprocesadorError
 
 
@@ -545,17 +544,8 @@ class CompilerGui:
 
     def _do_link_load(self):
         """Placeholder – conectar lógica de link & load aquí."""
-        base_addr = int("0x" + self.ll_base_addr.get(), 16)
-        reloc_code = self.ll_reloc.get("1.0", "end")
-
-        #TODO Conectar el linker, hacer que devuelva un string con el codigo absoluto
-        linked_code = reloc_code
-
-        lines = []
-        for line in linked_code.split("\n"):
-            lines.append(line)
-
-        loader.load_to_ram(lines, base_addr, "hex")
+        pass
+    
 
     def _ll_load(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
