@@ -113,7 +113,7 @@ class AsmParser:
         'instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTER'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mr':
-                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '0'
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '-'
                 print(code)
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
@@ -129,6 +129,17 @@ class AsmParser:
                 code =  str(instruction["opcode"].to_bytes(2, byteorder='big').hex()) + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(p[4].to_bytes(2, byteorder='big').hex())
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                p[0] = code
+
+    def p_instr_var_inm(self, p):
+        'instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA NUMBER'
+        for instruction in MICROINSTRUCTION_SPECS:
+            if instruction["name"] == p[1]+'_mi':
+                code =  str(instruction["opcode"].to_bytes(2, byteorder='big').hex())
+                n = len(code)
+                code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                code = '[' + f'{self.var_table[p[3]]}' + ']' + code
+                code = str(p[6].to_bytes(2, byteorder='little').hex()) + code
                 p[0] = code
 
     def p_instr_ind_reg(self, p):
