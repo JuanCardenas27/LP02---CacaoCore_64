@@ -68,8 +68,9 @@ END1: movh_ri 0 0
         fpadd_rr 0 2
         inc_r 3
         jmp_m {WHILE3}
-    END3: movd_mr [00 00 10 B8] 0
-        lea B [00 00 10 B8]
-        movw_ri C 8
+    END3: movd_mr [00 04 30 00] 0
+        movh_ri A 1
+        lea B [00 04 30 00]
+        movw_ri C 1
         intr 0
         hlt
