@@ -28,20 +28,20 @@ R8 = límite interno (n - 1 - i)
 81 10 F0 FF FF FF FF FF
 -- R8 <- R8 - 1      (dec_r)
 48 52 FF FF FF FF FF FF
--- CMP R2, R8       (R1 < R8) = (i < n-1)
+-- CMP R2, R8       (R2 < R8) = (i < n-1)
 28 B0 60 FF FF FF FF FF
 -- JG FIN_Externo
-8E FF FF FF {reloc #}
+00 11 00 00 8E FF FF FF
 -- Iniciar indice j en R3 (movh_ri)
 00 00 13 01 FF FF FF FF
--- R8 <- R8 - 1   sub_ra
-48 52 FF FF FF FF FF FF
+-- NOP
+F0 FF FF FF FF FF FF FF
 
 -- Loop interno {0x00001070}
 -- CMP R3, R8       (R3 < R8) = (j < n-1-i) cmp_ra
 38 B0 60 FF FF FF FF FF
 -- JGE Fin_interno    j_comparacion
-92 FF FF FF {reloc #}
+F0 10 00 00 92 FF FF FF
 -- R6 <- R3 (movh_rr)
 63 10 F0 FF FF FF FF FF
 -- R6 <- R6*8   mul_ri
@@ -53,17 +53,17 @@ R8 = límite interno (n - 1 - i)
 -- R7 <- R7 + 8      add_ri
 08 00 17 09 F0 FF FF FF
 -- R4 <- [R6]        mov_rn
-46 03 F0 FF FF FF FF FF
+46 13 F0 FF FF FF FF FF
 -- R5 <- [R7]      mov_rn
-57 03 F0 FF FF FF FF FF
+57 13 F0 FF FF FF FF FF
 -- CMP R4, R5       (R4 < R5) = (A[j] < A[j+1])
 45 B0 60 FF FF FF FF FF
 -- JLE Noswap
-{reloc #} 96 FF FF FF
--- [R6] <- R5 moveh_nr
+E0 10 00 00 96 FF FF FF
+-- [R6] <- R5 movh_nr
 65 1C F0 FF FF FF FF FF
 -- [R7] <- R4
-74 04 FF FF FF FF FF FF
+74 1C F0 FF FF FF FF FF
 -- NOSWAP: R3 inc_r {0x000010D8}
 03 22 FF FF FF FF FF FF
 -- JMP LOOP_int
@@ -71,7 +71,7 @@ R8 = límite interno (n - 1 - i)
 -- Fin_interno: R2 inc_r {0x000010E8}
 02 22 FF FF FF FF FF FF
 -- JMP LOOP_ext
-50 10 00 00 52 FF FF FF
+40 10 00 00 52 FF FF FF
 
 ## A partir de aca R0: dir base y R1: n-1 y R3: indice y R2: valor a imprimir
 -- FIN_Externo {0x000010F8}: R3 <- 0
@@ -81,7 +81,7 @@ R8 = límite interno (n - 1 - i)
 -- LOOP_IMP: CMP R3, R1
 31 B0 60 FF FF FF FF FF
 -- JG FIN_IMP
-{reloc #} 8E FF FF FF
+78 11 00 00 8E FF FF FF
 -- R4 <- R3*8+R0
 43 10 F0 FF FF FF FF FF
 08 00 14 0B F3 FF FF FF
@@ -89,14 +89,20 @@ R8 = límite interno (n - 1 - i)
 - R2 <- [R4]
 24 03 F0 FF FF FF FF FF
 -- PRINT lo que esté en R2
-02 D0 00 00 80 02 FF FF
-00 0D 00 00 2B 15 FF FF
-08 00 1C 02 FF FF FF FF
+-- mov_mr [00 04 00 28], R2
+82 02 40 00 80 02 FF FF
+-- movh_ri RA, 0
+00 00 1A 01 FF FF FF FF
+-- lea RB, [00 04 00 28]
+28 00 04 00 2B 15 FF FF
+-- movw_ri RC, 1
+01 00 1C 02 FF FF FF FF
+-- INT 0 (Escribir en consola)
 00 00 45 FF FF FF FF FF
 -- INC R3
 03 22 FF FF FF FF FF FF
 -- JMP LOOP_IMP
-{reloc #} 52 FF FF FF
--- FIN_IMP: HLT
+10 11 00 00 52 FF FF FF
+-- FIN_IMP {0x00001170}: HLT
 00 00 00 00 00 00 00 00
 -- 

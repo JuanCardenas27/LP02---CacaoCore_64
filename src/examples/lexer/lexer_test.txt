@@ -1,0 +1,29 @@
+// Programa de prueba
+ 
+func greet(name: text) {
+    show "Hello, " + name
+    deliver nothing
+}
+ 
+let age: int = 25
+let seconds: height = 180.0
+let active: bool = indeed
+ 
+if age > 18 {
+    show "Welcome."
+} otherwise {
+    set active = nope
+    show "Not today."
+}
+ 
+asLongAs age < 30 {
+    set age = age + 1
+    set height = height + 0.25
+}
+
+show age
+show height
+
+
+// Esto va a generar un error (que se llama formalmente un oops)
+let precio: int = 10 @ 5
