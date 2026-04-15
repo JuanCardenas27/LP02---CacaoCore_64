@@ -224,19 +224,22 @@ class CacaoCoreGUI(tk.Tk):
         run_full_row = tk.Frame(pf, bg=BG_PANEL)
         run_full_row.pack(fill="x", pady=3)
 
-        make_button(run_full_row, "▶▶  RUN FULL", ACCENT2, self._do_run_full).pack(side="left")
+        make_button(run_full_row, "▶▶  RUN FULL", ACCENT2, self._do_run_full).pack(side="left", fill="x", expand=True)
 
+        # Sub-frame compacto para input y label
         self._intertime = tk.StringVar(value="0")
-        tk.Label(run_full_row, text=" seg", font=FM, fg=TEXT_DIM,
-                 bg=BG_PANEL).pack(side="right")
-        tk.Entry(run_full_row, textvariable=self._intertime,
+        time_frame = tk.Frame(run_full_row, bg=BG_INPUT, relief="flat", bd=4,
+                              highlightthickness=1, highlightcolor=ACCENT2,
+                              highlightbackground=BORDER)
+        time_frame.pack(side="left", padx=(8, 0), fill="y")
+        
+        tk.Entry(time_frame, textvariable=self._intertime,
                  font=FM, bg=BG_INPUT, fg=ACCENT2,
-                 insertbackground=ACCENT, relief="flat",
-                 width=10, bd=4,
-                 highlightthickness=1,
-                 highlightcolor=ACCENT2,
-                 highlightbackground=BORDER
-                 ).pack(side="right", padx=2)
+                 insertbackground=ACCENT, relief="flat", bd=0,
+                 width=8).pack(side="left", padx=4, pady=4)
+        
+        tk.Label(time_frame, text="seg", font=FM, fg=TEXT_DIM,
+                 bg=BG_INPUT).pack(side="left", padx=(0, 4), pady=4)
         
 
     # ─────────────────────────────────────────────────────────────────────
@@ -604,11 +607,11 @@ class CacaoCoreGUI(tk.Tk):
             messagebox.showerror("Error de BOOT", str(e))
 
     def _do_run_full(self):
-        try:
-            intertime = float(self._intertime.get())
-        except Exception as e:
-            print("Error! El tiempo debe ser un número")
         while self._core.processor.state == RUNNING:
+            try:
+                intertime = float(self._intertime.get())
+            except Exception as e:
+                print("Error! El tiempo debe ser un número")
             sleep(intertime)
             self._core.run_step()
             self._refresh_registers()
