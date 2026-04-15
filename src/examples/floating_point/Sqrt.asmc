@@ -21,8 +21,9 @@ WHILE_2: cmp_rr 1 0
     movd_rr 2 3
     inc_r 1
     jmp_m {WHILE_2}
-END2: movd_mr buffer 2
-    lea B buffer
-    movw_ri C 8
+END2: movd_mr [00 04 00 00] 2
+    movh_ri A 1
+    lea B [00 04 00 00]
+    movw_ri C 1
     intr 0
     HLT

@@ -214,12 +214,14 @@ A5 F6 FF FF FF FF FF FF
 03 22 FF FF FF FF FF FF
 -- jmp_m {WHILE3}
 {WHILE3} 52 FF FF FF
--- END3: movd_mr buffer 0     (0x000010B8)
-00 D0 00 00 80 03 FF FF
--- lea B buffer
-00 0D 00 00 2B 15 FF FF
--- movw_ri C 8
-08 00 1C 02 FF FF FF FF
+-- END3: movd_mr [00 04 30 00] 0
+00 00 43 00 80 03 FF FF
+-- movh_ri A 1
+01 00 1A 01 FF FF FF FF 
+-- lea B [00 04 30 00]
+00 30 04 00 2B 15 FF FF
+-- movw_ri C 1
+01 00 1C 02 FF FF FF FF
 -- intr 0
 00 00 45 FF FF FF FF FF
 -- hlt
