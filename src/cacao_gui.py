@@ -15,18 +15,12 @@ Cambios respecto a la versión anterior:
 import tkinter as tk
 from tkinter import messagebox
 import sys, os
+from time import sleep
 from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
 from enlazador_cargador.loader_txt import loader_txt
 from compiler.compiler_gui import CompilerGui
-
-# ── Backend del procesador ────────────────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cacao_core import CacaoCore64
-BACKEND = "cacao_core.py OK"
-
-# ── Consola ───────────────────────────────────────────────────────────────────
+from cacao_core import CacaoCore64, RUNNING
 from peripherals.cacao_console import CacaoConsole
-CONSOLE_OK = True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -105,12 +99,6 @@ class CacaoCoreGUI(tk.Tk):
         self._build_body()
         self._build_statusbar()
         self.after(100, self._refresh_registers)
-
-        # Log de arranque
-        if self.console:
-            print(f"Backend: {BACKEND}")
-            if not CONSOLE_OK:
-                print("cacao_console.py no encontrado — usando consola minima")
         
         self._core.processor.io_controller.console = self.console
 
@@ -134,7 +122,7 @@ class CacaoCoreGUI(tk.Tk):
                  font=FM_TITLE, fg=ACCENT, bg=BG_DARK).pack(side="left")
         tk.Label(hdr, text="   PANEL DE CONTROL",
                  font=("Courier New", 14), fg=ACCENT2, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text=f"64-bit  ·  Von Neumann  ·  1 MB RAM   |   {BACKEND}",
+        tk.Label(hdr, text=f"64-bit  ·  Von Neumann  ·  1 MB RAM   |   cacao_core.py",
                  font=FM_SM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
 
         tk.Frame(self, bg=ACCENT, height=2).pack(fill="x", padx=18, side="top")
@@ -229,10 +217,27 @@ class CacaoCoreGUI(tk.Tk):
 
         for label, color, cmd in [
             ("⚡  BOOT",       ACCENT,  self._do_boot),
-            ("▶▶  RUN FULL",  ACCENT2, self._do_run_full),
             ("▶|  RUN STEP",  ACCENT5, self._do_run_step),
         ]:
             make_button(pf, label, color, cmd).pack(fill="x", pady=3)
+        
+        run_full_row = tk.Frame(pf, bg=BG_PANEL)
+        run_full_row.pack(fill="x", pady=3)
+
+        make_button(run_full_row, "▶▶  RUN FULL", ACCENT2, self._do_run_full).pack(side="left")
+
+        self._intertime = tk.StringVar(value="0")
+        tk.Label(run_full_row, text=" seg", font=FM, fg=TEXT_DIM,
+                 bg=BG_PANEL).pack(side="right")
+        tk.Entry(run_full_row, textvariable=self._intertime,
+                 font=FM, bg=BG_INPUT, fg=ACCENT2,
+                 insertbackground=ACCENT, relief="flat",
+                 width=10, bd=4,
+                 highlightthickness=1,
+                 highlightcolor=ACCENT2,
+                 highlightbackground=BORDER
+                 ).pack(side="right", padx=2)
+        
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA A: FORMATO
@@ -563,6 +568,7 @@ class CacaoCoreGUI(tk.Tk):
                 fg=color  if bit_set else TEXT_DIM,
                 bg=BG_PANEL if bit_set else BG_MID
             )
+            ind.update()
 
     # ─────────────────────────────────────────────────────────────────────
     #  ACCIONES DE EJECUCIÓN
@@ -598,21 +604,20 @@ class CacaoCoreGUI(tk.Tk):
             messagebox.showerror("Error de BOOT", str(e))
 
     def _do_run_full(self):
-        # try:
-        self._core.run_full()
-        self._refresh_registers()
+        try:
+            intertime = float(self._intertime.get())
+        except Exception as e:
+            print("Error! El tiempo debe ser un número")
+        while self._core.processor.state == RUNNING:
+            sleep(intertime)
+            self._core.run_step()
+            self._refresh_registers()
         msg = "RUN FULL completado  ·  procesador detenido (HLT)"
         self._set_status(msg, ACCENT2)
         if self.console:
             self.console.write_ok(msg)
-        # except Exception as e:
-        #     self._set_status(f"ERROR en RUN FULL: {e}", ACCENT3)
-        #     if self.console:
-        #         self.console.write_error(f"ERROR en RUN FULL: {e}")
-        #     messagebox.showerror("Error FULL", str(e))
 
     def _do_run_step(self):
-        # try:
         self._core.run_step()
         self._refresh_registers()
         msg = "RUN STEP  ·  un ciclo fetch-decode-execute completado"
@@ -622,11 +627,6 @@ class CacaoCoreGUI(tk.Tk):
             self.console.write_info(msg)
             self.console.write_hex("PC", regs.get("pc", 0), bits=64)
             self.console.write_hex("IR", regs.get("ir", 0), bits=64)
-        # except Exception as e:
-        #     self._set_status(f"ERROR en RUN STEP: {e}", ACCENT3)
-        #     if self.console:
-        #         self.console.write_error(f"ERROR en RUN STEP: {e}")
-        #     messagebox.showerror("Error EN STEP", str(e))
 
     # ─────────────────────────────────────────────────────────────────────
     #  RAM EDITOR (ventana independiente)
