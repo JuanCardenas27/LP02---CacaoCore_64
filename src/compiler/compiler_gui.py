@@ -543,8 +543,215 @@ class CompilerGui:
                          self._ll_erase).pack(side="left", padx=10)
 
     def _do_link_load(self):
-        """Placeholder – conectar lógica de link & load aquí."""
-        pass
+        """
+        Procesa el código relocalizable y lo carga en memoria usando el enlazador.
+        
+        El formato reloc es:
+        .data
+        <hex bytes>
+        .text
+        <hex bytes con referencias [x] y {x}>
+        """
+        try:
+            # Obtener el contenido del reloc
+            reloc_content = self.ll_reloc.get("1.0", tk.END).strip()
+            if not reloc_content:
+                self._show_error("Error", "No hay código relocalizable para procesar")
+                return
+            
+            # Obtener dirección base
+            base_addr_hex = self.ll_base_addr.get().strip()
+            if not base_addr_hex:
+                self._show_error("Error", "Dirección base vacía")
+                return
+            
+            try:
+                base_addr = int(base_addr_hex, 16)
+            except ValueError:
+                self._show_error("Error", f"Dirección base inválida: {base_addr_hex}")
+                return
+            
+            # Parsear el formato reloc
+            parsed = self._parse_reloc_format(reloc_content)
+            
+            if parsed is None:
+                self._show_error("Error", "Formato de reloc inválido")
+                return
+            
+            data_hex, text_hex = parsed
+            
+            # Convertir a módulo objeto para el enlazador
+            module_obj = self._create_obj_module(data_hex, text_hex, base_addr)
+            
+            if module_obj is None:
+                self._show_error("Error", "No se pudo crear el módulo objeto")
+                return
+            
+            # Usar el gestor de enlazador-cargador
+            from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
+            from memoria.ram import ram
+            
+            gestor = GestorEnlazadorCargador(verbose=False)
+            
+            # Cargar y enlazar
+            exito = gestor.cargar_desde_contenido(
+                {'programa': module_obj},
+                direccion_base=base_addr,
+                cargar_en_memoria=True
+            )
+            
+            if not exito:
+                self._show_error("Error de carga", 
+                    f"Error al cargar: {gestor.obtener_ultimo_error()}")
+                return
+            
+            # Mostrar resultado en la interfaz
+            self._show_loaded_code(base_addr, data_hex, text_hex)
+            
+            # Opcional: mostrar tabla de símbolos
+            tabla = gestor.obtener_tabla_simbolos()
+            if tabla:
+                simbolos_str = "\n".join([f"{nom}: 0x{sym.valor:X}" 
+                    for nom, sym in tabla.items()])
+                self.ll_loaded.configure(state="normal")
+                self.ll_loaded.insert(tk.END, f"\n\n=== Símbolos ===\n{simbolos_str}")
+                self.ll_loaded.configure(state="disabled")
+            
+            self._show_message("Éxito", "Código cargado en memoria exitosamente")
+            
+        except Exception as e:
+            self._show_error("Error inesperado", f"{type(e).__name__}: {e}")
+    
+    def _parse_reloc_format(self, content):
+        """
+        Parsea el formato reloc:
+        .data
+        <hex>
+        .text
+        <hex>
+        
+        Retorna: (data_hex, text_hex) o None si hay error
+        """
+        lines = [l.strip() for l in content.split('\n') if l.strip()]
+        
+        data_hex = ""
+        text_hex = ""
+        section = None
+        
+        for line in lines:
+            if line == ".data":
+                section = "data"
+                continue
+            elif line == ".text":
+                section = "text"
+                continue
+            
+            if section == "data":
+                # Procesar línea de datos
+                hex_str = self._process_reloc_line(line)
+                if hex_str:
+                    data_hex += hex_str
+            elif section == "text":
+                # Procesar línea de texto
+                hex_str = self._process_reloc_line(line)
+                if hex_str:
+                    text_hex += hex_str
+        
+        if not data_hex and not text_hex:
+            return None
+        
+        return (data_hex, text_hex)
+    
+    def _process_reloc_line(self, line):
+        """
+        Procesa una línea de reloc, reemplazando referencias como:
+        - {9} → bytes para referencia
+        - [2] → bytes para referencia
+        
+        Por ahora, convierte referencias a ceros (placeholder).
+        """
+        import re
+        
+        # Reemplazar referencias con ceros (serán procesadas por el enlazador)
+        line = re.sub(r'\{[0-9]+\}', '00', line)  # {9} → 00
+        line = re.sub(r'\[[0-9]+\]', '00', line)  # [2] → 00
+        line = re.sub(r'\[[0-9]+\]', '00', line)  # 1[2]8 → 100008 (el 1[2]8)
+        
+        # Eliminar espacios y convertir a hex válido
+        line = line.replace(' ', '').replace('\t', '')
+        
+        # Validar que sean caracteres hex válidos
+        if not all(c in '0123456789ABCDEFabcdef' for c in line):
+            return ""
+        
+        return line
+    
+    def _create_obj_module(self, data_hex, text_hex, base_addr):
+        """
+        Crea un módulo objeto compatible con el enlazador.
+        
+        Formato:
+        [MODULE nombre]
+        [CODE] hex_bytes
+        [DATA] hex_bytes
+        [SYMBOLS] nombre:tipo:valor
+        [EXTERNAL]
+        """
+        # Convertir strings hex a formato espaciado para el módulo objeto
+        code_formatted = self._format_hex_for_module(text_hex)
+        data_formatted = self._format_hex_for_module(data_hex)
+        
+        module = f"""[MODULE programa]
+[CODE] {code_formatted}
+[DATA] {data_formatted}
+[SYMBOLS] inicio:code:0x{base_addr:X}
+[EXTERNAL]
+"""
+        return module
+    
+    def _format_hex_for_module(self, hex_string):
+        """Formatea un string hex para el módulo objeto (XX XX XX XX ...)"""
+        if not hex_string:
+            return ""
+        
+        # Agrupar en pares
+        hex_string = hex_string.replace(' ', '')
+        pairs = [hex_string[i:i+2].upper() for i in range(0, len(hex_string), 2)]
+        return ' '.join(pairs)
+    
+    def _show_loaded_code(self, base_addr, data_hex, text_hex):
+        """Muestra el código cargado en el widget ll_loaded"""
+        self.ll_loaded.configure(state="normal")
+        self.ll_loaded.delete("1.0", tk.END)
+        
+        output = f"BASE ADDRESS: 0x{base_addr:08X}\n"
+        output += f"===============================\n\n"
+        
+        if data_hex:
+            output += f"DATA SECTION (0x{base_addr:08X}):\n"
+            # Mostrar en filas de 8 bytes
+            for i in range(0, len(data_hex), 16):
+                output += data_hex[i:i+16] + "\n"
+            output += f"\n"
+        
+        if text_hex:
+            output += f"CODE SECTION (0x{base_addr + len(data_hex)//2:08X}):\n"
+            # Mostrar en filas de 8 bytes
+            for i in range(0, len(text_hex), 16):
+                output += text_hex[i:i+16] + "\n"
+        
+        self.ll_loaded.insert(tk.END, output)
+        self.ll_loaded.configure(state="disabled")
+    
+    def _show_error(self, title, message):
+        """Muestra un diálogo de error"""
+        from tkinter import messagebox
+        messagebox.showerror(title, message)
+    
+    def _show_message(self, title, message):
+        """Muestra un diálogo informativo"""
+        from tkinter import messagebox
+        messagebox.showinfo(title, message)
     
 
     def _ll_load(self):
