@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-from gui.color_palette import *
+from gui.styles_spl import *
 from assembler import ASM
 from compiler import compiler
 from preprocesador.preprocesador import Preprocesador, PreprocesadorError
