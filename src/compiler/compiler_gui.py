@@ -459,7 +459,7 @@ class CompilerGui:
                          self._asm_erase).pack(side="left", padx=10)
 
     def _asm_load(self):
-        path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
+        path = filedialog.askopenfilename(filetypes=[("ASM_FILES", "*.asm"), ("All", "*.*")])
         self.window.lift()
         if path:
             with open(path, "r", encoding="utf-8") as f:
