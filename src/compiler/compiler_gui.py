@@ -17,8 +17,6 @@ class CompilerGui:
         self.window.geometry(f"{width}x{height}+0+0")
         self.window.resizable(False, False)
         self.window.lift()
-        self.window.focus_force()
-        self.window.grab_set()
 
         self.index           = 0
         self.compiler_step   = 0
@@ -561,6 +559,7 @@ class CompilerGui:
             
             # Obtener dirección base
             base_addr_hex = self.ll_base_addr.get().strip()
+            print(base_addr_hex)
             if not base_addr_hex:
                 self._show_error("Error", "Dirección base vacía")
                 return

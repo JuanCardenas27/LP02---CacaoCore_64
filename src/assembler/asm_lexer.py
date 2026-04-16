@@ -14,7 +14,7 @@ class AsmLexer:
     t_ignore   = ' \t'
 
     mnemonics = {
-    'nop','hlt','ret','ei','di','iret','push','pop','int',
+    'nop','hlt','ret','ei','di','iret','push','pop','intr',
     'movb','movh','movw','movd','swap',
     'loadb','loadh','loadw','loadd','lea',
     'storeb','storeh','storew','stored','sext',
@@ -26,7 +26,11 @@ class AsmLexer:
     'fpadd','fpsub','fpmul','fpdiv','fpneg','fpcmp',
     'fpsqrt','fptof','fptoi','ju','jnu'
     }
-
+    def t_MEMORY(self, t):
+        r'0x[0-9A-Fa-f]+'
+        t.value = int(t.value, 16)
+        return t
+        
     def t_REGISTER(self, t):
         r'(R|r)(1[0-5]|[0-9])'
         t.value = int(t.value[1:])
@@ -36,11 +40,6 @@ class AsmLexer:
         r'.DATA|.data|.TEXT|.text'
         
         return t    
-    
-    def t_MEMORY(self, t):
-        r'0x[0-9A-Fa-f]+'
-        t.value = int(t.value, 16)
-        return t
     
     def t_FLOAT(self, t):
         r'[+-]?(\d+\.\d+)'
