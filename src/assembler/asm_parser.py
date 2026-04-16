@@ -116,7 +116,7 @@ class AsmParser:
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '-'
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
-                code = str(hex(p[2]))[2:] + '[' + f'{self.var_table[p[3]]}' + ']' + code
+                code = str(hex(p[6]))[2:] + '[' + f'{self.var_table[p[3]]}' + ']' + code
 
                 p[0] = code
 
