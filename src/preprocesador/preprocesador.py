@@ -8,6 +8,44 @@ from typing import Dict, List, Optional, Tuple
 import ply.lex as lex
 
 
+RE_INCLUDE_LINE = re.compile(r'#\s*include\b')
+RE_DEFINE_LINE = re.compile(r'#\s*define\b')
+RE_UNDEF_LINE = re.compile(r'#\s*undef\b')
+RE_IFDEF_LINE = re.compile(r'#\s*ifdef\b')
+RE_IFNDEF_LINE = re.compile(r'#\s*ifndef\b')
+RE_ELSE_LINE = re.compile(r'#\s*else\b')
+RE_ENDIF_LINE = re.compile(r'#\s*endif\b')
+RE_ERROR_LINE = re.compile(r'#\s*error\b')
+RE_WARNING_LINE = re.compile(r'#\s*warning\b')
+
+RE_PARSE_INCLUDE = re.compile(
+    r'^\s*#\s*include\s+"([^"]+)"\s*(?:\{([^}]*)\})?\s*(?:(?://|;|#).*)?$'
+)
+RE_DEFINE_WITH_PARAMS = re.compile(
+    r'^([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*(.*)'
+)
+RE_DEFINE_SIMPLE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\s*(.*)')
+
+IDENT_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+LABEL_RE = re.compile(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:')
+
+MNEMONICS = {
+    'nop','hlt','ret','ei','di','iret','push','pop','int',
+    'movb','movh','movw','movd','swap',
+    'loadb','loadh','loadw','loadd','lea',
+    'storeb','storeh','storew','stored','sext',
+    'add','sub','mul','div','inc','dec','neg',
+    'and','or','xor','not','cmp','test',
+    'shl','shr','rol','ror','cmpz',
+    'jmp','jz','jnz','jc','jnc','js','jns','jo','jno',
+    'jl','jg','jge','jle','call',
+    'fpadd','fpsub','fpmul','fpdiv','fpneg','fpcmp',
+    'fpsqrt','fptof','fptoi','ju','jnu'
+}
+REGISTER_NAMES = {f"r{i}" for i in range(16)}
+RESERVED_WORDS = MNEMONICS | {'data', 'text', 'extern', 'import'}
+
+
 @dataclass
 class SourceLine:
     """Rastrea el origen de cada línea de salida (para mensajes de error)."""
@@ -162,17 +200,15 @@ class Macro:
 
 
 class Preprocesador:
-  
+    _EXTERN_PLACEHOLDER = "__EXTERN_PLACEHOLDER__"
 
     def __init__(self,
                  library_dir: Optional[str] = None,
-                 max_include_depth: int = 25,
                  max_macro_expansion: int = 50,
                  macros_iniciales: Optional[Dict[str, str]] = None,
                  verbose: bool = False):
 
         self.library_dir          = self._resolver_library_dir(library_dir)
-        self.max_include_depth    = max_include_depth
         self.max_macro_expansion  = max_macro_expansion
         self.verbose              = verbose
         self.advertencias: List[str] = []
@@ -180,9 +216,10 @@ class Preprocesador:
         # Estado interno (se reinicia en cada llamada a preprocess)
         self._defines: Dict[str, Macro]    = {}
         self._define_pattern               = None
-        self._include_stack: List[str]     = []  # cadena actual (ciclos)
-        self._include_seen: set            = set()  # todos (evita dupes)
         self._pila_cond: List[bool]        = []  # bloques condicionales
+        self._imports_set: set             = set()
+        self._externs_explicit: set        = set()
+        self._extern_placeholder_index     = None
 
         # Construir el lexer PLY (equivalente a compilar el .l en FLEX)
         self._lexer = lex.lex()
@@ -252,11 +289,10 @@ class Preprocesador:
     # -------------------------------------------------------------------------
 
     def _parsear_define(self, raw: str) -> Macro:
-      
         resto = re.sub(r'^\#\s*define\s+', '', raw).strip()
 
         # Con parámetros: NOMBRE(p1, p2) valor
-        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*(.*)', resto)
+        m = RE_DEFINE_WITH_PARAMS.match(resto)
         if m:
             nombre = m.group(1)
             params = [p.strip() for p in m.group(2).split(',') if p.strip()]
@@ -264,7 +300,7 @@ class Preprocesador:
             return Macro(nombre, valor, params)
 
         # Simple: NOMBRE  o  NOMBRE valor
-        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\s*(.*)', resto)
+        m = RE_DEFINE_SIMPLE.match(resto)
         if m:
             return Macro(m.group(1), m.group(2).strip() or '1')
 
@@ -272,10 +308,7 @@ class Preprocesador:
 
     def _parsear_include(self, raw: str) -> Tuple[str, Optional[List[str]]]:
         """Extrae el nombre de archivo y lista de funciones de #include."""
-        m = re.match(
-            r'^\s*#\s*include\s+"([^"]+)"\s*(?:\{([^}]*)\})?\s*(?:(?://|;|#).*)?$',
-            raw
-        )
+        m = RE_PARSE_INCLUDE.match(raw)
         if not m:
             raise IncludeError(f"Sintaxis #include inválida: {raw}")
 
@@ -288,59 +321,6 @@ class Preprocesador:
         if not funciones:
             raise IncludeError("Lista de funciones vacia en #include")
         return nombre, funciones
-
-    def _filtrar_funciones(self, contenido: str, funciones: List[str],
-                           fuente: str, n_linea: int) -> str:
-        lineas = contenido.splitlines()
-        salida = list(lineas)
-
-        bloques = {}
-        actual = None
-        inicio = None
-        marca_inicio = None
-
-        for i, linea in enumerate(lineas):
-            m = re.match(r'^\s*;\s*@func\s+([A-Za-z_][A-Za-z0-9_]*)\s*$', linea)
-            if m:
-                if actual is not None:
-                    raise IncludeError("Bloque @func anidado o sin cerrar", fuente, n_linea)
-                actual = m.group(1)
-                if actual in bloques:
-                    raise IncludeError(f"Funcion duplicada: {actual}", fuente, n_linea)
-                inicio = i + 1
-                marca_inicio = i
-                continue
-
-            if re.match(r'^\s*;\s*@endfunc\s*$', linea):
-                if actual is None:
-                    raise IncludeError("@endfunc sin @func", fuente, n_linea)
-                bloques[actual] = (inicio, i, marca_inicio, i)
-                actual = None
-                inicio = None
-                marca_inicio = None
-                continue
-
-        if actual is not None:
-            raise IncludeError(f"Falta @endfunc para '{actual}'", fuente, n_linea)
-
-        faltantes = [f for f in funciones if f not in bloques]
-        if faltantes:
-            raise IncludeError(
-                "Funciones no encontradas: " + ", ".join(faltantes),
-                fuente, n_linea
-            )
-
-        for nombre, (ini, fin, marca_ini, marca_fin) in bloques.items():
-            salida[marca_ini] = ''
-            salida[marca_fin] = ''
-            if nombre not in funciones:
-                for j in range(ini, fin):
-                    salida[j] = ''
-
-        texto = '\n'.join(salida)
-        if contenido.endswith('\n'):
-            texto += '\n'
-        return texto
 
     def _parsear_nombre_macro(self, raw: str, directiva: str) -> str:
         """Extrae el nombre de macro de #ifdef / #ifndef / #undef."""
@@ -386,6 +366,51 @@ class Preprocesador:
             i += 1
         return None
 
+    def _strip_comment(self, line: str) -> str:
+        idx = self._find_comment_start(line)
+        return line[:idx] if idx is not None else line
+
+    def _collect_symbol_sets(self, lineas: List[str]) -> Tuple[set, set]:
+        defined: set = set()
+        referenced: set = set()
+
+        for linea in lineas:
+            if not linea or linea == self._EXTERN_PLACEHOLDER:
+                continue
+            s = linea.strip()
+            if not s:
+                continue
+            s_lower = s.lower()
+            if s_lower.startswith('.import') or s_lower.startswith('.extern'):
+                continue
+
+            codigo = self._strip_comment(linea)
+            if not codigo.strip():
+                continue
+
+            m = LABEL_RE.match(codigo)
+            if m:
+                defined.add(m.group(1).lower())
+                codigo = codigo[m.end():]
+
+            for ident in IDENT_RE.findall(codigo):
+                ident_l = ident.lower()
+                if ident_l in RESERVED_WORDS:
+                    continue
+                if ident_l in REGISTER_NAMES:
+                    continue
+                referenced.add(ident_l)
+
+        return defined, referenced
+
+    def _emit_import(self, nombre: str, lineas: List[str],
+                     mapa: List[SourceLine], fuente: str, n_linea: int) -> None:
+        if nombre in self._imports_set:
+            return
+        self._imports_set.add(nombre)
+        lineas.append(f'.import "{nombre}"')
+        mapa.append(SourceLine(path=fuente, line=n_linea))
+
     def _expandir_macros(self, linea: str) -> str:
   
         idx = self._find_comment_start(linea)
@@ -418,73 +443,12 @@ class Preprocesador:
         return codigo + comentario
 
 
-    def _resolver_include(self, nombre: str) -> str:
-        """Devuelve la ruta absoluta del archivo a incluir."""
-        ruta    = os.path.abspath(os.path.join(self.library_dir, nombre))
-        lib_abs = os.path.abspath(self.library_dir)
-
-        # Seguridad: no permitir salir de Libraries con ../
-        if os.path.commonpath([ruta, lib_abs]) != lib_abs:
-            raise IncludeError(
-                f"#include intenta salir del directorio de bibliotecas: '{nombre}'"
-            )
-        if not os.path.isfile(ruta):
-            raise IncludeError(f"Archivo no encontrado: '{ruta}'")
-        return ruta
-
-    def _procesar_include(self, nombre: str, fuente: str,
-                          n_linea: int, depth: int,
-                          funciones: Optional[List[str]] = None
-                          ) -> Tuple[List[str], List[SourceLine]]:
-        """Lee y preprocesa recursivamente un archivo incluido."""
-        if depth > self.max_include_depth:
-            raise IncludeError(
-                "Profundidad máxima de #include superada. ¿Inclusión circular?",
-                fuente, n_linea
-            )
-
-        ruta = self._resolver_include(nombre)
-
-        # Detectar ciclo de inclusión
-        if ruta in self._include_stack:
-            ciclo = ' -> '.join(self._include_stack + [ruta])
-            raise IncludeError(
-                f"Inclusión circular detectada: {ciclo}", fuente, n_linea
-            )
-
-        # Evitar duplicados (include-guard automático)
-        if ruta in self._include_seen:
-            self._advertir(
-                f"'{nombre}' ya fue incluido antes (se omite)", fuente, n_linea
-            )
-            return [], []
-
-        self._include_seen.add(ruta)
-        self._include_stack.append(ruta)
-        self._log(f"#include '{nombre}' → {ruta}")
-
-        try:
-            with open(ruta, 'r', encoding='utf-8-sig') as f:
-                contenido = f.read()
-        except OSError as e:
-            raise IncludeError(
-                f"No se pudo leer '{ruta}': {e}", fuente, n_linea
-            )
-
-        if funciones:
-            contenido = self._filtrar_funciones(contenido, funciones, fuente, n_linea)
-
-        lineas, mapa = self._procesar_tokens(contenido, ruta, depth + 1)
-        self._include_stack.pop()
-        return lineas, mapa
-
-    def _procesar_tokens(self, texto: str, fuente: str,
-                         depth: int = 0) -> Tuple[List[str], List[SourceLine]]:
+    def _procesar_tokens(self, texto: str, fuente: str) -> Tuple[List[str], List[SourceLine]]:
       
         lineas_salida: List[str]        = []
         mapa_salida:   List[SourceLine] = []
 
-        # Clonar el lexer para soportar llamadas recursivas (#include)
+        # Clonar el lexer para aislar estado entre ejecuciones
         lexer = self._lexer.clone()
         lexer.lineno = 1
         lexer.input(texto)
@@ -512,19 +476,31 @@ class Preprocesador:
                 continue
 
             # #include ────────────────────────────────────────────────────────
-            if re.match(r'#\s*include\b', s):
+            if RE_INCLUDE_LINE.match(s):
                 if not self._activo():
                     continue
                 nombre, funciones = self._parsear_include(linea)
-                inc_l, inc_m = self._procesar_include(
-                    nombre, fuente, n_linea, depth, funciones
-                )
-                lineas_salida.extend(inc_l)
-                mapa_salida.extend(inc_m)
+                self._emit_import(nombre, lineas_salida, mapa_salida, fuente, n_linea)
+                if funciones:
+                    for func in funciones:
+                        nombre_func = func.strip()
+                        if not nombre_func:
+                            continue
+                        norm = nombre_func.lower()
+                        if norm in self._externs_explicit:
+                            continue
+                        self._externs_explicit.add(norm)
+                        lineas_salida.append(f".extern {nombre_func}")
+                        mapa_salida.append(SourceLine(path=fuente, line=n_linea))
+
+                if self._extern_placeholder_index is None:
+                    self._extern_placeholder_index = len(lineas_salida)
+                    lineas_salida.append(self._EXTERN_PLACEHOLDER)
+                    mapa_salida.append(SourceLine(path=fuente, line=n_linea))
                 continue
 
             # #define ─────────────────────────────────────────────────────────
-            if re.match(r'#\s*define\b', s):
+            if RE_DEFINE_LINE.match(s):
                 if self._activo():
                     macro = self._parsear_define(s)
                     self._defines[macro.nombre] = macro
@@ -533,7 +509,7 @@ class Preprocesador:
                 continue
 
             # #undef ──────────────────────────────────────────────────────────
-            if re.match(r'#\s*undef\b', s):
+            if RE_UNDEF_LINE.match(s):
                 if self._activo():
                     nombre = self._parsear_nombre_macro(s, 'undef')
                     self._defines.pop(nombre, None)
@@ -542,7 +518,7 @@ class Preprocesador:
                 continue
 
             # #ifdef ──────────────────────────────────────────────────────────
-            if re.match(r'#\s*ifdef\b', s):
+            if RE_IFDEF_LINE.match(s):
                 nombre = self._parsear_nombre_macro(s, 'ifdef')
                 activo = nombre in self._defines
                 self._pila_cond.append(activo)
@@ -550,7 +526,7 @@ class Preprocesador:
                 continue
 
             # #ifndef ─────────────────────────────────────────────────────────
-            if re.match(r'#\s*ifndef\b', s):
+            if RE_IFNDEF_LINE.match(s):
                 nombre = self._parsear_nombre_macro(s, 'ifndef')
                 activo = nombre not in self._defines
                 self._pila_cond.append(activo)
@@ -558,7 +534,7 @@ class Preprocesador:
                 continue
 
             # #else ───────────────────────────────────────────────────────────
-            if re.match(r'#\s*else\b', s):
+            if RE_ELSE_LINE.match(s):
                 if not self._pila_cond:
                     raise CondicionalError(
                         "#else sin #ifdef/#ifndef previo", fuente, n_linea
@@ -567,7 +543,7 @@ class Preprocesador:
                 continue
 
             # #endif ──────────────────────────────────────────────────────────
-            if re.match(r'#\s*endif\b', s):
+            if RE_ENDIF_LINE.match(s):
                 if not self._pila_cond:
                     raise CondicionalError(
                         "#endif sin #ifdef/#ifndef previo", fuente, n_linea
@@ -576,7 +552,7 @@ class Preprocesador:
                 continue
 
             # #error ──────────────────────────────────────────────────────────
-            if re.match(r'#\s*error\b', s):
+            if RE_ERROR_LINE.match(s):
                 if self._activo():
                     m = re.match(r'#\s*error\s*(.*)', s)
                     raise PreprocesadorError(
@@ -585,7 +561,7 @@ class Preprocesador:
                 continue
 
             # #warning ────────────────────────────────────────────────────────
-            if re.match(r'#\s*warning\b', s):
+            if RE_WARNING_LINE.match(s):
                 if self._activo():
                     m = re.match(r'#\s*warning\s*(.*)', s)
                     self._advertir(
@@ -603,26 +579,51 @@ class Preprocesador:
                 mapa_salida.append(SourceLine(path=fuente, line=n_linea))
 
         # Verificar bloques condicionales cerrados (solo en nivel raíz)
-        if depth == 0 and self._pila_cond:
+        if self._pila_cond:
             raise CondicionalError(
                 f"Faltan {len(self._pila_cond)} directiva(s) #endif", fuente
             )
 
         return lineas_salida, mapa_salida
 
+    def _finalizar_imports_externs(self, lineas: List[str],
+                                   mapa: List[SourceLine]) -> None:
+        if self._extern_placeholder_index is None:
+            return
+
+        auto_externs: set = set()
+        if self._imports_set:
+            definidos, referenciados = self._collect_symbol_sets(lineas)
+            auto_externs = referenciados - definidos - self._externs_explicit
+
+        idx = self._extern_placeholder_index
+        if not auto_externs:
+            del lineas[idx]
+            del mapa[idx]
+            return
+
+        extern_lines = [f".extern {name}" for name in sorted(auto_externs)]
+        ref = mapa[idx]
+        lineas[idx:idx + 1] = extern_lines
+        mapa[idx:idx + 1] = [ref for _ in extern_lines]
+
+    def _reset_state(self) -> None:
+        self._defines = dict(self._macros_base)
+        self._define_pattern = None
+        self._pila_cond = []
+        self.advertencias = []
+        self._imports_set = set()
+        self._externs_explicit = set()
+        self._extern_placeholder_index = None
 
 
     def preprocess(self, codigo: str,
                    nombre_fuente: str = '<string>') -> PreprocessResult:
-        # Reiniciar todo el estado interno
-        self._defines        = dict(self._macros_base)
-        self._define_pattern = None
-        self._include_stack  = []
-        self._include_seen   = set()
-        self._pila_cond      = []
-        self.advertencias    = []
+        self._reset_state()
 
-        lineas, mapa = self._procesar_tokens(codigo, nombre_fuente, depth=0)
+        lineas, mapa = self._procesar_tokens(codigo, nombre_fuente)
+
+        self._finalizar_imports_externs(lineas, mapa)
 
         texto = '\n'.join(lineas)
         if texto:
