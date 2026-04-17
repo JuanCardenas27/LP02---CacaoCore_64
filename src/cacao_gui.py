@@ -14,13 +14,18 @@ Cambios respecto a la versión anterior:
 
 import tkinter as tk
 from tkinter import messagebox
-import sys, os
+import os
 from time import sleep
 from enlazador_cargador.loader_txt import loader_txt
 from compiler.compiler_gui import CompilerGui
+import compiler.compiler_gui as compiler_gui_module
 from cacao_core import CacaoCore64, RUNNING
 from peripherals.cacao_console import CacaoConsole
+import peripherals.cacao_console as cacao_console_module
+import gui.styles_console as styles_console_module
+import gui.styles_cacao as styles_cacao_module
 from gui.styles_cacao import *
+from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
 from gui.zoom_manager import ZoomManager
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -101,6 +106,7 @@ class CacaoCoreGUI(tk.Tk):
         self._reg_labels   = {}
         self._flag_widgets = {}
         self._format_rbs = []
+        self._palette_name = "current"
 
         # Atributos públicos de componentes externos
         self.console      = None   # CacaoConsole       — asignado en _build_console_panel
@@ -137,6 +143,8 @@ class CacaoCoreGUI(tk.Tk):
             accent2=ACCENT2,
             accent4=ACCENT4,
             min_layout_zoom=0.1,
+            on_palette_change=self._apply_palette,
+            initial_palette=self._palette_name,
         )
         self._zoom_manager.attach_widgets(
             header_title=self._hdr_title,
@@ -738,12 +746,15 @@ class CacaoCoreGUI(tk.Tk):
                 self.configure(bg=mod.BG_DARK)
                 self.loader_mod = loader_txt
                 self.resizable(True, True)
+                self._zoom_manager = None
+                self.loaded_file_path = None
                 self.addr_var      = tk.StringVar(self, value="00001000")
                 self.data_mode     = tk.StringVar(self, value="hex")
                 self.read_addr_var = tk.StringVar(self, value="00001000")
                 self.read_len_var  = tk.StringVar(self, value="64")
                 self.hex_base_var  = tk.StringVar(self, value="00001000")
                 self.hex_rows_var  = tk.StringVar(self, value="16")
+                self._palette_name = "current"
                 import types
                 for name in dir(EditorClass):
                     if name.startswith("__"):
@@ -754,29 +765,30 @@ class CacaoCoreGUI(tk.Tk):
                 self._build_ui()
                 self._refresh_hex_view(0x00001000, 16)
 
-        try:
-            win = RAMEditorWindow()
-            self._ram_win = win
-            msg = "RAM Editor abierto en proceso compartido — cambios inmediatos."
-            self._set_status(msg, mod.ACCENT)
-            if self.console:
-                self.console.write_ok(msg)
-        except Exception as e:
-            import subprocess
-            subprocess.Popen([sys.executable, editor_path])
-            msg = ("ADVERTENCIA: RAM Editor como proceso externo — "
-                   "los cambios NO se comparten automaticamente.")
-            self._set_status(msg, mod.ACCENT3)
-            if self.console:
-                self.console.write_warn(msg)
-                self.console.write_error(f"Detalle: {e}")
-
+        win = RAMEditorWindow()
+        self._ram_win = win
+        msg = "RAM Editor abierto en proceso compartido — cambios inmediatos."
+        self._set_status(msg, mod.ACCENT)
+        if self.console:
+            self.console.write_ok(msg)
+    
     def _set_status(self, msg, color=ACCENT):
         self._status_var.set(f"  {msg}")
         self._status_lbl.config(fg=color)
 
     def _toggle_settings_popup(self):
         self._zoom_manager.toggle_settings_popup()
+
+    def _apply_palette(self, palette_name):
+        self._palette_name = palette_name
+        apply_palette_namespace(globals(), palette_name)
+        apply_palette_namespace(styles_cacao_module.__dict__, palette_name)
+        apply_palette_namespace(styles_console_module.__dict__, palette_name)
+        apply_palette_namespace(compiler_gui_module.__dict__, palette_name)
+        apply_palette_namespace(cacao_console_module.__dict__, palette_name)
+        recolor_widget_tree(self, palette_name)
+        if self._zoom_manager is not None:
+            self._zoom_manager.apply_zoom("both")
     
     def _open_compiler(self):
         compiler = CompilerGui(self)

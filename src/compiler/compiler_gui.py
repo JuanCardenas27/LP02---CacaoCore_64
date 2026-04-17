@@ -1,7 +1,11 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
+import gui.styles_cacao as styles_cacao_module
+import gui.styles_spl as styles_spl_module
 from gui.styles_spl import *
+from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
+from gui.zoom_manager import ZoomManager
 from assembler import ASM
 from compiler import compiler
 from preprocesador.preprocesador import Preprocesador, PreprocesadorError
@@ -24,6 +28,8 @@ class CompilerGui:
         self.compiler_step   = 0
         self._carry_compiler = ""   # texto que viaja de pre-processor → compiler
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
+        self._zoom_manager   = None
+        self._palette_name    = "current"
 
         # Incializa estilos 
         setup_styles()
@@ -33,6 +39,7 @@ class CompilerGui:
         self._setup_body()
         self._set_menu()
         self._pre_compiler()
+        self._init_zoom_controls()
 
     # ══════════════════════════════════════════════════════════════════════
     # ESTRUCTURA BASE
@@ -66,12 +73,50 @@ class CompilerGui:
                 if (r + c) % 2 == 0:
                     canvas.create_rectangle(c*8, r*8, c*8+7, r*8+7, fill=ACCENT, outline="")
 
-        tk.Label(hdr, text="CACAO_Core-64",
-                 font=FM_TITLE, fg=ACCENT, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="   LANGUAGE PROCESSOR SYSTEM",
-                 font=("Courier New", 14), fg=ACCENT2, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="64-bit  ·  Von Neumann  ·  1 MB RAM",
-                 font=FM_SM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
+        self._hdr_title = tk.Label(
+            hdr,
+            text="CACAO_Core-64",
+            font=FM_TITLE,
+            fg=ACCENT,
+            bg=BG_DARK,
+        )
+        self._hdr_title.pack(side="left")
+
+        self._hdr_subtitle = tk.Label(
+            hdr,
+            text="   LANGUAGE PROCESSOR SYSTEM",
+            font=("Courier New", 14),
+            fg=ACCENT2,
+            bg=BG_DARK,
+        )
+        self._hdr_subtitle.pack(side="left")
+
+        tk.Frame(hdr, bg=BG_DARK).pack(side="left", fill="x", expand=True)
+
+        self._settings_btn = tk.Button(
+            hdr,
+            text="⚙️ Configurar",
+            bg=BG_MID,
+            fg=ACCENT4,
+            activebackground=ACCENT4,
+            activeforeground=BG_DARK,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=3,
+            cursor="hand2",
+            command=self._toggle_settings_popup,
+        )
+        self._settings_btn.pack(side="left", padx=(20, 20))
+
+        self._hdr_info = tk.Label(
+            hdr,
+            text="64-bit  ·  Von Neumann  ·  1 MB RAM",
+            font=FM_SM,
+            fg=TEXT_DIM,
+            bg=BG_DARK,
+        )
+        self._hdr_info.pack(side="left")
 
         tk.Frame(self.window, bg=ACCENT, height=2).grid(row=1, column=0, sticky="ew")
 
@@ -81,7 +126,9 @@ class CompilerGui:
 
         panel = tk.Frame(self.header, bg=BG_PANEL,
                          highlightbackground=BORDER, highlightthickness=2)
-        panel.grid(row=0, column=0)
+        panel.grid(row=0, column=0, sticky="ew", padx=6, pady=6)
+        for col in range(4):
+            panel.grid_columnconfigure(col, weight=1, uniform="spl_phase")
 
         phases = ["Pre-Processor", "Compiler", "Assembler", "Loader / Linker"]
         colors = [ACCENT, ACCENT2, ACCENT3, ACCENT4]
@@ -94,7 +141,7 @@ class CompilerGui:
                             activeforeground="black", bd=0,
                             padx=25, pady=15, cursor="hand2",
                             command=lambda c=cmd, idx=i: self._switch_phase(c, idx))
-            btn.grid(row=0, column=i, padx=5, pady=5)
+            btn.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
             self._phase_btns.append(btn)
 
     def _switch_phase(self, cmd, idx):
@@ -105,8 +152,8 @@ class CompilerGui:
 
     def _setup_body(self):
         self.body.grid_rowconfigure(0, weight=1)
-        self.body.grid_columnconfigure(0, weight=1)
-        self.body.grid_columnconfigure(1, weight=0)
+        self.body.grid_columnconfigure(0, weight=3, uniform="spl_body")
+        self.body.grid_columnconfigure(1, weight=1, uniform="spl_body", minsize=280)
 
         self.content = tk.Frame(self.body, bg=BG_PANEL)
         self.content.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
@@ -136,6 +183,68 @@ class CompilerGui:
                   bd=0, padx=20, pady=15, cursor="hand2",
                   command=self._next_phase
                   ).grid(row=1, column=0, pady=10)
+
+        self._refresh_zoom_dynamic()
+
+    def _init_zoom_controls(self):
+        if self._zoom_manager is not None:
+            return
+
+        self._zoom_manager = ZoomManager(
+            self.window,
+            font_base=FM,
+            font_lg=FM_LG,
+            font_xl=FM_XL,
+            font_title=FM_TITLE,
+            font_subtitle=("Courier New", 14),
+            font_sm=FM_SM,
+            font_btn=FM_BTN,
+            font_label=FM_LABEL,
+            bg_panel=BG_PANEL,
+            bg_mid=BG_MID,
+            bg_dark=BG_DARK,
+            text_main=TEXT_MAIN,
+            accent=ACCENT,
+            accent2=ACCENT2,
+            accent4=ACCENT4,
+            min_layout_zoom=0.1,
+            scale_widget_size=False,
+            on_palette_change=self._apply_palette,
+            initial_palette=self._palette_name,
+        )
+        self._zoom_manager.attach_widgets(
+            header_title=self._hdr_title,
+            header_subtitle=self._hdr_subtitle,
+            header_info=self._hdr_info,
+            settings_button=self._settings_btn,
+            status_label=None,
+            reg_labels={},
+            flag_widgets={},
+            format_rbs=[],
+        )
+        self._zoom_manager.initialize()
+
+    def _toggle_settings_popup(self):
+        if self._zoom_manager is not None:
+            self._zoom_manager.toggle_settings_popup()
+
+    def _apply_palette(self, palette_name):
+        self._palette_name = palette_name
+        apply_palette_namespace(globals(), palette_name)
+        apply_palette_namespace(styles_cacao_module.__dict__, palette_name)
+        apply_palette_namespace(styles_spl_module.__dict__, palette_name)
+        setup_styles()
+        recolor_widget_tree(self.window, palette_name)
+        if self._zoom_manager is not None:
+            self._zoom_manager.apply_zoom("both")
+
+    def _refresh_zoom_dynamic(self):
+        """Reaplica zoom actual sobre widgets recreados en cambios de fase/paso."""
+        if self._zoom_manager is None:
+            return
+        self.window.update_idletasks()
+        self._zoom_manager.capture_original_values()
+        self._zoom_manager.apply_zoom("both")
 
     # ══════════════════════════════════════════════════════════════════════
     # UTILIDADES INTERNAS
@@ -252,6 +361,8 @@ class CompilerGui:
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._pc_erase).pack(side="left", padx=10)
 
+        self._refresh_zoom_dynamic()
+
     def _pc_load_file(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
         self.window.lift()
@@ -328,6 +439,8 @@ class CompilerGui:
             self._build_syntactic(area)
         else:
             self._build_semantic(area)
+
+        self._refresh_zoom_dynamic()
 
     # ── Paso 0: Léxico ────────────────────────────────────────────────────
 
@@ -459,6 +572,8 @@ class CompilerGui:
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._asm_erase).pack(side="left", padx=10)
 
+        self._refresh_zoom_dynamic()
+
     def _asm_load(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
         self.window.lift()
@@ -541,6 +656,8 @@ class CompilerGui:
                          self._do_link_load).pack(side="left", padx=10)
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._ll_erase).pack(side="left", padx=10)
+
+        self._refresh_zoom_dynamic()
 
     def _do_link_load(self):
         """

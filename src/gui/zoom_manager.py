@@ -1,9 +1,10 @@
 import tkinter as tk
 from tkinter import font
+from gui.theme_manager import recolor_widget_tree
 
 
 class ZoomSetting:
-    def __init__(self, on_change, min_zoom=0.5, max_zoom=2.0):
+    def __init__(self, on_change, min_zoom=0.5, max_zoom=1.9):
         self._zoom = 1.0
         self._on_change = on_change
         self._min_zoom = min_zoom
@@ -19,7 +20,7 @@ class ZoomSetting:
         return tuple(values)
 
     def set_zoom(self, zoom):
-        zoom = float(zoom)
+        zoom = round(zoom, 1)
         self._zoom = max(self._min_zoom, min(self._max_zoom, zoom))
         self._on_change()
 
@@ -59,6 +60,9 @@ class ZoomManager:
         accent2,
         accent4,
         min_layout_zoom=0.1,
+        scale_widget_size=True,
+        on_palette_change=None,
+        initial_palette="current",
     ):
         self.app = app
 
@@ -79,6 +83,9 @@ class ZoomManager:
         self.accent = accent
         self.accent2 = accent2
         self.accent4 = accent4
+        self._scale_widget_size = bool(scale_widget_size)
+        self._on_palette_change = on_palette_change
+        self._palette_name = initial_palette
 
         # Widgets enlazados desde la GUI anfitriona
         self._hdr_title = None
@@ -94,6 +101,7 @@ class ZoomManager:
         self._settings_popup = None
         self._font_zoom_label = None
         self._layout_zoom_label = None
+        self._palette_buttons = {}
 
         # Estado de captura para zoom no acumulativo
         self._original_fonts = {}
@@ -102,15 +110,10 @@ class ZoomManager:
         self._original_grid_layout = {}
 
         self.zoom_setting = ZoomSetting(
-            on_change=lambda: self.apply_zoom("font"),
-            min_zoom=0.5,
-            max_zoom=2.0,
-        )
+            on_change=lambda: self.apply_zoom("font"))
         self.layout_zoom_setting = ZoomSetting(
             on_change=lambda: self.apply_zoom("layout"),
-            min_zoom=min_layout_zoom,
-            max_zoom=2.0,
-        )
+            min_zoom=min_layout_zoom)
 
     def attach_widgets(
         self,
@@ -137,10 +140,20 @@ class ZoomManager:
         self._setup_shortcuts()
         self.capture_original_values()
 
+    def _zoom_in_font(self, factor):
+        self.zoom_setting.zoom_in(factor)
+        if self.zoom_setting.get_current_zoom() > 1.0:
+            self.layout_zoom_setting.zoom_out(factor)
+    
+    def _zoom_out_font(self, factor):
+        self.zoom_setting.zoom_out(factor)
+        if self.zoom_setting.get_current_zoom() >= 1.0:
+            self.layout_zoom_setting.zoom_in(factor)
+
     def _setup_shortcuts(self):
-        self.app.bind("<Control-plus>", lambda e: self.zoom_setting.zoom_in(0.1))
-        self.app.bind("<Control-minus>", lambda e: self.zoom_setting.zoom_out(0.1))
-        self.app.bind("<Control-0>", lambda e: self.zoom_setting.reset_zoom())
+        self.app.bind("<Control-plus>", lambda: self._zoom_in_font(0.1))
+        self.app.bind("<Control-minus>", lambda: self._zoom_out_font(0.1))
+        self.app.bind("<Control-0>", lambda: self.zoom_setting.reset_zoom())
 
     def toggle_settings_popup(self):
         if self._settings_popup is not None and self._settings_popup.winfo_exists():
@@ -161,7 +174,7 @@ class ZoomManager:
         popup.update_idletasks()
         btn_x = self._settings_btn.winfo_rootx()
         btn_y = self._settings_btn.winfo_rooty() + self._settings_btn.winfo_height() + 6
-        popup.geometry(f"340x170+{btn_x}+{btn_y}")
+        popup.geometry(f"360x235+{btn_x}+{btn_y}")
 
         root = tk.Frame(popup, bg=self.bg_panel, padx=12, pady=10)
         root.pack(fill="both", expand=True)
@@ -197,7 +210,7 @@ class ZoomManager:
             relief="flat",
             bd=0,
             width=3,
-            command=lambda: self.zoom_setting.zoom_out(0.1),
+            command=lambda: self._zoom_out_font(0.1),
         ).pack(side="left", padx=(4, 2))
 
         self._font_zoom_label = tk.Label(
@@ -221,7 +234,7 @@ class ZoomManager:
             relief="flat",
             bd=0,
             width=3,
-            command=lambda: self.zoom_setting.zoom_in(0.1),
+            command=lambda: self._zoom_in_font(0.1),
         ).pack(side="left", padx=2)
 
         tk.Button(
@@ -300,6 +313,51 @@ class ZoomManager:
             command=self.layout_zoom_setting.reset_zoom,
         ).pack(side="right")
 
+        palette_row = tk.Frame(root, bg=self.bg_panel)
+        palette_row.pack(fill="x", pady=(0, 8))
+        tk.Label(
+            palette_row,
+            text="Tema",
+            font=self.font_label,
+            fg=self.text_main,
+            bg=self.bg_panel,
+            width=10,
+            anchor="w",
+        ).pack(side="left")
+
+        self._palette_buttons = {}
+        self._palette_buttons["current"] = tk.Button(
+            palette_row,
+            text="Cacao Tropical",
+            font=self.font_sm,
+            bg=self.bg_mid,
+            fg=self.accent4,
+            activebackground=self.accent4,
+            activeforeground=self.bg_dark,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=2,
+            command=lambda: self.set_palette("current"),
+        )
+        self._palette_buttons["current"].pack(side="left", padx=(4, 4))
+
+        self._palette_buttons["legacy"] = tk.Button(
+            palette_row,
+            text="Neón",
+            font=self.font_sm,
+            bg=self.bg_mid,
+            fg=self.accent4,
+            activebackground=self.accent4,
+            activeforeground=self.bg_dark,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=2,
+            command=lambda: self.set_palette("legacy"),
+        )
+        self._palette_buttons["legacy"].pack(side="left", padx=4)
+
         tk.Button(
             root,
             text="Cerrar",
@@ -313,6 +371,7 @@ class ZoomManager:
             command=self.close_settings_popup,
         ).pack(anchor="e")
 
+        self._apply_palette_to_popup()
         self.apply_zoom()
 
     def close_settings_popup(self):
@@ -321,6 +380,28 @@ class ZoomManager:
         self._settings_popup = None
         self._font_zoom_label = None
         self._layout_zoom_label = None
+        self._palette_buttons = {}
+
+    def set_palette(self, palette_name):
+        if palette_name not in ("current", "legacy"):
+            return
+        self._palette_name = palette_name
+        if self._on_palette_change is not None:
+            self._on_palette_change(palette_name)
+        self._apply_palette_to_popup()
+
+    def _apply_palette_to_popup(self):
+        if self._settings_popup is None or not self._settings_popup.winfo_exists():
+            return
+        recolor_widget_tree(self._settings_popup, self._palette_name)
+        for name, btn in self._palette_buttons.items():
+            try:
+                if name == self._palette_name:
+                    btn.configure(relief="sunken", bd=1)
+                else:
+                    btn.configure(relief="flat", bd=0)
+            except Exception:
+                pass
 
     def _is_in_settings_popup(self, widget):
         if self._settings_popup is None or not self._settings_popup.winfo_exists():
@@ -363,19 +444,19 @@ class ZoomManager:
 
         widget_id = id(parent)
 
-        option_keys = (
+        option_keys = [
             "padx",
             "pady",
             "ipadx",
             "ipady",
-            "width",
-            "height",
             "bd",
             "borderwidth",
             "highlightthickness",
             "insertwidth",
             "wraplength",
-        )
+        ]
+        if self._scale_widget_size:
+            option_keys.extend(["width", "height"])
 
         widget_options = {}
         widget_available_keys = set(parent.keys())
