@@ -3,18 +3,19 @@ import tkinter.ttk as ttk
 # ══════════════════════════════════════════════════════════════════════════════
 #  PALETA
 # ══════════════════════════════════════════════════════════════════════════════
-BG_DARK   = "#0D0F12"
-BG_MID    = "#141720"
-BG_PANEL  = "#1A1D28"
-BG_INPUT  = "#0A0C10"
-ACCENT    = "#00FF9C"
-ACCENT2   = "#00C8FF"
-ACCENT3   = "#FF6B6B"
-ACCENT4   = "#FFD166"
-ACCENT5   = "#C3A6FF"
-TEXT_MAIN = "#E0E8F0"
-TEXT_DIM  = "#5A6880"
-BORDER    = "#5C6FB3"
+BG_DARK   = "#2C1407"
+BG_MID    = "#61250F"
+BG_PANEL  = "#441603"
+BG_INPUT  = "#2E1E13"
+ACCENT    = "#ffbb7b"
+ACCENT2   = "#e68d4e"
+ACCENT3   = "#a0f099"
+ACCENT4   = "#79be8e"
+ACCENT5   = "#46b520"
+ACCENT6   = "#000000"
+TEXT_MAIN = "#d1e4bf"
+TEXT_DIM  = "#ffbe9e"
+BORDER    = "#d4ed8b"
 
 FM       = ("Courier New", 11)
 FM_SM    = ("Courier New",  9)

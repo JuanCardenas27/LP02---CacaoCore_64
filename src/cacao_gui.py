@@ -16,7 +16,6 @@ import tkinter as tk
 from tkinter import messagebox
 import sys, os
 from time import sleep
-from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
 from enlazador_cargador.loader_txt import loader_txt
 from compiler.compiler_gui import CompilerGui
 from cacao_core import CacaoCore64, RUNNING
@@ -671,8 +670,8 @@ class CacaoCoreGUI(tk.Tk):
         while self._core.processor.state == RUNNING:
             try:
                 intertime = float(self._intertime.get())
-            except Exception as e:
-                print("Error! El tiempo debe ser un número")
+            except Exception:
+                print("[GUI - Run Full Input] ¡Error! El tiempo debe ser un número.")
             sleep(intertime)
             self._core.run_step()
             if intertime != 0:

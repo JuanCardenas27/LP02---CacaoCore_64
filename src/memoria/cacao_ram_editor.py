@@ -8,6 +8,7 @@ Arquitectura: Von Neumann, 64 bits, 1 MB RAM, direcciones 32 bits
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import re
+from gui.styles_ram import *
 
 # ─────────────────────────────────────────────
 #  IMPORTAR LA RAM REAL DESDE ram.py
@@ -33,11 +34,11 @@ RAM_BACKEND = "ram.py"
 #  MAPA VISUAL (colores por zona)
 # ─────────────────────────────────────────────
 MEMORY_MAP = [
-    (SYS_START,   SYS_END   - 1, "Sistema / Vectores",  "#FF6B6B"),
-    (CODE_START,  CODE_END  - 1, "Código del programa", "#4ECDC4"),
-    (DATA_START,  DATA_END  - 1, "Datos estáticos",     "#FFE66D"),
-    (HEAP_START,  HEAP_END  - 1, "Heap",                "#A8E6CF"),
-    (STACK_START, STACK_END - 1, "Pila (Stack)",        "#C3A6FF"),
+    (SYS_START,   SYS_END   - 1, "Sistema / Vectores",  SEGMENT_SYS),
+    (CODE_START,  CODE_END  - 1, "Código del programa", SEGMENT_CODE),
+    (DATA_START,  DATA_END  - 1, "Datos estáticos",     SEGMENT_DATA),
+    (HEAP_START,  HEAP_END  - 1, "Heap",                SEGMENT_HEAP),
+    (STACK_START, STACK_END - 1, "Pila (Stack)",        SEGMENT_STACK),
 ]
 
 REGISTERS = [
@@ -49,24 +50,6 @@ REGISTERS = [
 
 ADDR_MODE_BITS = {"Registro": "00", "Inmediato": "01", "Mem. Directa": "10", "Mem. Indirecta": "11"}
 
-# Paleta de colores retro-terminal
-BG_DARK    = "#0D0F12"
-BG_MID     = "#141720"
-BG_PANEL   = "#1A1D28"
-BG_INPUT   = "#0A0C10"
-ACCENT     = "#00FF9C"
-ACCENT2    = "#00C8FF"
-ACCENT3    = "#FF6B6B"
-TEXT_MAIN  = "#E0E8F0"
-TEXT_DIM   = "#5A6880"
-TEXT_ADDR  = "#FFD166"
-BORDER     = "#2A3045"
-FONT_MONO  = ("Courier New", 11)
-FONT_MONO_SM = ("Courier New", 9)
-FONT_TITLE = ("Courier New", 18, "bold")
-FONT_LABEL = ("Courier New", 10)
-FONT_SMALL = ("Courier New", 9)
-
 # ─────────────────────────────────────────────
 #  HELPERS — usan la instancia `ram` de ram.py
 # ─────────────────────────────────────────────
@@ -74,7 +57,7 @@ def get_segment(addr):
     for start, end, name, color in MEMORY_MAP:
         if start <= addr <= end:
             return name, color
-    return "Desconocido", "#888888"
+    return "Desconocido", SEGMENT_UNKNOWN
 
 def write_ram(addr, data_bytes):
     """
