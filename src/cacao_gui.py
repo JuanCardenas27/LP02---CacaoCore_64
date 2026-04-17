@@ -10,7 +10,7 @@ Cambios respecto a la versión anterior:
   - self.loader_panel disponible como atributo público
   - Importa CacaoConsole desde cacao_console.py  →  self.console
 """
-# TODO: Refactorizar cacao_gui.py y añadir FAU flags.
+# TODO: Modularizar cacao_gui.py.
 
 import tkinter as tk
 from tkinter import messagebox
@@ -22,6 +22,7 @@ from compiler.compiler_gui import CompilerGui
 from cacao_core import CacaoCore64, RUNNING
 from peripherals.cacao_console import CacaoConsole
 from gui.styles_cacao import *
+from gui.zoom_manager import ZoomManager
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELPERS UI
@@ -50,7 +51,7 @@ def make_vert_scrollable(parent):
     canvas.configure(yscrollcommand=sb.set)
 
     sb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="x")
+    canvas.pack(side="left", fill="both", expand=True)
 
     sf = tk.Frame(canvas, bg=BG_PANEL)
 
@@ -100,6 +101,7 @@ class CacaoCoreGUI(tk.Tk):
         self._fmt  = tk.StringVar(value="hex")
         self._reg_labels   = {}
         self._flag_widgets = {}
+        self._format_rbs = []
 
         # Atributos públicos de componentes externos
         self.console      = None   # CacaoConsole       — asignado en _build_console_panel
@@ -117,6 +119,38 @@ class CacaoCoreGUI(tk.Tk):
         self._build_header()
         self._build_body()
         self._build_statusbar()
+
+        self._zoom_manager = ZoomManager(
+            self,
+            font_base=FM,
+            font_lg=FM_LG,
+            font_xl=FM_XL,
+            font_title=FM_TITLE,
+            font_subtitle=("Courier New", 14),
+            font_sm=FM_SM,
+            font_btn=FM_BTN,
+            font_label=FM_LABEL,
+            bg_panel=BG_PANEL,
+            bg_mid=BG_MID,
+            bg_dark=BG_DARK,
+            text_main=TEXT_MAIN,
+            accent=ACCENT,
+            accent2=ACCENT2,
+            accent4=ACCENT4,
+            min_layout_zoom=0.1,
+        )
+        self._zoom_manager.attach_widgets(
+            header_title=self._hdr_title,
+            header_subtitle=self._hdr_subtitle,
+            header_info=self._hdr_info,
+            settings_button=self._settings_btn,
+            status_label=self._status_lbl,
+            reg_labels=self._reg_labels,
+            flag_widgets=self._flag_widgets,
+            format_rbs=self._format_rbs,
+        )
+        self._zoom_manager.initialize()
+
         self.after(100, self._refresh_registers)
         
         self._core.processor.io_controller.console = self.console
@@ -132,12 +166,51 @@ class CacaoCoreGUI(tk.Tk):
         tk.Label(hdr, image=self.icono, width=40, height=40,
                  bg=BG_DARK).pack(side="left", padx=(0, 10))
 
-        tk.Label(hdr, text="CACAO_Core-64",
-                 font=FM_TITLE, fg=ACCENT, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="   PANEL DE CONTROL",
-                 font=("Courier New", 14), fg=ACCENT2, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text=f"64-bit  ·  Von Neumann  ·  1 MB RAM   |   cacao_core.py",
-                 font=FM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
+        self._hdr_title = tk.Label(
+            hdr,
+            text="CACAO_Core-64",
+            font=FM_TITLE,
+            fg=ACCENT,
+            bg=BG_DARK,
+        )
+        self._hdr_title.pack(side="left")
+
+        self._hdr_subtitle = tk.Label(
+            hdr,
+            text="   PANEL DE CONTROL",
+            font=("Courier New", 14),
+            fg=ACCENT2,
+            bg=BG_DARK,
+        )
+        self._hdr_subtitle.pack(side="left")
+
+        tk.Frame(hdr, bg=BG_DARK).pack(side="left", fill="x", expand=True)
+
+        self._settings_btn = tk.Button(
+            hdr,
+            text="⚙️ Configurar",
+            font=FM_BTN,
+            bg=BG_MID,
+            fg=ACCENT4,
+            activebackground=ACCENT4,
+            activeforeground=BG_DARK,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=4,
+            cursor="hand2",
+            command=self._toggle_settings_popup,
+        )
+        self._settings_btn.pack(side="left", padx=(20, 20))
+
+        self._hdr_info = tk.Label(
+            hdr,
+            text="64-bit  ·  Von Neumann  ·  1 MB RAM   |   cacao_core.py",
+            font=FM,
+            fg=TEXT_DIM,
+            bg=BG_DARK,
+        )
+        self._hdr_info.pack(side="left")
 
         tk.Frame(self, bg=ACCENT, height=2).pack(fill="x", padx=18, side="top")
 
@@ -150,7 +223,8 @@ class CacaoCoreGUI(tk.Tk):
 
         body.columnconfigure(0, weight=1, uniform="col")
         body.columnconfigure(1, weight=1, uniform="col")
-        body.columnconfigure(2, weight=1)
+        body.columnconfigure(2, weight=1, uniform="col")
+        body.columnconfigure(3, weight=1, uniform="col")
         body.rowconfigure(0, weight=1)
 
         col_a = tk.Frame(body, bg=BG_DARK)
@@ -160,16 +234,13 @@ class CacaoCoreGUI(tk.Tk):
         col_b.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
 
         col_c = tk.Frame(body, bg=BG_DARK)
-        col_c.grid(row=0, column=2, sticky="nsew", padx=(0, 8))
-
-        col_d = tk.Frame(body, bg=BG_DARK)
-        col_d.grid(row=0, column=3, sticky="nsew")
+        col_c.grid(row=0, column=2, columnspan=2, sticky="nsew")
 
         # ── Columna A ─────────────────────────────────────────────────────
         col_a.rowconfigure(0, weight=0)
         col_a.rowconfigure(1, weight=0)
-        col_a.rowconfigure(2, weight=1)
-        col_a.rowconfigure(3, weight=1)
+        col_a.rowconfigure(2, weight=3)
+        col_a.rowconfigure(3, weight=2)
 
         col_a.columnconfigure(0, weight=1)
         
@@ -190,13 +261,13 @@ class CacaoCoreGUI(tk.Tk):
         col_b.rowconfigure(0, weight=0)
         col_b.rowconfigure(1, weight=0)
         col_b.rowconfigure(2, weight=1)
-        col_b.rowconfigure(3, weight=0)
+        col_b.rowconfigure(3, weight=3)
         col_b.columnconfigure(0, weight=1)
 
         self._build_pc_ir_panel(col_b)
 
         sregs_frame = tk.Frame(col_b, bg=BG_DARK)
-        sregs_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        sregs_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 6))
         self._build_special_regs_panel(sregs_frame)
 
         gpr_frame = tk.Frame(col_b, bg=BG_DARK)
@@ -205,7 +276,7 @@ class CacaoCoreGUI(tk.Tk):
 
         # ── Columna C ─────────────────────────────────────────────────────
         col_c.rowconfigure(0, weight=1)
-        col_c.rowconfigure(1, weight=1)
+        col_c.rowconfigure(1, weight=2)
 
         col_c.columnconfigure(0, weight=1)
 
@@ -252,6 +323,7 @@ class CacaoCoreGUI(tk.Tk):
                 cursor="hand2", command=self._refresh_registers
             )
             rb.pack(side="right", padx=3)
+            self._format_rbs.append(rb)
 
         tk.Frame(pf, bg=BORDER, height=1).pack(fill="x", pady=(0, 6))
 
@@ -286,14 +358,14 @@ class CacaoCoreGUI(tk.Tk):
     # ─────────────────────────────────────────────────────────────────────
     def _build_spl_button(self, parent):
         outer, pf = make_panel(parent, "SISTEMA DE PROC. DE LENGUAJE", ACCENT2)
-        outer.pack(fill="x", expand=True)
+        outer.pack(fill="x")
 
         sa_row = tk.Frame(pf, bg=BG_PANEL)
-        sa_row.pack(fill="x", expand=True)
+        sa_row.pack(fill="x")
 
         compile_button = tk.Button(sa_row, text="Compilar y Cargar", bg = ACCENT, anchor="center",
                                    font = FM_BTN_CMP, command=self._open_compiler)
-        compile_button.pack(expand=True)
+        compile_button.pack(fill="x", padx=8, pady=6)
         
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA A: FLAGS ALU
@@ -303,7 +375,7 @@ class CacaoCoreGUI(tk.Tk):
         outer, pf = make_panel(parent,
                                "⚑  FLAGS REGISTER  [ ALU ]",
                                ACCENT3)
-        outer.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        outer.grid(row=2, column=0, sticky="nsew", pady=(0, 6))
 
         sf = make_hor_scrollable(pf)
 
@@ -341,7 +413,7 @@ class CacaoCoreGUI(tk.Tk):
         outer, pf = make_panel(parent,
                                "⚑  FLAGS REGISTER  [ FAU ]",
                                ACCENT5)
-        outer.grid(row=3, column=0, sticky="ew", pady=(0, 6))
+        outer.grid(row=3, column=0, sticky="nsew", pady=(0, 6))
 
         sf = make_hor_scrollable(pf)
 
@@ -477,7 +549,7 @@ class CacaoCoreGUI(tk.Tk):
             self.console.save_log()
         """
         self.console = CacaoConsole(parent, show_timestamps=True, show_toolbar=True)
-        self.console.frame.grid(row=0, column=0, sticky="new")
+        self.console.frame.grid(row=0, column=0, sticky="nsew")
         
         # Enlazar la consola al loader_panel ahora que ya existe
         if self.loader_panel is not None:
@@ -703,6 +775,9 @@ class CacaoCoreGUI(tk.Tk):
     def _set_status(self, msg, color=ACCENT):
         self._status_var.set(f"  {msg}")
         self._status_lbl.config(fg=color)
+
+    def _toggle_settings_popup(self):
+        self._zoom_manager.toggle_settings_popup()
     
     def _open_compiler(self):
         compiler = CompilerGui(self)

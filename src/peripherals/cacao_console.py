@@ -23,24 +23,7 @@ Uso:
 import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
-
-# ── Paleta (sincronizada con cacao_gui.py) ────────────────────────────────
-BG_DARK   = "#0D0F12"
-BG_MID    = "#141720"
-BG_PANEL  = "#1A1D28"
-BG_INPUT  = "#0A0C10"
-ACCENT    = "#00FF9C"
-ACCENT2   = "#00C8FF"
-ACCENT3   = "#FF6B6B"
-ACCENT4   = "#FFD166"
-ACCENT5   = "#C3A6FF"
-TEXT_MAIN = "#E0E8F0"
-TEXT_DIM  = "#5A6880"
-BORDER    = "#2A3045"
-
-FM     = ("Courier New", 10)
-FM_SM  = ("Courier New",  9)
-FM_BTN = ("Courier New", 10, "bold")
+from gui.styles_console import *
 
 # ── Niveles de mensaje ────────────────────────────────────────────────────
 LEVELS = {
@@ -101,7 +84,7 @@ class CacaoConsole:
     # ─────────────────────────────────────────────────────────────────────
     def _build(self, show_toolbar: bool):
         # Barra de titulo
-        title_bar = tk.Frame(self.frame, bg=ACCENT3)
+        title_bar = tk.Frame(self.frame, bg=ACCENT3, pady=CONSOLE_TITLE_PADY)
         title_bar.pack(fill="x", side="top")
 
         tk.Label(title_bar, text=" ⬛  CONSOLA DE SISTEMA ",
@@ -112,7 +95,7 @@ class CacaoConsole:
         self._line_lbl = tk.Label(title_bar, text="0 líneas",
                                   font=FM_SM, fg=BG_DARK, bg=ACCENT3,
                                   anchor="e")
-        self._line_lbl.pack(side="right", padx=6)
+        self._line_lbl.pack(side="right", padx=CONSOLE_LINE_PADX)
 
         # Toolbar
         if show_toolbar:
@@ -137,8 +120,8 @@ class CacaoConsole:
             selectforeground=BG_DARK,
             relief="flat",
             bd=0,
-            padx=6,
-            pady=4,
+            padx=CONSOLE_TEXT_PADX,
+            pady=CONSOLE_TEXT_PADY,
             state="disabled",
             wrap="none",
             yscrollcommand=vsb.set,
@@ -159,7 +142,7 @@ class CacaoConsole:
         self._build_input_bar()
 
     def _build_toolbar(self):
-        tb = tk.Frame(self.frame, bg=BG_MID, pady=3)
+        tb = tk.Frame(self.frame, bg=BG_MID, pady=CONSOLE_TOOLBAR_PADY)
         tb.pack(fill="x", side="top")
 
         # Autoscroll toggle
@@ -170,7 +153,7 @@ class CacaoConsole:
             activeforeground=ACCENT2,
             cursor="hand2",
         )
-        asck.pack(side="left", padx=8)
+        asck.pack(side="left", padx=6)
 
         # Filtro de nivel
         tk.Label(tb, text="Filtro:", font=FM_SM,
@@ -184,7 +167,7 @@ class CacaoConsole:
                 font=FM_SM, fg=color, bg=BG_MID,
                 selectcolor=color,
                 activebackground=BG_MID,
-                indicatoron=False, padx=6, pady=2,
+                indicatoron=False, padx=5, pady=1,
                 relief="flat", cursor="hand2",
                 command=self._apply_filter,
             )
@@ -199,7 +182,7 @@ class CacaoConsole:
                 tb, text=lbl, font=FM_BTN,
                 bg=BG_MID, fg=color,
                 activebackground=color, activeforeground=BG_DARK,
-                relief="flat", bd=0, padx=10, pady=2,
+                relief="flat", bd=0, padx=8, pady=1,
                 cursor="hand2", command=cmd,
             )
             btn.bind("<Enter>", lambda e, b=btn, c=color: b.config(bg=c, fg=BG_DARK))
@@ -210,7 +193,7 @@ class CacaoConsole:
 
     def _build_input_bar(self):
         """Barra de entrada de comandos manual."""
-        bar = tk.Frame(self.frame, bg=BG_MID, pady=4)
+        bar = tk.Frame(self.frame, bg=BG_MID, pady=CONSOLE_INPUT_PADY)
         bar.pack(fill="x", side="bottom")
 
         tk.Label(bar, text=" >", font=FM_BTN,
@@ -226,7 +209,7 @@ class CacaoConsole:
             highlightcolor=ACCENT4,
             highlightbackground=BORDER,
         )
-        cmd_entry.pack(side="left", fill="x", expand=True, padx=6)
+        cmd_entry.pack(side="left", fill="x", expand=True, padx=4)
         cmd_entry.bind("<Return>", self._submit_cmd)
         cmd_entry.bind("<Up>",     self._history_prev)
         cmd_entry.bind("<Down>",   self._history_next)
@@ -240,7 +223,7 @@ class CacaoConsole:
         )
         send_btn.bind("<Enter>", lambda e: send_btn.config(bg=ACCENT4, fg=BG_DARK))
         send_btn.bind("<Leave>", lambda e: send_btn.config(bg=BG_MID,  fg=ACCENT4))
-        send_btn.pack(side="right", padx=6)
+        send_btn.pack(side="right", padx=4)
 
         # Historial de comandos
         self._cmd_history = []

@@ -1,18 +1,18 @@
 # ══════════════════════════════════════════════════════════════════════════════
 #  PALETA
 # ══════════════════════════════════════════════════════════════════════════════
-BG_DARK   = "#351908"
-BG_MID    = "#6c2913"
-BG_PANEL  = "#501a03"
-BG_INPUT  = "#7a4824"
+BG_DARK   = "#2C1407"
+BG_MID    = "#61250F"
+BG_PANEL  = "#441603"
+BG_INPUT  = "#2E1E13"
 ACCENT    = "#ffbb7b"
 ACCENT2   = "#e68d4e"
 ACCENT3   = "#a0f099"
 ACCENT4   = "#79be8e"
 ACCENT5   = "#46b520"
 ACCENT6   = "#000000"
-TEXT_MAIN = "#51d359"
-TEXT_DIM  = "#ffb08f"
+TEXT_MAIN = "#d1e4bf"
+TEXT_DIM  = "#ffbe9e"
 BORDER    = "#d4ed8b"
 
 FM       = ("Courier New", 9)
