@@ -12,40 +12,22 @@ import re
 # ─────────────────────────────────────────────
 #  IMPORTAR LA RAM REAL DESDE ram.py
 # ─────────────────────────────────────────────
-try:
-    from memoria.ram import (
-        ram,
-        RAM_SIZE,
-        WORD_SIZE,
-        SYS_START, SYS_END,
-        CODE_START, CODE_END,
-        DATA_START, DATA_END,
-        HEAP_START, HEAP_END,
-        STACK_START, STACK_END,
-        RAMError,
-        AddressOutOfRange,
-        AlignmentError,
-        WriteProtectionError,
-    )
-    RAM_BACKEND = "ram.py"
-except ImportError:
-    # Fallback: si ram.py no está disponible, usa bytearray directo
-    RAM_SIZE  = 1 * 1024 * 1024
-    WORD_SIZE = 8
-    ram       = type("_FakeRAM", (), {
-        "_mem":            bytearray(RAM_SIZE),
-        "write":           lambda self, a, d: self._mem.__setitem__(slice(a, a+len(d)), d),
-        "read":            lambda self, a, n: bytes(self._mem[a:a+n]),
-        "code_protected":  False,
-        "zone_of":         lambda self, a: "N/A",
-    })()
-    SYS_START, SYS_END       = 0x00000000, 0x00001000
-    CODE_START, CODE_END     = 0x00001000, 0x00040000
-    DATA_START, DATA_END     = 0x00040000, 0x00080000
-    HEAP_START, HEAP_END     = 0x00080000, 0x000C0000
-    STACK_START, STACK_END   = 0x000C0000, 0x00100000
-    RAMError = WriteProtectionError = AddressOutOfRange = AlignmentError = Exception
-    RAM_BACKEND = "fallback (ram.py no encontrado)"
+from memoria.ram import (
+    ram,
+    RAM_SIZE,
+    WORD_SIZE,
+    SYS_START, SYS_END,
+    CODE_START, CODE_END,
+    DATA_START, DATA_END,
+    HEAP_START, HEAP_END,
+    STACK_START, STACK_END,
+    RAMError,
+    AddressOutOfRange,
+    AlignmentError,
+    WriteProtectionError,
+)
+RAM_BACKEND = "ram.py"
+
 
 # ─────────────────────────────────────────────
 #  MAPA VISUAL (colores por zona)
