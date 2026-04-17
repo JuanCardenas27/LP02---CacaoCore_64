@@ -21,40 +21,14 @@ from enlazador_cargador.loader_txt import loader_txt
 from compiler.compiler_gui import CompilerGui
 from cacao_core import CacaoCore64, RUNNING
 from peripherals.cacao_console import CacaoConsole
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  PALETA
-# ══════════════════════════════════════════════════════════════════════════════
-BG_DARK   = "#0D0F12"
-BG_MID    = "#141720"
-BG_PANEL  = "#1A1D28"
-BG_INPUT  = "#0A0C10"
-ACCENT    = "#00FF9C"
-ACCENT2   = "#00C8FF"
-ACCENT3   = "#FF6B6B"
-ACCENT4   = "#FFD166"
-ACCENT5   = "#C3A6FF"
-TEXT_MAIN = "#E0E8F0"
-TEXT_DIM  = "#5A6880"
-BORDER    = "#5C6FB3"
-
-FM       = ("Courier New", 11)
-FM_SM    = ("Courier New",  9)
-FM_LG    = ("Courier New", 14, "bold")
-FM_XL    = ("Courier New", 20, "bold")
-FM_TITLE = ("Courier New", 20, "bold")
-FM_LABEL = ("Courier New", 10)
-FM_BTN   = ("Courier New", 11, "bold")
-FM_BTN_CMP   = ("Courier New", 15, "bold")
-
+from gui.styles_cacao import *
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELPERS UI
 # ══════════════════════════════════════════════════════════════════════════════
 def make_panel(parent, title, color=ACCENT2, padx=10, pady=8):
     outer = tk.Frame(parent, bg=BORDER, bd=1, relief="flat")
-    tk.Label(outer, text=f" {title} ", font=FM_SM,
+    tk.Label(outer, text=f" {title} ", font=FM,
              fg=BG_DARK, bg=color, anchor="w").pack(fill="x")
     inner = tk.Frame(outer, bg=BG_PANEL, padx=padx, pady=pady)
     inner.pack(fill="both", expand=True)
@@ -69,6 +43,51 @@ def make_button(parent, text, color, command):
     btn.bind("<Enter>", lambda e: btn.config(bg=color, fg=BG_DARK))
     btn.bind("<Leave>", lambda e: btn.config(bg=BG_MID, fg=color))
     return btn
+
+def make_vert_scrollable(parent):
+    canvas = tk.Canvas(parent, bg=BG_PANEL, highlightthickness=0 )
+    sb = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=sb.set)
+
+    sb.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="x")
+
+    sf = tk.Frame(canvas, bg=BG_PANEL)
+
+    win_id = canvas.create_window((0, 0), window=sf, anchor="nw")
+    sf.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
+
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+    canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+    return sf
+
+def make_hor_scrollable(parent):
+    canvas = tk.Canvas(parent, bg=BG_PANEL, highlightthickness=0, height=100) # Altura fija para flags
+    sb = tk.Scrollbar(parent, orient="horizontal", command=canvas.xview)
+    canvas.configure(xscrollcommand=sb.set)
+
+    sb.pack(side="bottom", fill="x")
+    canvas.pack(side="top", fill="both", expand=True)
+
+    sf = tk.Frame(canvas, bg=BG_PANEL)
+    win_id = canvas.create_window((0, 0), window=sf, anchor="nw")
+
+    sf.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    #canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
+    
+    def _on_mousewheel_h(event):
+        canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel_h))
+    canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+    return sf
+    
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  VENTANA PRINCIPAL
@@ -88,7 +107,7 @@ class CacaoCoreGUI(tk.Tk):
 
         self.title("CACAO_Core-64  ·  Panel de Control")
         self.configure(bg=BG_DARK)
-        self.minsize(1280, 800)
+        self.minsize(1280, 700)
         self.resizable(True, True)
         try:
             self.state("zoomed")
@@ -109,21 +128,16 @@ class CacaoCoreGUI(tk.Tk):
         hdr = tk.Frame(self, bg=BG_DARK, pady=10)
         hdr.pack(fill="x", padx=18, side="top")
 
-        canvas = tk.Canvas(hdr, width=40, height=40, bg=BG_DARK,
-                           highlightthickness=0)
-        canvas.pack(side="left", padx=(0, 10))
-        for r in range(5):
-            for c in range(5):
-                if (r + c) % 2 == 0:
-                    canvas.create_rectangle(c*8, r*8, c*8+7, r*8+7,
-                                            fill=ACCENT, outline="")
+        self.icono = tk.PhotoImage(file=r"src\gui\assets\Cacao_logo.png").subsample(10)
+        tk.Label(hdr, image=self.icono, width=40, height=40,
+                 bg=BG_DARK).pack(side="left", padx=(0, 10))
 
         tk.Label(hdr, text="CACAO_Core-64",
                  font=FM_TITLE, fg=ACCENT, bg=BG_DARK).pack(side="left")
         tk.Label(hdr, text="   PANEL DE CONTROL",
                  font=("Courier New", 14), fg=ACCENT2, bg=BG_DARK).pack(side="left")
         tk.Label(hdr, text=f"64-bit  ·  Von Neumann  ·  1 MB RAM   |   cacao_core.py",
-                 font=FM_SM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
+                 font=FM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
 
         tk.Frame(self, bg=ACCENT, height=2).pack(fill="x", padx=18, side="top")
 
@@ -134,8 +148,8 @@ class CacaoCoreGUI(tk.Tk):
         body = tk.Frame(self, bg=BG_DARK)
         body.pack(fill="both", expand=True, padx=18, pady=10, side="top")
 
-        body.columnconfigure(0, minsize=300, weight=0)
-        body.columnconfigure(1, minsize=440, weight=0)
+        body.columnconfigure(0, weight=1, uniform="col")
+        body.columnconfigure(1, weight=1, uniform="col")
         body.columnconfigure(2, weight=1)
         body.rowconfigure(0, weight=1)
 
@@ -146,53 +160,65 @@ class CacaoCoreGUI(tk.Tk):
         col_b.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
 
         col_c = tk.Frame(body, bg=BG_DARK)
-        col_c.grid(row=0, column=2, sticky="nsew")
+        col_c.grid(row=0, column=2, sticky="nsew", padx=(0, 8))
+
+        col_d = tk.Frame(body, bg=BG_DARK)
+        col_d.grid(row=0, column=3, sticky="nsew")
 
         # ── Columna A ─────────────────────────────────────────────────────
         col_a.rowconfigure(0, weight=0)
         col_a.rowconfigure(1, weight=0)
         col_a.rowconfigure(2, weight=1)
-        col_a.columnconfigure(0, weight=1)
+        col_a.rowconfigure(3, weight=1)
 
+        col_a.columnconfigure(0, weight=1)
+        
         ctrl_frame = tk.Frame(col_a, bg=BG_DARK)
         ctrl_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         self._build_control_panel(ctrl_frame)
 
-        fmt_frame = tk.Frame(col_a, bg=BG_DARK)
-        fmt_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
-        self._build_format_panel(fmt_frame)
+        spl_frame = tk.Frame(col_a, bg=BG_DARK)
+        spl_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        self._build_spl_button(spl_frame)
 
-        gpr_frame = tk.Frame(col_a, bg=BG_DARK)
-        gpr_frame.grid(row=2, column=0, sticky="nsew")
-        self._build_gpr_panel(gpr_frame)
+        self._build_alu_flags_panel(col_a)
+
+        self._build_fau_flags_panel(col_a)
+
 
         # ── Columna B ─────────────────────────────────────────────────────
-        col_b.rowconfigure(4, weight=1)
+        col_b.rowconfigure(0, weight=0)
+        col_b.rowconfigure(1, weight=0)
+        col_b.rowconfigure(2, weight=1)
+        col_b.rowconfigure(3, weight=0)
         col_b.columnconfigure(0, weight=1)
+
         self._build_pc_ir_panel(col_b)
-        self._build_special_regs_panel(col_b)
-        self._build_aux_regs_panel(col_b)
+
+        sregs_frame = tk.Frame(col_b, bg=BG_DARK)
+        sregs_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        self._build_special_regs_panel(sregs_frame)
+
+        gpr_frame = tk.Frame(col_b, bg=BG_DARK)
+        gpr_frame.grid(row=3, column=0, sticky="nsew")
+        self._build_gpr_panel(gpr_frame)
 
         # ── Columna C ─────────────────────────────────────────────────────
-        # row 0 = FLAGS      (fijo)
-        # row 1 = RAM btn    (fijo)
-        # row 2 = LOADER     (fijo)
-        # row 3 = CONSOLA    (expansible — weight=1)
-        col_c.rowconfigure(0, weight=0)
-        col_c.rowconfigure(1, weight=0)
-        col_c.rowconfigure(2, weight=0)
-        col_c.rowconfigure(3, weight=1)
+        col_c.rowconfigure(0, weight=1)
+        col_c.rowconfigure(1, weight=1)
+
         col_c.columnconfigure(0, weight=1)
 
-        self._build_flags_panel(col_c)
-        self._build_ram_panel(col_c)
         self._build_console_panel(col_c)
+        self._build_ram_panel(col_c)
+        
+
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA A: CONTROL
     # ─────────────────────────────────────────────────────────────────────
     def _build_control_panel(self, parent):
-        outer, pf = make_panel(parent, "⚙  CONTROL DE EJECUCION", ACCENT2)
+        outer, pf = make_panel(parent, "⚙  CONTROL DE EJECUCIÓN", ACCENT)
         outer.pack(fill="x")
 
         sa_row = tk.Frame(pf, bg=BG_PANEL)
@@ -200,31 +226,45 @@ class CacaoCoreGUI(tk.Tk):
 
         tk.Label(sa_row, text="Start Address:", font=FM_LABEL,
                  fg=ACCENT4, bg=BG_PANEL).pack(side="left")
-        tk.Label(sa_row, text="  0x", font=FM, fg=TEXT_DIM,
+        tk.Label(sa_row, text="0x", font=FM, fg=TEXT_DIM,
                  bg=BG_PANEL).pack(side="left")
 
         self._start_addr_var = tk.StringVar(value="00001000")
         tk.Entry(sa_row, textvariable=self._start_addr_var,
                  font=FM, bg=BG_INPUT, fg=ACCENT4,
                  insertbackground=ACCENT, relief="flat",
-                 width=10, bd=4,
+                 width=8, bd=4,
                  highlightthickness=1,
                  highlightcolor=ACCENT2,
                  highlightbackground=BORDER
                  ).pack(side="left", padx=2)
+        
+        row = tk.Frame(pf, bg=BG_PANEL)
+        row.pack(fill="x")
+
+        for val, lbl, color in [("hex","HEX",ACCENT5), ("dec","DEC",ACCENT)]:
+            rb = tk.Radiobutton(
+                sa_row, text=lbl, variable=self._fmt, value=val,
+                font=FM_SM, fg=ACCENT6, bg=BG_MID,
+                selectcolor=color,
+                activebackground=BG_MID, activeforeground=color,
+                indicatoron=False, width=3, pady=6, relief="flat",
+                cursor="hand2", command=self._refresh_registers
+            )
+            rb.pack(side="right", padx=3)
 
         tk.Frame(pf, bg=BORDER, height=1).pack(fill="x", pady=(0, 6))
 
         for label, color, cmd in [
             ("⚡  BOOT",       ACCENT,  self._do_boot),
-            ("▶|  RUN STEP",  ACCENT5, self._do_run_step),
+            ("▶|  RUN STEP",  ACCENT2, self._do_run_step),
         ]:
             make_button(pf, label, color, cmd).pack(fill="x", pady=3)
         
         run_full_row = tk.Frame(pf, bg=BG_PANEL)
         run_full_row.pack(fill="x", pady=3)
 
-        make_button(run_full_row, "▶▶  RUN FULL", ACCENT2, self._do_run_full).pack(side="left", fill="x", expand=True)
+        make_button(run_full_row, "▶▶  RUN FULL", ACCENT5, self._do_run_full).pack(side="left", fill="x", expand=True)
 
         # Sub-frame compacto para input y label
         self._intertime = tk.StringVar(value="0")
@@ -238,75 +278,98 @@ class CacaoCoreGUI(tk.Tk):
                  insertbackground=ACCENT, relief="flat", bd=0,
                  width=8).pack(side="left", padx=4, pady=4)
         
-        tk.Label(time_frame, text="seg", font=FM, fg=TEXT_DIM,
+        tk.Label(time_frame, text="seg", font=FM, fg=ACCENT2,
                  bg=BG_INPUT).pack(side="left", padx=(0, 4), pady=4)
         
+    # ─────────────────────────────────────────────────────────────────────
+    #  COLUMNA A: SPL_BUTTON
+    # ─────────────────────────────────────────────────────────────────────
+    def _build_spl_button(self, parent):
+        outer, pf = make_panel(parent, "SISTEMA DE PROC. DE LENGUAJE", ACCENT2)
+        outer.pack(fill="x", expand=True)
+
+        sa_row = tk.Frame(pf, bg=BG_PANEL)
+        sa_row.pack(fill="x", expand=True)
+
+        compile_button = tk.Button(sa_row, text="Compilar y Cargar", bg = ACCENT, anchor="center",
+                                   font = FM_BTN_CMP, command=self._open_compiler)
+        compile_button.pack(expand=True)
+        
+    # ─────────────────────────────────────────────────────────────────────
+    #  COLUMNA A: FLAGS ALU
+    # ─────────────────────────────────────────────────────────────────────
+    def _build_alu_flags_panel(self, parent):
+        # PARA ALU
+        outer, pf = make_panel(parent,
+                               "⚑  FLAGS REGISTER  [ ALU ]",
+                               ACCENT3)
+        outer.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+
+        sf = make_hor_scrollable(pf)
+
+
+        FLAG_DEFS = [
+            (5, "DZ", "DivZero", ACCENT5),
+            (4, "Z", "Zero",      ACCENT),
+            (3, "N", "Negative",  ACCENT3),
+            (2, "C", "Carry",     ACCENT2),
+            (1, "V", "Overflow",  ACCENT4),
+            (0, "I", "Interrupt", ACCENT5),
+        ]
+
+        for bit_idx, short, desc, color in FLAG_DEFS:
+            col = tk.Frame(sf, bg=BG_PANEL, highlightbackground=BORDER, highlightthickness=1)
+            col.pack(side="left", padx=0, pady=1)
+            
+            tk.Label(col, text=short, font=FM_LG, width=6,
+                    fg=color, bg=BG_PANEL).pack(pady=(1,1))
+            
+            tk.Label(col, text=desc, font=FM_SM,
+                    fg=TEXT_DIM, bg=BG_PANEL).pack(padx=10)
+            
+            ind = tk.Label(col, text="0", font=FM,
+                        fg=TEXT_DIM, bg=BG_MID, pady=0)
+            ind.pack(pady=(1,1), fill="x")
+        
+            self._flag_widgets[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA A: FORMATO
+    #  COLUMNA A: FLAGS FAU
     # ─────────────────────────────────────────────────────────────────────
-    def _build_format_panel(self, parent):
-        outer, pf = make_panel(parent, "◈  FORMATO DE REGISTROS", ACCENT4)
-        outer.pack(fill="x")
 
-        tk.Label(pf, text="Base numerica para todos los registros:",
-                 font=FM_SM, fg=TEXT_DIM, bg=BG_PANEL, anchor="w").pack(fill="x", pady=(0, 6))
+    def _build_fau_flags_panel(self, parent):
+        outer, pf = make_panel(parent,
+                               "⚑  FLAGS REGISTER  [ FAU ]",
+                               ACCENT5)
+        outer.grid(row=3, column=0, sticky="ew", pady=(0, 6))
 
-        row = tk.Frame(pf, bg=BG_PANEL)
-        row.pack(fill="x")
+        sf = make_hor_scrollable(pf)
 
-        for val, lbl, color in [("hex","HEX",ACCENT4), ("dec","DEC",ACCENT2),
-                                  ("bin","BIN",ACCENT5), ("oct","OCT",ACCENT)]:
-            rb = tk.Radiobutton(
-                row, text=lbl, variable=self._fmt, value=val,
-                font=FM_BTN, fg=color, bg=BG_MID,
-                selectcolor=color,
-                activebackground=BG_MID, activeforeground=color,
-                indicatoron=False, width=5, pady=6, relief="flat",
-                cursor="hand2", command=self._refresh_registers
-            )
-            rb.pack(side="left", padx=3)
 
-    # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA A: GPR
-    # ─────────────────────────────────────────────────────────────────────
-    def _build_gpr_panel(self, parent):
-        outer, pf = make_panel(parent, "█  REGISTROS GPR  (r0 – r12)", ACCENT, padx=6, pady=4)
-        outer.pack(fill="both", expand=True)
-        pf.pack_configure(fill="both", expand=True)
+        FLAG_DEFS = [
+            (2, "IX", "Inexact",  ACCENT2),
+            (1, "IO", "InvalidOp",  ACCENT4),
+            (0, "UF", "Underflow", ACCENT5),
+        ]
 
-        canvas = tk.Canvas(pf, bg=BG_PANEL, highlightthickness=0)
-        sb = tk.Scrollbar(pf, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        sf = tk.Frame(canvas, bg=BG_PANEL)
-        win_id = canvas.create_window((0, 0), window=sf, anchor="nw")
-
-        sf.bind("<Configure>", lambda e: (
-            canvas.configure(scrollregion=canvas.bbox("all")),
-            canvas.itemconfig(win_id, width=canvas.winfo_width())
-        ))
-        canvas.bind("<Configure>",
-                    lambda e: canvas.itemconfig(win_id, width=e.width))
-        canvas.bind_all("<MouseWheel>",
-                        lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
-
-        for i in range(13):
-            name = f"r{i}"
-            row = tk.Frame(sf, bg=BG_PANEL)
-            row.pack(fill="x", padx=2, pady=1)
-            tk.Label(row, text=f"${name:<4}", font=FM, fg=ACCENT2,
-                     bg=BG_PANEL, width=6, anchor="w").pack(side="left")
-            lbl = tk.Label(row, text="0x0000000000000000",
-                           font=FM, fg=TEXT_MAIN, bg=BG_INPUT,
-                           anchor="e", relief="flat", padx=4)
-            lbl.pack(side="left", fill="x", expand=True)
-            self._reg_labels[name] = lbl
+        for bit_idx, short, desc, color in FLAG_DEFS:
+            col = tk.Frame(sf, bg=BG_PANEL, highlightbackground=BORDER, highlightthickness=1)
+            col.pack(side="left", padx=0, pady=1)
+            
+            tk.Label(col, text=short, font=FM_LG, width=6,
+                    fg=color, bg=BG_PANEL).pack(pady=(1,1))
+            
+            tk.Label(col, text=desc, font=FM_SM,
+                    fg=TEXT_DIM, bg=BG_PANEL).pack(padx=10)
+            
+            ind = tk.Label(col, text="0", font=FM,
+                        fg=TEXT_DIM, bg=BG_MID, pady=0)
+            ind.pack(pady=(1,1), fill="x")
+        
+            self._flag_widgets[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: PC / IR
+    #  COLUMNA B: PC y IR
     # ─────────────────────────────────────────────────────────────────────
     def _build_pc_ir_panel(self, parent):
         for row_idx, (name, title, color) in enumerate([
@@ -321,110 +384,67 @@ class CacaoCoreGUI(tk.Tk):
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: SP / LR / ACC
+    #  COLUMNA B: SPECIAL REGISTERS
     # ─────────────────────────────────────────────────────────────────────
     def _build_special_regs_panel(self, parent):
-        outer, pf = make_panel(parent, "◉  REGISTROS ESPECIALES", ACCENT5)
-        outer.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        outer, pf = make_panel(parent, "◉  REGISTROS ESPECIALES", ACCENT3, padx=6, pady=4)
+        outer.pack(fill="both", expand=False)
+        pf.pack_configure(fill="both", expand=False)
 
-        for name, lbl_txt, color in [
-            ("sp",  "$sp   Stack Pointer", ACCENT4),
+        canvas = tk.Canvas(pf, bg=BG_PANEL, highlightthickness=0)
+        canvas.pack(side="left", fill="both", expand=True)
+
+        sf = make_vert_scrollable(canvas)
+
+        for name, lbl_txt, color in [("sp",  "$sp   Stack Pointer", ACCENT4),
             ("lr",  "$lr   Link Register", ACCENT2),
             ("acc", "$acc  Acumulador",    ACCENT),
-        ]:
-            row = tk.Frame(pf, bg=BG_PANEL)
-            row.pack(fill="x", pady=3)
-            tk.Label(row, text=lbl_txt, font=FM_LABEL, fg=color,
+            ("mar", "MAR", ACCENT4),
+            ("mdr", "MDR", ACCENT5),
+            ("dp",  "DP", TEXT_DIM),
+            ("aflg","flags - ALU", ACCENT3),
+            ("fflg","flags - FAU", ACCENT2)]:
+            row = tk.Frame(sf, bg=BG_PANEL)
+            row.pack(fill="x", padx=2, pady=1)
+            tk.Label(row, text=lbl_txt, font=FM, fg=color,
                      bg=BG_PANEL, width=20, anchor="w").pack(side="left")
-            lbl = tk.Label(row, text="—", font=FM_LG, fg=TEXT_MAIN,
-                           bg=BG_INPUT, anchor="e", relief="flat", padx=6)
+            lbl = tk.Label(row, text="—", font=FM, fg=TEXT_MAIN,
+                           bg=BG_INPUT, anchor="e", padx=6)
             lbl.pack(side="left", fill="x", expand=True)
             self._reg_labels[name] = lbl
 
     # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA B: MAR / MDR / DP
+    #  COLUMNA B: REGISTERS
     # ─────────────────────────────────────────────────────────────────────
-    def _build_aux_regs_panel(self, parent):
-        outer, pf = make_panel(parent,
-                               "◈  REGISTROS INTERNOS  ( MAR · MDR · DP )",
-                               BORDER)
-        outer.grid(row=3, column=0, sticky="ew", pady=(0, 6))
+    
+    def _build_gpr_panel(self, parent):
+        outer, pf = make_panel(parent, "█  REGISTROS GPR  (r0 – r12)", ACCENT5, padx=6, pady=4)
+        outer.pack(fill="both", expand=True)
+        pf.pack_configure(fill="both", expand=True)
 
-        row_f = tk.Frame(pf, bg=BG_PANEL)
-        row_f.pack(fill="x")
+        canvas = tk.Canvas(pf, bg=BG_PANEL, highlightthickness=0)
+        canvas.pack(side="left", fill="both", expand=True)
 
-        for name, lbl_txt, color in [
-            ("mar", "MAR", ACCENT4),
-            ("mdr", "MDR", ACCENT5),
-            ("dp",  " DP", TEXT_DIM),
-        ]:
-            col = tk.Frame(row_f, bg=BG_PANEL)
-            col.pack(side="left", fill="x", expand=True, padx=4)
-            tk.Label(col, text=lbl_txt, font=FM_LABEL, fg=color,
-                     bg=BG_PANEL, anchor="center").pack(fill="x")
-            lbl = tk.Label(col, text="—", font=FM, fg=color,
-                           bg=BG_INPUT, anchor="center",
-                           relief="flat", padx=4, pady=3)
-            lbl.pack(fill="x")
+        sf = make_vert_scrollable(canvas)
+
+        for i in range(13):
+            name = f"r{i}"
+            row = tk.Frame(sf, bg=BG_PANEL)
+            row.pack(fill="x", padx=2, pady=1)
+            tk.Label(row, text=f"${name:<4}", font=FM, fg=ACCENT2,
+                     bg=BG_PANEL, width=6, anchor="w").pack(side="left")
+            lbl = tk.Label(row, text="0x0000000000000000",
+                           font=FM, fg=TEXT_MAIN, bg=BG_INPUT,
+                           anchor="e", relief="flat", padx=4)
+            lbl.pack(side="left", fill="x", expand=True)
             self._reg_labels[name] = lbl
-
-        #BOTON a compilacion
-
-        compile_button = tk.Button(master = parent, text="Open Language Processing", bg = ACCENT5, font = FM_BTN_CMP, command=self._open_compiler)
-        compile_button.grid(row=4, column=0, sticky="new")
-
-    # ─────────────────────────────────────────────────────────────────────
-    #  COLUMNA C — row 0: FLAGS
-    # ─────────────────────────────────────────────────────────────────────
-    def _build_flags_panel(self, parent):
-        outer, pf = make_panel(parent,
-                               "⚑  FLAGS REGISTER  [ FR ]  —  little-endian",
-                               ACCENT3)
-        outer.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-
-        raw_row = tk.Frame(pf, bg=BG_PANEL)
-        raw_row.pack(fill="x", pady=(0, 10))
-        tk.Label(raw_row, text="FR raw:", font=FM_LABEL,
-                 fg=TEXT_DIM, bg=BG_PANEL, width=8, anchor="w").pack(side="left")
-        self._fr_raw_lbl = tk.Label(raw_row,
-                                    text="0x00   ·   0b00000000",
-                                    font=FM, fg=ACCENT3, bg=BG_INPUT,
-                                    anchor="w", padx=6, relief="flat")
-        self._fr_raw_lbl.pack(side="left", fill="x", expand=True)
-
-        FLAG_DEFS = [
-            (4, "Z", "Zero",      ACCENT),
-            (3, "N", "Negative",  ACCENT3),
-            (2, "C", "Carry",     ACCENT2),
-            (1, "V", "Overflow",  ACCENT4),
-            (0, "I", "Interrupt", ACCENT5),
-        ]
-        flags_row = tk.Frame(pf, bg=BG_PANEL)
-        flags_row.pack(fill="x")
-
-        for bit_idx, short, desc, color in FLAG_DEFS:
-            col = tk.Frame(flags_row, bg=BG_PANEL,
-                           highlightbackground=BORDER, highlightthickness=1)
-            col.pack(side="left", expand=True, fill="both", padx=4, pady=2)
-            tk.Label(col, text=short, font=("Courier New", 15, "bold"),
-                     fg=color, bg=BG_PANEL).pack(pady=(8, 0))
-            tk.Label(col, text=desc, font=FM_SM,
-                     fg=TEXT_DIM, bg=BG_PANEL).pack()
-            ind = tk.Label(col, text="0",
-                           font=("Courier New", 28, "bold"),
-                           fg=TEXT_DIM, bg=BG_MID,
-                           width=3, pady=4)
-            ind.pack(pady=(4, 4), fill="x")
-            tk.Label(col, text=f"bit {bit_idx}", font=FM_SM,
-                     fg=TEXT_DIM, bg=BG_PANEL).pack(pady=(0, 8))
-            self._flag_widgets[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA C — row 1: BOTÓN RAM EDITOR
     # ─────────────────────────────────────────────────────────────────────
     def _build_ram_panel(self, parent):
         outer, pf = make_panel(parent, "◈  MEMORIA RAM", ACCENT4)
-        outer.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        outer.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
 
         tk.Label(pf, text=(
             "Accede al editor directo de RAM para inspeccionar,\n"
@@ -456,44 +476,9 @@ class CacaoCoreGUI(tk.Tk):
             self.console.clear()
             self.console.save_log()
         """
-        if CacaoConsole:
-            self.console = CacaoConsole(parent, show_timestamps=True,
-                                        show_toolbar=True)
-            self.console.frame.grid(row=3, column=0, sticky="nsew")
-        else:
-            outer, pf = make_panel(parent, "⬛  CONSOLA DE SISTEMA", ACCENT3)
-            outer.grid(row=3, column=0, sticky="nsew")
-            pf.pack_configure(fill="both", expand=True)
-            tw = tk.Text(pf, font=FM_SM, bg=BG_INPUT, fg=ACCENT3,
-                         state="disabled", relief="flat")
-            tw.pack(fill="both", expand=True)
-
-            class _FallbackConsole:
-                def __init__(self, w):
-                    self._tw = w
-                def _w(self, msg):
-                    self._tw.configure(state="normal")
-                    self._tw.insert("end", msg + "\n")
-                    self._tw.configure(state="disabled")
-                    self._tw.see("end")
-                def write(self, msg, tag="plain"):    self._w(f"  »  {msg}")
-                def write_info(self, msg):            self._w(f" [i] {msg}")
-                def write_ok(self, msg):              self._w(f" [✓] {msg}")
-                def write_warn(self, msg):            self._w(f" [!] {msg}")
-                def write_error(self, msg):           self._w(f" [✗] {msg}")
-                def write_hex(self, lbl, val, bits=64):
-                    mask = (1 << bits) - 1
-                    self._w(f" [H] {lbl}: 0x{int(val)&mask:0{bits//4}X}")
-                def write_cmd(self, cmd):             self._w(f" [>] {cmd}")
-                def write_separator(self, **kw):      self._w("─" * 60)
-                def clear(self):
-                    self._tw.configure(state="normal")
-                    self._tw.delete("1.0", "end")
-                    self._tw.configure(state="disabled")
-                def save_log(self): pass
-
-            self.console = _FallbackConsole(tw)
-
+        self.console = CacaoConsole(parent, show_timestamps=True, show_toolbar=True)
+        self.console.frame.grid(row=0, column=0, sticky="new")
+        
         # Enlazar la consola al loader_panel ahora que ya existe
         if self.loader_panel is not None:
             self.loader_panel.set_console(self.console)
@@ -561,17 +546,21 @@ class CacaoCoreGUI(tk.Tk):
             lbl = self._reg_labels.get(name)
             if lbl:
                 lbl.config(text=self._fmt_val(regs.get(name, 0), bits))
+                
+        for name in ("aflg", "fflg"):
+            lbl = self._reg_labels.get(name)
+            if lbl:
+                val = int(regs.get(name, 0)) & 0xFF
+                lbl.config(text=f"0x{val:02X} · 0b{val:08b}")
 
-        fr_val = int(regs.get("fr", 0)) & 0xFF
-        self._fr_raw_lbl.config(text=f"0x{fr_val:02X}   ·   0b{fr_val:08b}")
-        for bit_idx, (ind, color) in self._flag_widgets.items():
-            bit_set = bool((fr_val >> bit_idx) & 1)
-            ind.config(
-                text="1" if bit_set else "0",
-                fg=color  if bit_set else TEXT_DIM,
-                bg=BG_PANEL if bit_set else BG_MID
-            )
-            ind.update()
+            for bit_idx, (ind, color) in self._flag_widgets.items():
+                bit_set = bool((val >> bit_idx) & 1)
+                ind.config(
+                    text="1" if bit_set else "0",
+                    fg=color  if bit_set else TEXT_DIM,
+                    bg=BG_PANEL if bit_set else BG_MID
+                )
+                ind.update()
 
     # ─────────────────────────────────────────────────────────────────────
     #  ACCIONES DE EJECUCIÓN
@@ -599,7 +588,7 @@ class CacaoCoreGUI(tk.Tk):
                 self.console.write_hex("PC", addr, bits=32)
             # Propagar la RAM actualizada al loader
             if self.loader_panel and hasattr(self._core, "ram"):
-                self.loader_panel.set_ram(self._core.ram)
+                self.loader_panel.set_ram(self._core.ram_memory)
         except Exception as e:
             self._set_status(f"ERROR en BOOT: {e}", ACCENT3)
             if self.console:
@@ -614,7 +603,8 @@ class CacaoCoreGUI(tk.Tk):
                 print("Error! El tiempo debe ser un número")
             sleep(intertime)
             self._core.run_step()
-            self._refresh_registers()
+            if intertime != 0:
+                self._refresh_registers()
         msg = "RUN FULL completado  ·  procesador detenido (HLT)"
         self._set_status(msg, ACCENT2)
         if self.console:

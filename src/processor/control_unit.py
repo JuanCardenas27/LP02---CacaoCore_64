@@ -133,7 +133,8 @@ class ControlUnit(MicroinstructionMixin):
         values_dict["ir"] = self.bytes_to_int(self._ir)
         values_dict["mar"] = self.bytes_to_int(self._mar)
         values_dict["mdr"] = self.bytes_to_int(self._mdr)
-        values_dict["fr"] = self.bytes_to_int(self._fr)
+        values_dict["aflg"] = self.bytes_to_int(self._fr)
+        values_dict["fflg"] = self.bytes_to_int(self._fp_flags)
         values_dict["dp"] = self.bytes_to_int(self._dp)
 
         return values_dict
