@@ -1,5 +1,5 @@
 from os import path
-from processor.control_unit import ControlUnit
+from processor.control_unit import ControlUnit, RUNNING
 from memoria.ram import VECTOR_TABLE, SUBROUTINES, ram
 from enlazador_cargador.loader_txt import loader_txt
 from compiler import compiler
