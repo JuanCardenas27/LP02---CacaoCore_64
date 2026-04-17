@@ -149,11 +149,15 @@ class ZoomManager:
         self.zoom_setting.zoom_out(factor)
         if self.zoom_setting.get_current_zoom() >= 1.0:
             self.layout_zoom_setting.zoom_in(factor)
+    
+    def _zoom_reset_all(self):
+        self.zoom_setting.reset_zoom()
+        self.layout_zoom_setting.reset_zoom()
 
     def _setup_shortcuts(self):
-        self.app.bind("<Control-plus>", lambda: self._zoom_in_font(0.1))
-        self.app.bind("<Control-minus>", lambda: self._zoom_out_font(0.1))
-        self.app.bind("<Control-0>", lambda: self.zoom_setting.reset_zoom())
+        self.app.bind("<Control-plus>", lambda e: self._zoom_in_font(0.1))
+        self.app.bind("<Control-minus>", lambda e: self._zoom_out_font(0.1))
+        self.app.bind("<Control-0>", lambda e: self._zoom_reset_all())
 
     def toggle_settings_popup(self):
         if self._settings_popup is not None and self._settings_popup.winfo_exists():
