@@ -4,7 +4,7 @@ from tkinter import filedialog
 from gui.color_palette import *
 from assembler import ASM
 from compiler import compiler
-from preprocesador.preprocesador import Preprocesador, PreprocesadorError
+from preprocesador import Preprocesador, PreprocesadorError
 
 
 class CompilerGui:
