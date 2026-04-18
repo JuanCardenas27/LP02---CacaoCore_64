@@ -50,6 +50,13 @@ class AsmParser:
         self.sect = p[1].lower()
         self.program.append(str(p[1]))
 
+    def p_line_import(self, p):
+        '''line : SECTION REFERENCE
+                | SECTION VAR'''
+                
+        self.sect = p[1].lower()
+        self.program.append(f"{str(p[1])} {p[2]}")
+
     def p_line_instr(self, p):
         '''line : instruction NEWLINE
                 | instruction'''
@@ -177,7 +184,9 @@ class AsmParser:
                 p[0] = code
 
     def p_instr_label(self, p):
-        'instruction : MNEMONIC LABEL'
+        '''instruction : MNEMONIC LABEL
+                        | MNEMONIC VAR'''
+        
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_m':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())

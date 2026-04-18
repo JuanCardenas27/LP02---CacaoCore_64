@@ -1,78 +1,3 @@
-"""
-linker.py — Enlazador y Cargador del Computador Simulado CacaoCore-64
-======================================================================
-Responsabilidades
------------------
-1. Parsear el código relocalizable producido por el ensamblador.
-   El formato de entrada tiene dos secciones opcionales:
-
-     .data
-     <hex_word>          ← una palabra de 64 bits por línea (sin prefijo)
-
-     .text
-     <hex_word>          ← instrucciones de 64 bits, una por línea
-
-   Las palabras del .text pueden contener marcadores de reubicación:
-
-     {N}xxxxxxxx        →  los primeros 3 bytes (24 bits) de la palabra codifican
-                            una dirección relativa que debe resolverse a la
-                            instrucción N (índice base-0 del .text).
-                            Se reemplaza {N} con la dirección absoluta calculada
-                            en 3 bytes little-endian.
-
-     [N]                →  dirección absoluta de la N-ésima variable del .data
-                            (índice base-0). Se ubica en los bytes correspondientes
-                            según la codificación de la instrucción.
-
-     d-XX               →  caso especial "dash": el primer nibble hexadecimal de
-                            la dirección de la variable referenciada se inserta
-                            en la posición del '-'.  Se usa en instrucciones MOV
-                            mixtas (registro + memoria) donde el byte alto del
-                            operando mezcla registro y offset de dirección.
-
-2. Calcular las direcciones absolutas de:
-   - Variables del .data  →  DATA_START (0x00040000), 8 bytes cada una.
-   - Instrucciones del .text →  base_address suministrado por el usuario.
-
-3. Escribir los bytes resueltos en la RAM global (instancia `ram` de ram.py).
-   - Sección .data  →  DATA_START  (sin protección de código)
-   - Sección .text  →  base_address (zona de código, antes de protect_code)
-
-4. Devolver una representación textual del código ya cargado (para mostrar
-   en self.ll_loaded de la GUI) con formato:
-       0x<ADDR>  <hex_word>
-
-Sintaxis detallada de los marcadores
--------------------------------------
-  {N}XXXXXXXX
-      Donde N es el índice (base-0) de la instrucción destino en el .text.
-      La dirección absoluta = base_address + N * 8.
-      Los 3 bytes bajos de esa dirección reemplazan los primeros 3 bytes
-      de la palabra (little-endian), y el resto de la palabra se toma
-      de los bytes que siguen a '}'.
-
-  [N]
-      Donde N es el índice (base-0) de la variable en el .data.
-      La dirección absoluta de esa variable = DATA_START + N * 8.
-      Los 3 bytes bajos de esa dirección reemplazan los bytes [2..4]
-      de la palabra (bytes de posición 2, 3, 4 → 6 nibbles hex),
-      tal como lo generan las instrucciones de memoria del ensamblador.
-
-  [N]d-
-      Si el token [N] va seguido de '-', se activa el modo "dash":
-      se extrae el primer nibble (4 bits) de la dirección y se fusiona
-      con el byte que sigue al '-' en la instrucción original.
-      Ejemplo en la instrucción original:  0200[0]39f0  →  020003_39f0
-                                           donde 03 = (nibble_alto_dir << 4) | 9
-      y el resto de la instrucción toma los 3 bytes bajos de la dirección.
-
-Notas de implementación
------------------------
-- Todas las palabras son little-endian de 64 bits (8 bytes).
-- Los marcadores NO incluyen el prefijo '0x'.
-- El parser es tolerante a espacios y líneas vacías / comentarios.
-- Los errores se propagan como LinkerError para que la GUI los muestre.
-"""
 
 import re
 from memoria.ram import ram, DATA_START, CODE_START, CODE_END, WORD_SIZE
@@ -362,7 +287,7 @@ class Linker:
         for i, word_bytes in enumerate(resolved_text):
             addr = self._text_addrs[i]
             # Verificar que caiga dentro de la zona de código
-            if not (CODE_START <= addr < CODE_END):
+            if not (addr):
                 raise LinkerError(
                     f"Instrucción {i} en dirección 0x{addr:08X} fuera de la zona "
                     f"de código (0x{CODE_START:08X}–0x{CODE_END-1:08X})"

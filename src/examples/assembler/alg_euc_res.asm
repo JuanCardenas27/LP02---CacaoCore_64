@@ -1,10 +1,12 @@
 .data
-    a: 987654
-    b: 123456
     temp: 0
 .text
-    MOVD R0, [a]
-    MOVD R1, [b]
+    #Definicion variable a
+    MOVD 0x00000177, 756
+    #Definicion varibale b
+    MOVD 0x000005FF, 924
+    MOVD R0, 0x00000177
+    MOVD R1, 0x000005FF
 
     LOOP:
         CMP R0, R1
@@ -18,6 +20,8 @@
         JMP LOOP
 
     FIN:
+        MOVD 0x00001D36, R1
+        #Impresion a consola
         MOVW [temp], R1
         MOVH R10, 0
         LEA R11, [temp]

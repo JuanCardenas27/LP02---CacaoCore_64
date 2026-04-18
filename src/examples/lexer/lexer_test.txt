@@ -1,5 +1,8 @@
 // Programa de prueba
- 
+#include banana
+#define max_age 30
+#define min_age 18
+
 func greet(name: text) {
     show "Hello, " + name
     deliver nothing
@@ -9,14 +12,14 @@ let age: int = 25
 let seconds: height = 180.0
 let active: bool = indeed
  
-if age > 18 {
+if age > min_age {
     show "Welcome."
 } otherwise {
     set active = nope
     show "Not today."
 }
  
-asLongAs age < 30 {
+asLongAs age < max_age {
     set age = age + 1
     set height = height + 0.25
 }

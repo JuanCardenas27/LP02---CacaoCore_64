@@ -1,0 +1,152 @@
+.text
+@func VEC_INIT{0}
+4030f0ffffffffff
+00001303ffffffff
+00001203ffffffff
+21b060ffffffffff
+{9}92ffffff
+433cf0ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{3}52ffffff
+f2ffffffffffffff
+@func VEC_SET{10}
+4230f0ffffffffff
+0800140bf3ffffff
+404000ffffffffff
+433cf0ffffffffff
+f2ffffffffffffff
+@func VEC_GET{15}
+4230f0ffffffffff
+0800140bf3ffffff
+404000ffffffffff
+5433f0ffffffffff
+f2ffffffffffffff
+@func VEC_LEN{20}
+5130f0ffffffffff
+f2ffffffffffffff
+@func VEC_SUM{22}
+00001503ffffffff
+00001203ffffffff
+4030f0ffffffffff
+21b060ffffffffff
+{32}92ffffff
+3433f0ffffffffff
+534000ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{25}52ffffff
+f2ffffffffffffff
+@func VEC_MAX{33}
+5033f0ffffffffff
+01001203ffffffff
+4030f0ffffffffff
+08001409f0ffffff
+21b060ffffffffff
+{46}92ffffff
+3433f0ffffffffff
+35b060ffffffffff
+{43}96ffffff
+5330f0ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{37}52ffffff
+f2ffffffffffffff
+@func VEC_MIN{47}
+5033f0ffffffffff
+01001203ffffffff
+4030f0ffffffffff
+08001409f0ffffff
+21b060ffffffffff
+{60}92ffffff
+3433f0ffffffffff
+35b060ffffffffff
+{57}92ffffff
+5330f0ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{51}52ffffff
+f2ffffffffffffff
+@func VEC_COPY{61}
+4030f0ffffffffff
+7630f0ffffffffff
+00001203ffffffff
+21b060ffffffffff
+{72}92ffffff
+3433f0ffffffffff
+733cf0ffffffffff
+08001409f0ffffff
+08001709f0ffffff
+01001209f0ffffff
+{64}52ffffff
+f2ffffffffffffff
+@func VEC_SWAP_ELEM{73}
+4230f0ffffffffff
+0800140bf3ffffff
+404000ffffffffff
+8330f0ffffffffff
+0800180bf3ffffff
+804000ffffffffff
+9433f0ffffffffff
+a833f0ffffffffff
+4a3cf0ffffffffff
+893cf0ffffffffff
+f2ffffffffffffff
+@func MATRIX_GET_LINEAR{84}
+4230f0ffffffffff
+416030ffffffffff
+434000ffffffffff
+0800140bf3ffffff
+404000ffffffffff
+5433f0ffffffffff
+f2ffffffffffffff
+@func MATRIX_SET_LINEAR{91}
+8230f0ffffffffff
+816030ffffffffff
+834000ffffffffff
+0800180bf3ffffff
+804000ffffffffff
+843cf0ffffffffff
+f2ffffffffffffff
+@func MATRIX_SUM_ROW{98}
+4230f0ffffffffff
+416030ffffffffff
+0800140bf3ffffff
+404000ffffffffff
+00001503ffffffff
+00001203ffffffff
+21b060ffffffffff
+{111}92ffffff
+3433f0ffffffffff
+534000ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{104}52ffffff
+f2ffffffffffffff
+@func MATRIX_FIND_MAX{112}
+5033f0ffffffffff
+01001203ffffffff
+4030f0ffffffffff
+08001409f0ffffff
+21b060ffffffffff
+{125}92ffffff
+3433f0ffffffffff
+35b060ffffffffff
+{122}96ffffff
+5330f0ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{116}52ffffff
+f2ffffffffffffff
+@func MATRIX_SUM_ALL{126}
+00001503ffffffff
+00001203ffffffff
+4030f0ffffffffff
+21b060ffffffffff
+{136}92ffffff
+3433f0ffffffffff
+534000ffffffffff
+08001409f0ffffff
+01001209f0ffffff
+{129}52ffffff
+f2ffffffffffffff
