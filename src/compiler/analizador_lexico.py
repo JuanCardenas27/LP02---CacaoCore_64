@@ -47,7 +47,7 @@ class AnalizadorLexico:
     
         # Asignación
         'ASSIGN',     # =
-        'SWEET_PLUS'  # +=
+        'SWEET_PLUS',  # +=
 
     
         # Delimitadores
