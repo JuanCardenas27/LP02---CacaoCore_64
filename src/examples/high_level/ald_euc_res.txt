@@ -1,0 +1,16 @@
+#include "utils.lib"
+let temp: int = 0
+
+let a: int = 756
+let b: int = 924
+
+asLongAs a != b{
+    if a > b{
+        set a = a - b
+    }
+    otherwise{
+        set b = b - a
+    }
+}
+
+utils.lib.PRINT(a)

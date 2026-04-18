@@ -1,0 +1,11 @@
+let n: int = 5
+let a: int[n] = 1,8,4,2,10
+
+let i: int = 0
+let max: int = a[i]
+
+for (i, i<n, set i += 1){
+    if (max < a[i]){
+        set max = a[i]
+    }
+}

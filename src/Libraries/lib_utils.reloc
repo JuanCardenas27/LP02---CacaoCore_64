@@ -1,0 +1,8 @@
+.text
+@func PRINT{0}
+f9ff7f008002ffff
+00001a01ffffffff
+ffff07002b15ffff
+01001c02ffffffff
+000045ffffffffff
+f2ffffffffffffff

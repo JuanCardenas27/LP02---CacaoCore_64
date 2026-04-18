@@ -47,6 +47,8 @@ class AnalizadorLexico:
     
         # Asignación
         'ASSIGN',     # =
+        'SWEET_PLUS'  # +=
+
     
         # Delimitadores
         'LPAREN',     # (
@@ -110,6 +112,7 @@ class AnalizadorLexico:
     t_LT       = r'<'
     t_GT       = r'>'
     t_ASSIGN   = r'='
+    t_SWEET_PLUS   = r'\+='
     t_PLUS     = r'\+'
     t_MINUS    = r'-'
     t_TIMES    = r'\*'
