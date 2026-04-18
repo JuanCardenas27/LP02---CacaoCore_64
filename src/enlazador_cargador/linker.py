@@ -54,6 +54,7 @@ class Linker:
 
         self._lib_files: dict[str, str] = {
             "math.lib": "lib_vectores.reloc",
+            "utils.lib": "lib_utils.reloc"
         }
 
     # ------------------------------------------------------------------
