@@ -3,27 +3,29 @@ import ply.lex as lex
 class AnalizadorLexico:
     tokens = (
         # Palabras clave
-        'LET',        # let       - declarar variable (inmutable)
-        'SET',        # set       - reasignar variable
-        'FUNC',       # func      - definir función
-        'IF',         # if        - condicional
-        'OTHERWISE',  # otherwise - else
-        'ASLONGAS',   # asLongAs  - while
-        'FOR',        # for       - for
-        'IN',         # in        - for x in lista
-        'DELIVER',    # deliver   - return
-        'SHOW',       # show      - print
-        'OOPS',       # oops      - throw / raise
+        'LET',        # let             - declarar variable (inmutable)
+        'SET',        # set             - reasignar variable
+        'FUNC',       # func            - definir función
+        'IF',         # if              - condicional
+        'OTHERWISE',  # otherwise       - else
+        'ASLONGAS',   # asLongAs        - while
+        'FOR',        # for             - for
+        'IN',         # in              - for x in lista
+        'DELIVER',    # deliver         - return
+        'SHOW',       # show            - print
+        'OOPS',       # oops            - throw / raise
     
         # Tipos de datos
-        'INT_TYPE', # int            - tipo integer
-        'FLOAT_TYPE', # float        - tipo flotante
-        'TEXT_TYPE',  # text    - tipo string
-        'BOOL_TYPE',  # bool    - tipo booleano
+        'INT_TYPE', # int               - tipo integer
+        'FLOAT_TYPE', # float           - tipo flotante
+        'TEXT_TYPE',  # text            - tipo string
+        'BOOL_TYPE',  # bool            - tipo booleano
+        'INT_LIT',    # 1               - valor entero
+        'FLOAT_LIT',  # 1.0             - valor flotante
         'STRING',     # "hola mundo"
-        'INDEED',     # indeed    - true booleano
-        'NOPE',       # nope      - false booleano
-        'NOTHING',    # nothing   - null/None
+        'INDEED',     # indeed          - true booleano
+        'NOPE',       # nope            - false booleano
+        'NOTHING',    # nothing         - null/None
     
         # Identificadores
         'ID',         # nombres de variables y funciones
@@ -58,9 +60,13 @@ class AnalizadorLexico:
         'DOT',        # .
 
         # Paradigma Orientado a Objetos
-        'MOLD',       # class - definición de TDA
-        'OHMY',       # self  - referencia al objeto actual
-        'SUMMON',     # new   - creación explícita
+        'MOLD',       # class           - definición de TDA
+        'OHMY',       # self            - referencia al objeto actual
+        'SUMMON',     # new             - creación explícita
+
+        # Referencias de Preprocesador
+        'PREPRO_IMPORT',    # Referencia formateada de nombre de librería incluida que debe llegar al enlazador
+        'PREPRO_EXTERN'     # Referencia formateada de nombre de símbolo incluido que debe llegar al enlazador
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -88,6 +94,15 @@ class AnalizadorLexico:
         'summon':    'SUMMON',
     }
 
+    # Expresiones de preprocesador antes que DOT
+    def t_PREPRO_IMPORT(self, t):
+        r'\.import[^\n]*'
+        return t
+
+    def t_PREPRO_EXTERN(self, t):
+        r'\.extern[^\n]*'
+        return t
+
     t_EQ       = r'=='
     t_NEQ      = r'!='
     t_LEQ      = r'<='
@@ -111,19 +126,19 @@ class AnalizadorLexico:
     t_DOT      = r'\.'
     t_ignore = ' \t'
 
-    def __init__(self) -> None:
+    def __init__(self)      -> None:
         self.lexer = lex.lex(module=self)
         self.symbol_table = {}
         self.oops = []
 
     @staticmethod
-    def t_FLOAT_TYPE(t):
+    def t_FLOAT_LIT(t):
         r'\d+\.\d+'
         t.value = float(t.value)
         return t
 
     @staticmethod
-    def t_INT_TYPE(t):
+    def t_INT_LIT(t):
         r'\d+'
         t.value = int(t.value)
         return t
