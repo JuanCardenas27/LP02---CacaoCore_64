@@ -1,10 +1,15 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-from gui.color_palette import *
+import gui.styles_cacao as styles_cacao_module
+import gui.styles_spl as styles_spl_module
+from gui.styles_spl import *
+from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
+from gui.zoom_manager import ZoomManager
 from assembler import ASM
 from compiler import compiler
-from preprocesador.preprocesador import Preprocesador, PreprocesadorError
+from enlazador_cargador.linker import Linker, LinkerError
+from preprocesador import Preprocesador, PreprocesadorError
 
 
 class CompilerGui:
@@ -17,13 +22,13 @@ class CompilerGui:
         self.window.geometry(f"{width}x{height}+0+0")
         self.window.resizable(False, False)
         self.window.lift()
-        self.window.focus_force()
-        self.window.grab_set()
 
         self.index           = 0
         self.compiler_step   = 0
         self._carry_compiler = ""   # texto que viaja de pre-processor → compiler
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
+        self._zoom_manager   = None
+        self._palette_name    = "current"
 
         # Incializa estilos 
         setup_styles()
@@ -33,6 +38,7 @@ class CompilerGui:
         self._setup_body()
         self._set_menu()
         self._pre_compiler()
+        self._init_zoom_controls()
 
     # ══════════════════════════════════════════════════════════════════════
     # ESTRUCTURA BASE
@@ -66,12 +72,50 @@ class CompilerGui:
                 if (r + c) % 2 == 0:
                     canvas.create_rectangle(c*8, r*8, c*8+7, r*8+7, fill=ACCENT, outline="")
 
-        tk.Label(hdr, text="CACAO_Core-64",
-                 font=FM_TITLE, fg=ACCENT, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="   LANGUAGE PROCESSOR SYSTEM",
-                 font=("Courier New", 14), fg=ACCENT2, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="64-bit  ·  Von Neumann  ·  1 MB RAM",
-                 font=FM_SM, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
+        self._hdr_title = tk.Label(
+            hdr,
+            text="CACAO_Core-64",
+            font=FM_TITLE,
+            fg=ACCENT,
+            bg=BG_DARK,
+        )
+        self._hdr_title.pack(side="left")
+
+        self._hdr_subtitle = tk.Label(
+            hdr,
+            text="   LANGUAGE PROCESSOR SYSTEM",
+            font=("Courier New", 14),
+            fg=ACCENT2,
+            bg=BG_DARK,
+        )
+        self._hdr_subtitle.pack(side="left")
+
+        tk.Frame(hdr, bg=BG_DARK).pack(side="left", fill="x", expand=True)
+
+        self._settings_btn = tk.Button(
+            hdr,
+            text="⚙️ Configurar",
+            bg=BG_MID,
+            fg=ACCENT4,
+            activebackground=ACCENT4,
+            activeforeground=BG_DARK,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=3,
+            cursor="hand2",
+            command=self._toggle_settings_popup,
+        )
+        self._settings_btn.pack(side="left", padx=(20, 20))
+
+        self._hdr_info = tk.Label(
+            hdr,
+            text="64-bit  ·  Von Neumann  ·  1 MB RAM",
+            font=FM_SM,
+            fg=TEXT_DIM,
+            bg=BG_DARK,
+        )
+        self._hdr_info.pack(side="left")
 
         tk.Frame(self.window, bg=ACCENT, height=2).grid(row=1, column=0, sticky="ew")
 
@@ -81,7 +125,9 @@ class CompilerGui:
 
         panel = tk.Frame(self.header, bg=BG_PANEL,
                          highlightbackground=BORDER, highlightthickness=2)
-        panel.grid(row=0, column=0)
+        panel.grid(row=0, column=0, sticky="ew", padx=6, pady=6)
+        for col in range(4):
+            panel.grid_columnconfigure(col, weight=1, uniform="spl_phase")
 
         phases = ["Pre-Processor", "Compiler", "Assembler", "Loader / Linker"]
         colors = [ACCENT, ACCENT2, ACCENT3, ACCENT4]
@@ -94,7 +140,7 @@ class CompilerGui:
                             activeforeground="black", bd=0,
                             padx=25, pady=15, cursor="hand2",
                             command=lambda c=cmd, idx=i: self._switch_phase(c, idx))
-            btn.grid(row=0, column=i, padx=5, pady=5)
+            btn.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
             self._phase_btns.append(btn)
 
     def _switch_phase(self, cmd, idx):
@@ -105,8 +151,8 @@ class CompilerGui:
 
     def _setup_body(self):
         self.body.grid_rowconfigure(0, weight=1)
-        self.body.grid_columnconfigure(0, weight=1)
-        self.body.grid_columnconfigure(1, weight=0)
+        self.body.grid_columnconfigure(0, weight=3, uniform="spl_body")
+        self.body.grid_columnconfigure(1, weight=1, uniform="spl_body", minsize=280)
 
         self.content = tk.Frame(self.body, bg=BG_PANEL)
         self.content.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
@@ -136,6 +182,68 @@ class CompilerGui:
                   bd=0, padx=20, pady=15, cursor="hand2",
                   command=self._next_phase
                   ).grid(row=1, column=0, pady=10)
+
+        self._refresh_zoom_dynamic()
+
+    def _init_zoom_controls(self):
+        if self._zoom_manager is not None:
+            return
+
+        self._zoom_manager = ZoomManager(
+            self.window,
+            font_base=FM,
+            font_lg=FM_LG,
+            font_xl=FM_XL,
+            font_title=FM_TITLE,
+            font_subtitle=("Courier New", 14),
+            font_sm=FM_SM,
+            font_btn=FM_BTN,
+            font_label=FM_LABEL,
+            bg_panel=BG_PANEL,
+            bg_mid=BG_MID,
+            bg_dark=BG_DARK,
+            text_main=TEXT_MAIN,
+            accent=ACCENT,
+            accent2=ACCENT2,
+            accent4=ACCENT4,
+            min_layout_zoom=0.1,
+            scale_widget_size=False,
+            on_palette_change=self._apply_palette,
+            initial_palette=self._palette_name,
+        )
+        self._zoom_manager.attach_widgets(
+            header_title=self._hdr_title,
+            header_subtitle=self._hdr_subtitle,
+            header_info=self._hdr_info,
+            settings_button=self._settings_btn,
+            status_label=None,
+            reg_labels={},
+            flag_widgets={},
+            format_rbs=[],
+        )
+        self._zoom_manager.initialize()
+
+    def _toggle_settings_popup(self):
+        if self._zoom_manager is not None:
+            self._zoom_manager.toggle_settings_popup()
+
+    def _apply_palette(self, palette_name):
+        self._palette_name = palette_name
+        apply_palette_namespace(globals(), palette_name)
+        apply_palette_namespace(styles_cacao_module.__dict__, palette_name)
+        apply_palette_namespace(styles_spl_module.__dict__, palette_name)
+        setup_styles()
+        recolor_widget_tree(self.window, palette_name)
+        if self._zoom_manager is not None:
+            self._zoom_manager.apply_zoom("both")
+
+    def _refresh_zoom_dynamic(self):
+        """Reaplica zoom actual sobre widgets recreados en cambios de fase/paso."""
+        if self._zoom_manager is None:
+            return
+        self.window.update_idletasks()
+        self._zoom_manager.capture_original_values()
+        self._zoom_manager.apply_zoom("both")
 
     # ══════════════════════════════════════════════════════════════════════
     # UTILIDADES INTERNAS
@@ -252,6 +360,8 @@ class CompilerGui:
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._pc_erase).pack(side="left", padx=10)
 
+        self._refresh_zoom_dynamic()
+
     def _pc_load_file(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
         self.window.lift()
@@ -328,6 +438,8 @@ class CompilerGui:
             self._build_syntactic(area)
         else:
             self._build_semantic(area)
+
+        self._refresh_zoom_dynamic()
 
     # ── Paso 0: Léxico ────────────────────────────────────────────────────
 
@@ -459,8 +571,10 @@ class CompilerGui:
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._asm_erase).pack(side="left", padx=10)
 
+        self._refresh_zoom_dynamic()
+
     def _asm_load(self):
-        path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
+        path = filedialog.askopenfilename(filetypes=[("ASM_FILES", "*.asm"), ("All", "*.*")])
         self.window.lift()
         if path:
             with open(path, "r", encoding="utf-8") as f:
@@ -542,217 +656,55 @@ class CompilerGui:
         self._action_btn(btn_bar, "✕  Erase", ACCENT3,
                          self._ll_erase).pack(side="left", padx=10)
 
+        self._refresh_zoom_dynamic()
+
     def _do_link_load(self):
-        """
-        Procesa el código relocalizable y lo carga en memoria usando el enlazador.
-        
-        El formato reloc es:
-        .data
-        <hex bytes>
-        .text
-        <hex bytes con referencias [x] y {x}>
-        """
-        try:
-            # Obtener el contenido del reloc
-            reloc_content = self.ll_reloc.get("1.0", tk.END).strip()
-            if not reloc_content:
-                self._show_error("Error", "No hay código relocalizable para procesar")
+            """
+            Lee el código relocalizable de self.ll_reloc, toma la dirección base
+            de self.ll_base_addr, invoca el Linker y muestra el resultado en
+            self.ll_loaded.  También escribe los bytes directamente en la RAM global.
+            """
+            # ── Leer entradas ────────────────────────────────────────────────
+            reloc_text = self.ll_reloc.get("1.0", tk.END).strip()
+            if not reloc_text:
+                self._ll_show_error("No hay código relocalizable para procesar.")
                 return
-            
-            # Obtener dirección base
-            base_addr_hex = self.ll_base_addr.get().strip()
-            if not base_addr_hex:
-                self._show_error("Error", "Dirección base vacía")
-                return
-            
+
+            raw_addr = self.ll_base_addr.get().strip().lstrip("0x").lstrip("0X")
+            if not raw_addr:
+                raw_addr = "0"
             try:
-                base_addr = int(base_addr_hex, 16)
+                base_address = int(raw_addr, 16)
             except ValueError:
-                self._show_error("Error", f"Dirección base inválida: {base_addr_hex}")
+                self._ll_show_error(
+                    f"Dirección base inválida: '0x{raw_addr}'\n"
+                    "Ingrese un valor hexadecimal válido (ej. 00001000)."
+                )
                 return
-            
-            # Parsear el formato reloc
-            parsed = self._parse_reloc_format(reloc_content)
-            
-            if parsed is None:
-                self._show_error("Error", "Formato de reloc inválido")
+
+            # ── Ejecutar el enlazador/cargador ───────────────────────────────
+            linker = Linker()
+            try:
+                output_text = linker.link_and_load(reloc_text, base_address)
+            except LinkerError as exc:
+                self._ll_show_error(f"Error de enlazado:\n{exc}")
                 return
-            
-            data_hex, text_hex = parsed
-            
-            # Convertir a módulo objeto para el enlazador
-            module_obj = self._create_obj_module(data_hex, text_hex, base_addr)
-            
-            if module_obj is None:
-                self._show_error("Error", "No se pudo crear el módulo objeto")
+            except Exception as exc:
+                self._ll_show_error(f"Error inesperado:\n{exc}")
                 return
-            
-            # Usar el gestor de enlazador-cargador
-            from enlazador_cargador.gestor_enlazador_cargador import GestorEnlazadorCargador
-            from memoria.ram import ram
-            
-            gestor = GestorEnlazadorCargador(verbose=False)
-            
-            # Cargar y enlazar
-            exito = gestor.cargar_desde_contenido(
-                {'programa': module_obj},
-                direccion_base=base_addr,
-                cargar_en_memoria=True
-            )
-            
-            if not exito:
-                self._show_error("Error de carga", 
-                    f"Error al cargar: {gestor.obtener_ultimo_error()}")
-                return
-            
-            # Mostrar resultado en la interfaz
-            self._show_loaded_code(base_addr, data_hex, text_hex)
-            
-            # Opcional: mostrar tabla de símbolos
-            tabla = gestor.obtener_tabla_simbolos()
-            if tabla:
-                simbolos_str = "\n".join([f"{nom}: 0x{sym.valor:X}" 
-                    for nom, sym in tabla.items()])
-                self.ll_loaded.configure(state="normal")
-                self.ll_loaded.insert(tk.END, f"\n\n=== Símbolos ===\n{simbolos_str}")
-                self.ll_loaded.configure(state="disabled")
-            
-            self._show_message("Éxito", "Código cargado en memoria exitosamente")
-            
-        except Exception as e:
-            self._show_error("Error inesperado", f"{type(e).__name__}: {e}")
-    
-    def _parse_reloc_format(self, content):
-        """
-        Parsea el formato reloc:
-        .data
-        <hex>
-        .text
-        <hex>
-        
-        Retorna: (data_hex, text_hex) o None si hay error
-        """
-        lines = [l.strip() for l in content.split('\n') if l.strip()]
-        
-        data_hex = ""
-        text_hex = ""
-        section = None
-        
-        for line in lines:
-            if line == ".data":
-                section = "data"
-                continue
-            elif line == ".text":
-                section = "text"
-                continue
-            
-            if section == "data":
-                # Procesar línea de datos
-                hex_str = self._process_reloc_line(line)
-                if hex_str:
-                    data_hex += hex_str
-            elif section == "text":
-                # Procesar línea de texto
-                hex_str = self._process_reloc_line(line)
-                if hex_str:
-                    text_hex += hex_str
-        
-        if not data_hex and not text_hex:
-            return None
-        
-        return (data_hex, text_hex)
-    
-    def _process_reloc_line(self, line):
-        """
-        Procesa una línea de reloc, reemplazando referencias como:
-        - {9} → bytes para referencia
-        - [2] → bytes para referencia
-        
-        Por ahora, convierte referencias a ceros (placeholder).
-        """
-        import re
-        
-        # Reemplazar referencias con ceros (serán procesadas por el enlazador)
-        line = re.sub(r'\{[0-9]+\}', '00', line)  # {9} → 00
-        line = re.sub(r'\[[0-9]+\]', '00', line)  # [2] → 00
-        line = re.sub(r'\[[0-9]+\]', '00', line)  # 1[2]8 → 100008 (el 1[2]8)
-        
-        # Eliminar espacios y convertir a hex válido
-        line = line.replace(' ', '').replace('\t', '')
-        
-        # Validar que sean caracteres hex válidos
-        if not all(c in '0123456789ABCDEFabcdef' for c in line):
-            return ""
-        
-        return line
-    
-    def _create_obj_module(self, data_hex, text_hex, base_addr):
-        """
-        Crea un módulo objeto compatible con el enlazador.
-        
-        Formato:
-        [MODULE nombre]
-        [CODE] hex_bytes
-        [DATA] hex_bytes
-        [SYMBOLS] nombre:tipo:valor
-        [EXTERNAL]
-        """
-        # Convertir strings hex a formato espaciado para el módulo objeto
-        code_formatted = self._format_hex_for_module(text_hex)
-        data_formatted = self._format_hex_for_module(data_hex)
-        
-        module = f"""[MODULE programa]
-[CODE] {code_formatted}
-[DATA] {data_formatted}
-[SYMBOLS] inicio:code:0x{base_addr:X}
-[EXTERNAL]
-"""
-        return module
-    
-    def _format_hex_for_module(self, hex_string):
-        """Formatea un string hex para el módulo objeto (XX XX XX XX ...)"""
-        if not hex_string:
-            return ""
-        
-        # Agrupar en pares
-        hex_string = hex_string.replace(' ', '')
-        pairs = [hex_string[i:i+2].upper() for i in range(0, len(hex_string), 2)]
-        return ' '.join(pairs)
-    
-    def _show_loaded_code(self, base_addr, data_hex, text_hex):
-        """Muestra el código cargado en el widget ll_loaded"""
+
+            # ── Mostrar resultado en ll_loaded ───────────────────────────────
+            self.ll_loaded.configure(state="normal")
+            self.ll_loaded.delete("1.0", tk.END)
+            self.ll_loaded.insert("1.0", output_text)
+            self.ll_loaded.configure(state="disabled")
+
+    def _ll_show_error(self, message: str) -> None:
+        """Muestra un mensaje de error en el panel de salida ll_loaded."""
         self.ll_loaded.configure(state="normal")
         self.ll_loaded.delete("1.0", tk.END)
-        
-        output = f"BASE ADDRESS: 0x{base_addr:08X}\n"
-        output += f"===============================\n\n"
-        
-        if data_hex:
-            output += f"DATA SECTION (0x{base_addr:08X}):\n"
-            # Mostrar en filas de 8 bytes
-            for i in range(0, len(data_hex), 16):
-                output += data_hex[i:i+16] + "\n"
-            output += f"\n"
-        
-        if text_hex:
-            output += f"CODE SECTION (0x{base_addr + len(data_hex)//2:08X}):\n"
-            # Mostrar en filas de 8 bytes
-            for i in range(0, len(text_hex), 16):
-                output += text_hex[i:i+16] + "\n"
-        
-        self.ll_loaded.insert(tk.END, output)
+        self.ll_loaded.insert("1.0", f"[ERROR]\n{message}")
         self.ll_loaded.configure(state="disabled")
-    
-    def _show_error(self, title, message):
-        """Muestra un diálogo de error"""
-        from tkinter import messagebox
-        messagebox.showerror(title, message)
-    
-    def _show_message(self, title, message):
-        """Muestra un diálogo informativo"""
-        from tkinter import messagebox
-        messagebox.showinfo(title, message)
-    
 
     def _ll_load(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])

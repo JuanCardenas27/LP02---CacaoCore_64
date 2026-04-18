@@ -1,10 +1,17 @@
 // Programa de prueba
- 
+
+.import "math.lib"
+.extern VEC_GET
+.extern VEC_SET
+
+VEC_SET()
+VEC_GET()
+
 func greet(name: text) {
     show "Hello, " + name
     deliver nothing
 }
- 
+
 let age: int = 25
 let seconds: height = 180.0
 let active: bool = indeed

@@ -1,0 +1,8 @@
+#include "utils.lib"
+#include "math.lib"
+#define n 5
+let a: int[n] = 1,8,4,2,10
+
+let max: int = math.lib.VEC_MAX(a, n)
+
+utils.lib.PRINT(max)

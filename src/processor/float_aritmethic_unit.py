@@ -35,7 +35,7 @@ class FloatAritmethicUnit:
     def _check_0div(self, op1, op2):
         if op1[1:] == ZERO and op2[1:] == ZERO:
             self.cu_flags[0] += 32
-            self.flags[0] += 4
+            self.flags[0] += 2
             return NAN
         if op2[1:] == ZERO:
             self.cu_flags[0] += 32
@@ -49,19 +49,19 @@ class FloatAritmethicUnit:
             include_sign = 1
         
         if op1[1] == 1024 and op1[2] != 0:
-            self.flags[0] += 4
+            self.flags[0] += 2
             return NAN
         if op2[1] == 1024 and op2[2] != 0:
-            self.flags[0] += 4
+            self.flags[0] += 2
             return NAN
         if (op1[include_sign:], op2[include_sign:]) in inv_op:
-            self.flags[0] += 4
+            self.flags[0] += 2
             return NAN
         return False
 
     def _check_nan(self, op):
         if op[1] == 1024 and op[2] != 0:
-            self.flags[0] += 4
+            self.flags[0] += 2
             return NAN
 
     def _check_overflow(self, sign, exp):

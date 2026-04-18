@@ -50,6 +50,14 @@ class AsmParser:
         self.sect = p[1].lower()
         self.program.append(str(p[1]))
 
+    def p_line_import(self, p):
+        '''line : SECTION REFERENCE
+                | SECTION VAR
+                | SECTION LABEL'''
+                
+        self.sect = p[1].lower()
+        self.program.append(f"{str(p[1])} {p[2]}")
+
     def p_line_instr(self, p):
         '''line : instruction NEWLINE
                 | instruction'''
@@ -70,7 +78,7 @@ class AsmParser:
         'instruction : MNEMONIC REGISTER COMMA NUMBER'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_ri':
-                code =  str(instruction["opcode"].to_bytes(6, byteorder='big').hex())[1:] + str(p[2])
+                code =  str(instruction["opcode"].to_bytes(6, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
                 code = str(p[4].to_bytes(2, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -79,7 +87,7 @@ class AsmParser:
         'instruction : MNEMONIC REGISTER COMMA MEMORY'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_rm':
-                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2])
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
                 code = str(p[4].to_bytes(4, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -88,7 +96,7 @@ class AsmParser:
         'instruction : MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKET'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_rm':
-                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2])
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
                 code = '[' + f'{self.var_table[p[5]]}' + ']' + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -104,7 +112,7 @@ class AsmParser:
         'instruction : MNEMONIC MEMORY COMMA REGISTER'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mr':
-                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(p[4])
+                code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(hex(p[4]))[2:]
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -116,7 +124,7 @@ class AsmParser:
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '-'
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
-                code = str(p[6]) + '[' + f'{self.var_table[p[3]]}' + ']' + code
+                code = str(hex(p[6]))[2:] + '[' + f'{self.var_table[p[3]]}' + ']' + code
 
                 p[0] = code
 
@@ -152,7 +160,7 @@ class AsmParser:
     def p_instr_mem(self, p):
         'instruction : MNEMONIC MEMORY'
         for instruction in MICROINSTRUCTION_SPECS:
-            if instruction["name"] == p[1]+'_rm':
+            if instruction["name"] == p[1]+'_m':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())
                 n = len(code)
                 code = str(p[2].to_bytes(4, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
@@ -161,8 +169,8 @@ class AsmParser:
     def p_instr_reg(self, p):
         'instruction : MNEMONIC REGISTER'
         for instruction in MICROINSTRUCTION_SPECS:
-            if instruction["name"] == p[1]+'_ri':
-                code =  str(instruction["opcode"].to_bytes(8, byteorder='big').hex())[1:] + str(p[2])
+            if instruction["name"] == p[1]+'_r':
+                code =  str(instruction["opcode"].to_bytes(8, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
                 code = "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -170,14 +178,16 @@ class AsmParser:
     def p_instr_inm(self, p):
         'instruction : MNEMONIC NUMBER'
         for instruction in MICROINSTRUCTION_SPECS:
-            if instruction["name"] == p[1]+'_ri':
+            if instruction["name"] == p[1]+'_i' or instruction["name"]=='int_i':
                 code =  str(instruction["opcode"].to_bytes(6, byteorder='big').hex())
                 n = len(code)
                 code = str(p[2].to_bytes(2, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
 
     def p_instr_label(self, p):
-        'instruction : MNEMONIC LABEL'
+        '''instruction : MNEMONIC LABEL
+                        | MNEMONIC VAR'''
+        
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_m':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())
@@ -200,7 +210,7 @@ class AsmParser:
 
     def p_error(self, p):
         if p:
-            print(f"Error sintáctico en línea {p.lineno}: '{p.value}'")
+            print(f"Error sintáctico en línea {len(self.program)}: '{p.value}'")
     
     def get_parser(self):
         self.parser = yacc.yacc(module=self)

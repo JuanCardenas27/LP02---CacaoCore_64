@@ -1,0 +1,25 @@
+#include "utils.lib"
+#define rows_a 3
+#define rows_b 2
+#define cols_a 2
+#define cols_b 4
+
+let temp:   int = 0
+
+let a: int[rows_a][cols_a] = 1,2,3,4,5,6
+let b: int[rows_b][cols_b] = 1,2,3,4,5,6,7,8
+let c: int[rows_a][cols_b]
+
+for (let i:int = 0, i<rows_a, set i += 1){
+    for (let j:int = 0, j<cols_b, set j += 1){
+        for (let k:int = 0, k<cols_a, set k += 1){
+            set c[i][j] += a[i][k] * b[k][j]
+        }
+    }
+}
+
+for (let i:int = 0, i<rows_a, set i += 1){
+    for (let j:int = 0, j<cols_b, set j += 1){
+        utils.lib.PRINT(c[i][j])
+    }
+}

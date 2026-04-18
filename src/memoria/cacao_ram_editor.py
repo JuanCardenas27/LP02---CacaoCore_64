@@ -8,54 +8,41 @@ Arquitectura: Von Neumann, 64 bits, 1 MB RAM, direcciones 32 bits
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import re
+import gui.styles_cacao as styles_cacao_module
+import gui.styles_ram as styles_ram_module
+from gui.styles_ram import *
+from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
+from gui.zoom_manager import ZoomManager
 
 # ─────────────────────────────────────────────
 #  IMPORTAR LA RAM REAL DESDE ram.py
 # ─────────────────────────────────────────────
-try:
-    from memoria.ram import (
-        ram,
-        RAM_SIZE,
-        WORD_SIZE,
-        SYS_START, SYS_END,
-        CODE_START, CODE_END,
-        DATA_START, DATA_END,
-        HEAP_START, HEAP_END,
-        STACK_START, STACK_END,
-        RAMError,
-        AddressOutOfRange,
-        AlignmentError,
-        WriteProtectionError,
-    )
-    RAM_BACKEND = "ram.py"
-except ImportError:
-    # Fallback: si ram.py no está disponible, usa bytearray directo
-    RAM_SIZE  = 1 * 1024 * 1024
-    WORD_SIZE = 8
-    ram       = type("_FakeRAM", (), {
-        "_mem":            bytearray(RAM_SIZE),
-        "write":           lambda self, a, d: self._mem.__setitem__(slice(a, a+len(d)), d),
-        "read":            lambda self, a, n: bytes(self._mem[a:a+n]),
-        "code_protected":  False,
-        "zone_of":         lambda self, a: "N/A",
-    })()
-    SYS_START, SYS_END       = 0x00000000, 0x00001000
-    CODE_START, CODE_END     = 0x00001000, 0x00040000
-    DATA_START, DATA_END     = 0x00040000, 0x00080000
-    HEAP_START, HEAP_END     = 0x00080000, 0x000C0000
-    STACK_START, STACK_END   = 0x000C0000, 0x00100000
-    RAMError = WriteProtectionError = AddressOutOfRange = AlignmentError = Exception
-    RAM_BACKEND = "fallback (ram.py no encontrado)"
+from memoria.ram import (
+    ram,
+    RAM_SIZE,
+    WORD_SIZE,
+    SYS_START, SYS_END,
+    CODE_START, CODE_END,
+    DATA_START, DATA_END,
+    HEAP_START, HEAP_END,
+    STACK_START, STACK_END,
+    RAMError,
+    AddressOutOfRange,
+    AlignmentError,
+    WriteProtectionError,
+)
+RAM_BACKEND = "ram.py"
+
 
 # ─────────────────────────────────────────────
 #  MAPA VISUAL (colores por zona)
 # ─────────────────────────────────────────────
 MEMORY_MAP = [
-    (SYS_START,   SYS_END   - 1, "Sistema / Vectores",  "#FF6B6B"),
-    (CODE_START,  CODE_END  - 1, "Código del programa", "#4ECDC4"),
-    (DATA_START,  DATA_END  - 1, "Datos estáticos",     "#FFE66D"),
-    (HEAP_START,  HEAP_END  - 1, "Heap",                "#A8E6CF"),
-    (STACK_START, STACK_END - 1, "Pila (Stack)",        "#C3A6FF"),
+    (SYS_START,   SYS_END   - 1, "Sistema / Vectores",  SEGMENT_SYS),
+    (CODE_START,  CODE_END  - 1, "Código del programa", SEGMENT_CODE),
+    (DATA_START,  DATA_END  - 1, "Datos estáticos",     SEGMENT_DATA),
+    (HEAP_START,  HEAP_END  - 1, "Heap",                SEGMENT_HEAP),
+    (STACK_START, STACK_END - 1, "Pila (Stack)",        SEGMENT_STACK),
 ]
 
 REGISTERS = [
@@ -67,24 +54,6 @@ REGISTERS = [
 
 ADDR_MODE_BITS = {"Registro": "00", "Inmediato": "01", "Mem. Directa": "10", "Mem. Indirecta": "11"}
 
-# Paleta de colores retro-terminal
-BG_DARK    = "#0D0F12"
-BG_MID     = "#141720"
-BG_PANEL   = "#1A1D28"
-BG_INPUT   = "#0A0C10"
-ACCENT     = "#00FF9C"
-ACCENT2    = "#00C8FF"
-ACCENT3    = "#FF6B6B"
-TEXT_MAIN  = "#E0E8F0"
-TEXT_DIM   = "#5A6880"
-TEXT_ADDR  = "#FFD166"
-BORDER     = "#2A3045"
-FONT_MONO  = ("Courier New", 11)
-FONT_MONO_SM = ("Courier New", 9)
-FONT_TITLE = ("Courier New", 18, "bold")
-FONT_LABEL = ("Courier New", 10)
-FONT_SMALL = ("Courier New", 9)
-
 # ─────────────────────────────────────────────
 #  HELPERS — usan la instancia `ram` de ram.py
 # ─────────────────────────────────────────────
@@ -92,7 +61,7 @@ def get_segment(addr):
     for start, end, name, color in MEMORY_MAP:
         if start <= addr <= end:
             return name, color
-    return "Desconocido", "#888888"
+    return "Desconocido", SEGMENT_UNKNOWN
 
 def write_ram(addr, data_bytes):
     """
@@ -137,6 +106,8 @@ class CacaoRAMEditor(tk.Tk):
         self.minsize(1100, 700)
         self.configure(bg=BG_DARK)
         self.resizable(True, True)
+        self._zoom_manager = None
+        self._palette_name = "current"
 
         self._build_ui()
         self._refresh_hex_view(0x00001000, 16)
@@ -150,12 +121,40 @@ class CacaoRAMEditor(tk.Tk):
         hdr = tk.Frame(self, bg=BG_DARK, pady=8)
         hdr.pack(fill="x", padx=16)
 
-        tk.Label(hdr, text="▓▓  CACAO_Core-64", font=FONT_TITLE,
-                 fg=ACCENT, bg=BG_DARK).pack(side="left")
-        tk.Label(hdr, text="  RAM DIRECT EDITOR", font=("Courier New", 13),
-                 fg=ACCENT2, bg=BG_DARK).pack(side="left", padx=8)
-        tk.Label(hdr, text=f"1 MB · 32-bit addr · 64-bit word  │  backend: {RAM_BACKEND}",
-                 font=FONT_SMALL, fg=TEXT_DIM, bg=BG_DARK).pack(side="right")
+        self._hdr_title = tk.Label(hdr, text="▓▓  CACAO_Core-64", font=FONT_TITLE,
+                                   fg=ACCENT, bg=BG_DARK)
+        self._hdr_title.pack(side="left")
+
+        self._hdr_subtitle = tk.Label(hdr, text="  RAM DIRECT EDITOR", font=("Courier New", 13),
+                                      fg=ACCENT2, bg=BG_DARK)
+        self._hdr_subtitle.pack(side="left", padx=8)
+
+        tk.Frame(hdr, bg=BG_DARK).pack(side="left", fill="x", expand=True)
+
+        self._settings_btn = tk.Button(
+            hdr,
+            text="⚙️ Configurar",
+            bg=BG_MID,
+            fg=ACCENT4,
+            activebackground=ACCENT4,
+            activeforeground=BG_DARK,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=3,
+            cursor="hand2",
+            command=self._toggle_settings_popup,
+        )
+        self._settings_btn.pack(side="left", padx=(20, 20))
+
+        self._hdr_info = tk.Label(
+            hdr,
+            text=f"1 MB · 32-bit addr · 64-bit word  │  backend: {RAM_BACKEND}",
+            font=FONT_SMALL,
+            fg=TEXT_DIM,
+            bg=BG_DARK,
+        )
+        self._hdr_info.pack(side="left")
 
         sep = tk.Frame(self, bg=ACCENT, height=1)
         sep.pack(fill="x", padx=16)
@@ -163,11 +162,13 @@ class CacaoRAMEditor(tk.Tk):
         # ── Cuerpo ──
         body = tk.Frame(self, bg=BG_DARK)
         body.pack(fill="both", expand=True, padx=16, pady=8)
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=1, uniform="ram_cols")
+        body.grid_columnconfigure(1, weight=2, uniform="ram_cols")
 
         # Columna izquierda: controles
-        left = tk.Frame(body, bg=BG_DARK, width=420)
-        left.pack(side="left", fill="y", padx=(0, 10))
-        left.pack_propagate(False)
+        left = tk.Frame(body, bg=BG_DARK)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         self._build_write_panel(left)
         self._build_read_panel(left)
@@ -176,10 +177,63 @@ class CacaoRAMEditor(tk.Tk):
 
         # Columna derecha: visor hex + log
         right = tk.Frame(body, bg=BG_DARK)
-        right.pack(side="left", fill="both", expand=True)
+        right.grid(row=0, column=1, sticky="nsew")
 
         self._build_hex_viewer(right)
         self._build_log(right)
+
+        self._init_zoom_controls()
+
+    def _init_zoom_controls(self):
+        if self._zoom_manager is not None:
+            return
+
+        self._zoom_manager = ZoomManager(
+            self,
+            font_base=FONT_MONO,
+            font_lg=FONT_TITLE,
+            font_xl=FONT_TITLE,
+            font_title=FONT_TITLE,
+            font_subtitle=("Courier New", 13),
+            font_sm=FONT_SMALL,
+            font_btn=("Courier New", 10, "bold"),
+            font_label=FONT_LABEL,
+            bg_panel=BG_PANEL,
+            bg_mid=BG_MID,
+            bg_dark=BG_DARK,
+            text_main=TEXT_MAIN,
+            accent=ACCENT,
+            accent2=ACCENT2,
+            accent4=ACCENT4,
+            min_layout_zoom=0.1,
+            scale_widget_size=False,
+            on_palette_change=self._apply_palette,
+            initial_palette=self._palette_name,
+        )
+        self._zoom_manager.attach_widgets(
+            header_title=self._hdr_title,
+            header_subtitle=self._hdr_subtitle,
+            header_info=self._hdr_info,
+            settings_button=self._settings_btn,
+            status_label=None,
+            reg_labels={},
+            flag_widgets={},
+            format_rbs=[],
+        )
+        self._zoom_manager.initialize()
+
+    def _toggle_settings_popup(self):
+        if self._zoom_manager is not None:
+            self._zoom_manager.toggle_settings_popup()
+
+    def _apply_palette(self, palette_name):
+        self._palette_name = palette_name
+        apply_palette_namespace(globals(), palette_name)
+        apply_palette_namespace(styles_cacao_module.__dict__, palette_name)
+        apply_palette_namespace(styles_ram_module.__dict__, palette_name)
+        recolor_widget_tree(self, palette_name)
+        if self._zoom_manager is not None:
+            self._zoom_manager.apply_zoom("both")
 
     # ─── PANEL: ESCRITURA ─────────────────────────
     def _build_write_panel(self, parent):

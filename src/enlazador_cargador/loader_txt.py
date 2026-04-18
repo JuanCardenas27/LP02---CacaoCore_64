@@ -117,9 +117,14 @@ class LoaderTxt:
 
                 try:
                     if mode == "hex":
-                        if not re.fullmatch(r"[0-9A-Fa-f]{1,2}", t):
+                        # Permitir tokens de longitud par hasta 16 (8 bytes)
+                        if not re.fullmatch(r"[0-9A-Fa-f]+", t) or len(t) % 2 != 0 or len(t) > 16:
                             raise ValueError(f"Token hex inválido: {t}")
-                        line_bytes.append(int(t, 16))
+
+                        # Partir en bytes (pares de 2)
+                        for i in range(0, len(t), 2):
+                            byte_str = t[i:i+2]
+                            line_bytes.append(int(byte_str, 16))
 
                     elif mode == "bin":
                         if not re.fullmatch(r"[01]{1,8}", t):

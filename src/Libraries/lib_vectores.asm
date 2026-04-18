@@ -13,43 +13,43 @@
 ;   r15 = ACC (acumulador)
 ;
 ; Subrutinas:
-;   vec_init
-;   vec_set
-;   vec_get
-;   vec_len
-;   vec_sum
-;   vec_max
-;   vec_min
-;   vec_copy
-;   vec_swap_elem
-;   matrix_get_linear
-;   matrix_set_linear
-;   matrix_sum_row
-;   matrix_find_max
-;   matrix_sum_all
+;   VEC_INIT
+;   VEC_SET
+;   VEC_GET
+;   VEC_LEN
+;   VEC_SUM
+;   VEC_MAX
+;   VEC_MIN
+;   VEC_COPY
+;   VEC_SWAP_ELEM
+;   MATRIX_GET_LINEAR
+;   MATRIX_SET_LINEAR
+;   MATRIX_SUM_ROW
+;   MATRIX_FIND_MAX
+;   MATRIX_SUM_ALL
 
 .text
 
-; @func vec_init
-; vec_init(r0=base, r1=len)
-vec_init:
+; @func VEC_INIT
+; VEC_INIT(r0=base, r1=len)
+VEC_INIT:
     movd r4, r0
     movd r3, 0
     movd r2, 0
-loop_init:
+LOOP_INIT:
     cmp r2, r1
-    jge end_init
+    jge END_INIT
     movd [r4], r3
     add r4, 8
     add r2, 1
-    jmp loop_init
-end_init:
+    jmp LOOP_INIT
+END_INIT:
     ret
 ; @endfunc
 
-; @func vec_set
-; vec_set(r0=base, r2=index, r3=valor)
-vec_set:
+; @func VEC_SET
+; VEC_SET(r0=base, r2=index, r3=valor)
+VEC_SET:
     movd r4, r2
     mul r4, 8
     add r4, r0
@@ -57,9 +57,9 @@ vec_set:
     ret
 ; @endfunc
 
-; @func vec_get
-; vec_get(r0=base, r2=index) -> r5=valor
-vec_get:
+; @func VEC_GET
+; VEC_GET(r0=base, r2=index) -> r5=valor
+VEC_GET:
     movd r4, r2
     mul r4, 8
     add r4, r0
@@ -67,97 +67,97 @@ vec_get:
     ret
 ; @endfunc
 
-; @func vec_len
-; vec_len(r1=len) -> r5=len
-vec_len:
+; @func VEC_LEN
+; VEC_LEN(r1=len) -> r5=len
+VEC_LEN:
     movd r5, r1
     ret
 ; @endfunc
 
-; @func vec_sum
-; vec_sum(r0=base, r1=len) -> r5=suma
-vec_sum:
+; @func VEC_SUM
+; VEC_SUM(r0=base, r1=len) -> r5=suma
+VEC_SUM:
     movd r5, 0
     movd r2, 0
     movd r4, r0
-loop_sum:
+LOOP_SUM:
     cmp r2, r1
-    jge end_sum
+    jge END_SUM
     movd r3, [r4]
     add r5, r3
     add r4, 8
     add r2, 1
-    jmp loop_sum
-end_sum:
+    jmp LOOP_SUM
+END_SUM:
     ret
 ; @endfunc
 
-; @func vec_max
-; vec_max(r0=base, r1=len) -> r5=maximo
-vec_max:
+; @func VEC_MAX
+; VEC_MAX(r0=base, r1=len) -> r5=maximo
+VEC_MAX:
     movd r5, [r0]
     movd r2, 1
     movd r4, r0
     add r4, 8
-loop_max:
+LOOP_MAX:
     cmp r2, r1
-    jge end_max
+    jge END_MAX
     movd r3, [r4]
     cmp r3, r5
-    jle no_update_max
+    jle NO_UPDATE_MAX
     movd r5, r3
-no_update_max:
+NO_UPDATE_MAX:
     add r4, 8
     add r2, 1
-    jmp loop_max
-end_max:
+    jmp LOOP_MAX
+END_MAX:
     ret
 ; @endfunc
 
-; @func vec_min
-; vec_min(r0=base, r1=len) -> r5=minimo
-vec_min:
+; @func VEC_MIN
+; VEC_MIN(r0=base, r1=len) -> r5=minimo
+VEC_MIN:
     movd r5, [r0]
     movd r2, 1
     movd r4, r0
     add r4, 8
-loop_min:
+LOOP_MIN:
     cmp r2, r1
-    jge end_min
+    jge END_MIN
     movd r3, [r4]
     cmp r3, r5
-    jge no_update_min
+    jge NO_UPDATE_MIN
     movd r5, r3
-no_update_min:
+NO_UPDATE_MIN:
     add r4, 8
     add r2, 1
-    jmp loop_min
-end_min:
+    jmp LOOP_MIN
+END_MIN:
     ret
 ; @endfunc
 
-; @func vec_copy
-; vec_copy(r0=src_base, r1=len, r6=dst_base)
-vec_copy:
+; @func VEC_COPY
+; VEC_COPY(r0=src_base, r1=len, r6=dst_base)
+VEC_COPY:
     movd r4, r0
     movd r7, r6
     movd r2, 0
-loop_copy:
+LOOP_COPY:
     cmp r2, r1
-    jge end_copy
+    jge END_COPY
     movd r3, [r4]
     movd [r7], r3
     add r4, 8
     add r7, 8
     add r2, 1
-    jmp loop_copy
-end_copy:
+    jmp LOOP_COPY
+END_COPY:
     ret
 ; @endfunc
 
-; @func vec_swap_elem
-; vec_swap_elem(r0=base, r2=i, r3=j)
-vec_swap_elem:
+; @func VEC_SWAP_ELEM
+; VEC_SWAP_ELEM(r0=base, r2=i, r3=j)
+VEC_SWAP_ELEM:
     movd r4, r2
     mul r4, 8
     add r4, r0
@@ -171,9 +171,9 @@ vec_swap_elem:
     ret
 ; @endfunc
 
-; @func matrix_get_linear
-; matrix_get_linear(r0=base, r1=cols, r2=row, r3=col) -> r5=valor
-matrix_get_linear:
+; @func MATRIX_GET_LINEAR
+; MATRIX_GET_LINEAR(r0=base, r1=cols, r2=row, r3=col) -> r5=valor
+MATRIX_GET_LINEAR:
     movd r4, r2
     mul r4, r1
     add r4, r3
@@ -183,9 +183,9 @@ matrix_get_linear:
     ret
 ; @endfunc
 
-; @func matrix_set_linear
-; matrix_set_linear(r0=base, r1=cols, r2=row, r3=col, r4=value)
-matrix_set_linear:
+; @func MATRIX_SET_LINEAR
+; MATRIX_SET_LINEAR(r0=base, r1=cols, r2=row, r3=col, r4=value)
+MATRIX_SET_LINEAR:
     movd r8, r2
     mul r8, r1
     add r8, r3
@@ -195,63 +195,63 @@ matrix_set_linear:
     ret
 ; @endfunc
 
-; @func matrix_sum_row
-; matrix_sum_row(r0=base, r1=cols, r2=row) -> r5=suma
-matrix_sum_row:
+; @func MATRIX_SUM_ROW
+; MATRIX_SUM_ROW(r0=base, r1=cols, r2=row) -> r5=suma
+MATRIX_SUM_ROW:
     movd r4, r2
     mul r4, r1
     mul r4, 8
     add r4, r0
     movd r5, 0
     movd r2, 0
-loop_sum_row:
+LOOP_SUM_ROW:
     cmp r2, r1
-    jge end_sum_row
+    jge END_SUM_ROW
     movd r3, [r4]
     add r5, r3
     add r4, 8
     add r2, 1
-    jmp loop_sum_row
-end_sum_row:
+    jmp LOOP_SUM_ROW
+END_SUM_ROW:
     ret
 ; @endfunc
 
-; @func matrix_find_max
-; matrix_find_max(r0=base, r1=total_elements) -> r5=maximo
-matrix_find_max:
+; @func MATRIX_FIND_MAX
+; MATRIX_FIND_MAX(r0=base, r1=total_elements) -> r5=maximo
+MATRIX_FIND_MAX:
     movd r5, [r0]
     movd r2, 1
     movd r4, r0
     add r4, 8
-loop_find_max:
+LOOP_FIND_MAX:
     cmp r2, r1
-    jge end_find_max
+    jge END_FIND_MAX
     movd r3, [r4]
     cmp r3, r5
-    jle no_update_max2
+    jle NO_UPDATE_MAX2
     movd r5, r3
-no_update_max2:
+NO_UPDATE_MAX2:
     add r4, 8
     add r2, 1
-    jmp loop_find_max
-end_find_max:
+    jmp LOOP_FIND_MAX
+END_FIND_MAX:
     ret
 ; @endfunc
 
-; @func matrix_sum_all
-; matrix_sum_all(r0=base, r1=total_elements) -> r5=suma
-matrix_sum_all:
+; @func MATRIX_SUM_ALL
+; MATRIX_SUM_ALL(r0=base, r1=total_elements) -> r5=suma
+MATRIX_SUM_ALL:
     movd r5, 0
     movd r2, 0
     movd r4, r0
-loop_sum_all:
+LOOP_SUM_ALL:
     cmp r2, r1
-    jge end_sum_all
+    jge END_SUM_ALL
     movd r3, [r4]
     add r5, r3
     add r4, 8
     add r2, 1
-    jmp loop_sum_all
-end_sum_all:
+    jmp LOOP_SUM_ALL
+END_SUM_ALL:
     ret
 ; @endfunc
