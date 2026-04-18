@@ -14,6 +14,7 @@ class Preprocesador:
         macros_iniciales: Optional[Dict[str, str]] = None,
         verbose: bool = False,
     ):
+        # Inicializa el preprocesador con estado vacío y configuración
         self.max_macro_expansion = max_macro_expansion
         self.verbose = verbose
         self.advertencias: List[str] = []
@@ -33,178 +34,151 @@ class Preprocesador:
 
         self._lexer = build_lexer()
 
+    # ======================== UTILIDADES CORE ========================
+    
     def _activo(self) -> bool:
+        """Verifica si el código actual está activo según condicionales."""
         return all(self._pila_cond) if self._pila_cond else True
 
-    def _log(self, msg: str):
-        if self.verbose:
-            print(f"[PREPROCESADOR] {msg}", file=sys.stderr)
+    # ======================== PARSING LÉXICO ========================
 
-    def _advertir(self, msg: str, archivo: str = None, linea: int = None):
-        ubicacion = f"{archivo}:{linea}" if archivo else "<string>"
-        entrada = f"[ADVERTENCIA] {ubicacion}: {msg}"
-        self.advertencias.append(entrada)
-        print(entrada, file=sys.stderr)
+    def _leer_identificador(self, texto: str, indice: int) -> Tuple[str, int]:
+        """Lee un identificador desde el índice."""
+        if indice >= len(texto) or not (texto[indice].isalpha() or texto[indice] == "_"):
+            return "", indice
+        inicio = indice
+        indice += 1
+        while indice < len(texto) and (texto[indice].isalnum() or texto[indice] == "_"):
+            indice += 1
+        return texto[inicio:indice], indice
 
     def _es_inicio_identificador(self, caracter: str) -> bool:
+        """Verifica si un carácter puede iniciar un identificador."""
         return caracter.isalpha() or caracter == "_"
 
     def _es_identificador(self, caracter: str) -> bool:
+        """Verifica si un carácter es válido dentro de un identificador."""
         return caracter.isalnum() or caracter == "_"
 
     def _saltar_espacios(self, texto: str, indice: int) -> int:
+        """Salta espacios en blanco desde el índice dado."""
         while indice < len(texto) and texto[indice].isspace():
             indice += 1
         return indice
 
-    def _leer_identificador(self, texto: str, indice: int) -> Tuple[str, int]:
-        if indice >= len(texto) or not self._es_inicio_identificador(texto[indice]):
-            return "", indice
-        inicio = indice
-        indice += 1
-        while indice < len(texto) and self._es_identificador(texto[indice]):
-            indice += 1
-        return texto[inicio:indice], indice
+    # ======================== PARSING DE DIRECTIVAS ========================
 
     def _extraer_payload_directiva(self, linea_raw: str, nombre_directiva: str) -> str:
-        linea_sin_comentario = self._strip_comment(linea_raw)
-        linea_limpia = linea_sin_comentario.lstrip()
-        if not linea_limpia.startswith("#"):
-            raise PreprocesadorError(f"Sintaxis #{nombre_directiva} invalida: {linea_raw}")
-
-        contenido = linea_limpia[1:].lstrip()
-        if not contenido.startswith(nombre_directiva):
-            raise PreprocesadorError(f"Sintaxis #{nombre_directiva} invalida: {linea_raw}")
-
-        return contenido[len(nombre_directiva):].lstrip()
+        """Extrae contenido de una directiva después del nombre."""
+        linea = self._strip_comment(linea_raw).lstrip()
+        if not linea.startswith(f"#{nombre_directiva}"):
+            raise PreprocesadorError(f"Sintaxis inválida: {linea_raw}")
+        return linea[1+len(nombre_directiva):].lstrip()
 
     def _obtener_nombre_directiva(self, linea_raw: str) -> Optional[str]:
-        linea_sin_comentario = self._strip_comment(linea_raw)
-        linea_limpia = linea_sin_comentario.lstrip()
-        if not linea_limpia.startswith("#"):
+        """Extrae nombre de directiva o None."""
+        linea = self._strip_comment(linea_raw).lstrip()
+        if not linea.startswith("#"):
             return None
+        idx = 1
+        while idx < len(linea) and linea[idx].isspace(): idx += 1
+        nombre, _ = self._leer_identificador(linea, idx)
+        return nombre
 
-        indice = self._saltar_espacios(linea_limpia, 1)
-        nombre_directiva, _ = self._leer_identificador(linea_limpia, indice)
-        return nombre_directiva
-
-    def _leer_argumentos_parentesis(
-        self, texto: str, indice_parentesis: int
-    ) -> Tuple[Optional[List[str]], int]:
-        if indice_parentesis >= len(texto) or texto[indice_parentesis] != "(":
-            return None, indice_parentesis
-
-        profundidad = 0
-        argumentos: List[str] = []
-        buffer_actual: List[str] = []
-        indice = indice_parentesis
-
-        while indice < len(texto):
-            caracter = texto[indice]
-            if caracter == "(":
-                profundidad += 1
-                if profundidad > 1:
-                    buffer_actual.append(caracter)
-            elif caracter == ")":
-                profundidad -= 1
-                if profundidad == 0:
-                    argumentos.append("".join(buffer_actual).strip())
-                    argumentos = [arg for arg in argumentos if arg]
-                    return argumentos, indice + 1
-                buffer_actual.append(caracter)
-            elif caracter == "," and profundidad == 1:
-                argumentos.append("".join(buffer_actual).strip())
-                buffer_actual = []
+    def _leer_argumentos_parentesis(self, texto: str, idx: int) -> Tuple[Optional[List[str]], int]:
+        """Lee argumentos entre paréntesis, maneja nidos."""
+        if idx >= len(texto) or texto[idx] != "(": 
+            return None, idx
+        prof, args, buf = 0, [], []
+        while idx < len(texto):
+            c = texto[idx]
+            if c == "(": 
+                prof += 1
+                if prof > 1: buf.append(c)
+            elif c == ")":
+                prof -= 1
+                args.append("".join(buf).strip())
+                if prof == 0: 
+                    return [a for a in args if a], idx + 1
+                buf.append(c)
+            elif c == "," and prof == 1:
+                args.append("".join(buf).strip())
+                buf = []
             else:
-                buffer_actual.append(caracter)
-            indice += 1
-
-        return None, indice_parentesis
+                buf.append(c)
+            idx += 1
+        return None, idx
 
     def _parsear_define(self, linea_raw: str) -> Macro:
-        cuerpo_define = self._extraer_payload_directiva(linea_raw, "define")
-        indice = self._saltar_espacios(cuerpo_define, 0)
-        nombre_macro, indice = self._leer_identificador(cuerpo_define, indice)
-        if not nombre_macro:
-            raise MacroError(f"Sintaxis #define invalida: {linea_raw}")
-
-        indice = self._saltar_espacios(cuerpo_define, indice)
-        parametros: Optional[List[str]] = None
-        if indice < len(cuerpo_define) and cuerpo_define[indice] == "(":
-            parametros, indice = self._leer_argumentos_parentesis(cuerpo_define, indice)
-            if parametros is None:
-                raise MacroError(f"Sintaxis #define invalida: {linea_raw}")
-
-        valor_macro = cuerpo_define[indice:].strip()
-        if parametros is None:
-            valor_macro = valor_macro or "1"
-
-        return Macro(nombre_macro, valor_macro, parametros)
+        """Parsea #define y retorna Macro."""
+        cuerpo = self._extraer_payload_directiva(linea_raw, "define")
+        idx = 0
+        while idx < len(cuerpo) and cuerpo[idx].isspace(): idx += 1
+        nombre, idx = self._leer_identificador(cuerpo, idx)
+        if not nombre: raise MacroError(f"#define inválido: {linea_raw}")
+        while idx < len(cuerpo) and cuerpo[idx].isspace(): idx += 1
+        params = None
+        if idx < len(cuerpo) and cuerpo[idx] == "(":
+            params, idx = self._leer_argumentos_parentesis(cuerpo, idx)
+            if params is None: raise MacroError(f"#define inválido: {linea_raw}")
+        valor = (cuerpo[idx:].strip() if idx < len(cuerpo) else "") or "1"
+        return Macro(nombre, valor, params)
 
     def _parsear_include(self, linea_raw: str) -> Tuple[str, Optional[List[str]]]:
+        """Parsea #include y retorna (archivo, funciones_o_none)."""
         payload = self._extraer_payload_directiva(linea_raw, "include")
-        indice = self._saltar_espacios(payload, 0)
-        if indice >= len(payload) or payload[indice] != "\"":
-            raise IncludeError(f"Sintaxis #include invalida: {linea_raw}")
-
-        indice += 1
-        fin_nombre = payload.find("\"", indice)
-        if fin_nombre == -1:
-            raise IncludeError(f"Sintaxis #include invalida: {linea_raw}")
-
-        nombre_archivo = payload[indice:fin_nombre]
-        resto = payload[fin_nombre + 1:].strip()
-        if not resto:
-            return nombre_archivo, None
-
-        if not resto.startswith("{"):
-            raise IncludeError(f"Sintaxis #include invalida: {linea_raw}")
-
+        idx = 0
+        while idx < len(payload) and payload[idx].isspace(): idx += 1
+        if idx >= len(payload) or payload[idx] != '"': 
+            raise IncludeError(f"#include inválido: {linea_raw}")
+        idx += 1
+        fin = payload.find('"', idx)
+        if fin == -1: raise IncludeError(f"#include inválido: {linea_raw}")
+        nombre = payload[idx:fin]
+        resto = payload[fin+1:].strip()
+        if not resto: return nombre, None
+        if not resto.startswith("{"): raise IncludeError(f"#include inválido: {linea_raw}")
         fin_llave = resto.find("}")
-        if fin_llave == -1:
-            raise IncludeError(f"Sintaxis #include invalida: {linea_raw}")
+        if fin_llave == -1: raise IncludeError(f"#include inválido: {linea_raw}")
+        lista = resto[1:fin_llave].strip()
+        if resto[fin_llave+1:].strip(): raise IncludeError(f"#include inválido: {linea_raw}")
+        funcs = [f.strip() for f in lista.split(",") if f.strip()]
+        return nombre, funcs if funcs else None
 
-        lista_funciones = resto[1:fin_llave].strip()
-        if resto[fin_llave + 1:].strip():
-            raise IncludeError(f"Sintaxis #include invalida: {linea_raw}")
+    def _parsear_nombre_macro(self, linea_raw: str, dir_name: str) -> str:
+        """Extrae nombre de macro de directivas."""
+        payload = self._extraer_payload_directiva(linea_raw, dir_name)
+        idx = 0
+        while idx < len(payload) and payload[idx].isspace(): idx += 1
+        nombre, _ = self._leer_identificador(payload, idx)
+        if not nombre: raise PreprocesadorError(f"#{dir_name} inválido: {linea_raw}")
+        return nombre
 
-        if not lista_funciones:
-            raise IncludeError("Lista de funciones vacia en #include")
-
-        funciones = [f.strip() for f in lista_funciones.split(",") if f.strip()]
-        if not funciones:
-            raise IncludeError("Lista de funciones vacia en #include")
-        return nombre_archivo, funciones
-
-    def _parsear_nombre_macro(self, linea_raw: str, nombre_directiva: str) -> str:
-        payload = self._extraer_payload_directiva(linea_raw, nombre_directiva)
-        indice = self._saltar_espacios(payload, 0)
-        nombre_macro, _ = self._leer_identificador(payload, indice)
-        if not nombre_macro:
-            raise PreprocesadorError(
-                f"Sintaxis #{nombre_directiva} invalida: {linea_raw}"
-            )
-        return nombre_macro
-
-    def _find_comment_start(self, linea: str) -> Optional[int]:
-        en_comilla_simple = False
-        en_comilla_doble = False
-        indice = 0
-        while indice < len(linea):
-            caracter = linea[indice]
-            if caracter == "'" and not en_comilla_doble:
-                en_comilla_simple = not en_comilla_simple
-            elif caracter == '"' and not en_comilla_simple:
-                en_comilla_doble = not en_comilla_doble
-            elif not en_comilla_simple and not en_comilla_doble:
-                if linea.startswith("//", indice):
-                    return indice
-            indice += 1
-        return None
+    # ======================== MANEJO DE COMENTARIOS ========================
 
     def _strip_comment(self, line: str) -> str:
-        indice_comentario = self._find_comment_start(line)
-        return line[:indice_comentario] if indice_comentario is not None else line
+        """Elimina comentarios // respetando strings."""
+        en_simple, en_doble, idx = False, False, 0
+        while idx < len(line):
+            if line[idx] == "'" and not en_doble: en_simple = not en_simple
+            elif line[idx] == '"' and not en_simple: en_doble = not en_doble
+            elif not en_simple and not en_doble and idx + 1 < len(line) and line[idx:idx+2] == "//":
+                return line[:idx]
+            idx += 1
+        return line
+
+    def _find_comment_start(self, line: str) -> Optional[int]:
+        """Encuentra el índice donde inicia un comentario // respetando strings."""
+        en_simple, en_doble, idx = False, False, 0
+        while idx < len(line):
+            if line[idx] == "'" and not en_doble: en_simple = not en_simple
+            elif line[idx] == '"' and not en_simple: en_doble = not en_doble
+            elif not en_simple and not en_doble and idx + 1 < len(line) and line[idx:idx+2] == "//":
+                return idx
+            idx += 1
+        return None
+
+    # ======================== EMISIÓN DE DIRECTIVAS ========================
 
     def _emit_import(
         self,
@@ -214,6 +188,8 @@ class Preprocesador:
         fuente: str,
         numero_linea: int,
     ) -> None:
+        """Emite una directiva .import evitando duplicados.
+        Se ejecuta cuando se procesa #include."""
         if nombre_lib in self._imports_set:
             return
         self._imports_set.add(nombre_lib)
@@ -222,11 +198,13 @@ class Preprocesador:
 
 
 
+    # ======================== DETECCIÓN Y REEMPLAZO DE FUNCIONES CALIFICADAS ========================
+
     def _extractar_funciones_calificadas(self, codigo: str) -> Dict[str, str]:
-        """Extrae llamadas a funciones calificadas (e.g., math.lib.funcion).
-        
-        Retorna: Dict[calificador.función -> nombre_función]
-        """
+        """Detecta llamadas a funciones calificadas como math.lib.sqrt().
+        Retorna diccionario: {"math.lib.sqrt" -> "sqrt"} para reemplazo posterior.
+        This is parte de la auto-detección de imports: si ves math.lib.sqrt(),
+        automáticamente registra que sqrt pertenece a math.lib."""
         funciones_encontradas: Dict[str, str] = {}
         indice = 0
 
@@ -265,10 +243,9 @@ class Preprocesador:
         return funciones_encontradas
 
     def _reemplazar_funciones_calificadas(self, codigo: str) -> str:
-        """Reemplaza llamadas calificadas (math.lib.funcion) por funcion.
-        
-        Ejemplo: "math.lib.sqrt(9)" -> "sqrt(9)"
-        """
+        """Reemplaza llamadas calificadas por simples: math.lib.sqrt(x) -> sqrt(x).
+        El compilador podrá resolver sqrt usando el .extern.
+        Esto limpia la sintaxis antes de enviar al compilador."""
         resultado: List[str] = []
         indice = 0
 
@@ -305,7 +282,12 @@ class Preprocesador:
 
         return "".join(resultado)
 
+    # ======================== EXPANSIÓN Y REEMPLAZO DE MACROS ========================
+
     def _reemplazar_macro_parametrizada(self, codigo: str, macro_def: Macro) -> str:
+        """Reemplaza una macro con parámetros en el código.
+        Encuentra SQUARE(5) y reemplaza por ((5) * (5)).
+        Se aplica recursivamente hasta convergencia (con límite max_macro_expansion)."""
         nombre_macro = macro_def.nombre
         resultado: List[str] = []
         indice = 0
@@ -332,6 +314,9 @@ class Preprocesador:
         return "".join(resultado)
 
     def _reemplazar_macros_simples(self, codigo: str) -> str:
+        """Reemplaza macros sin parámetros en el código.
+        Encuentra PI en código y reemplaza por 3.14159.
+        Usa parsing manual para no reemplazar dentro de identificadores."""
         resultado: List[str] = []
         indice = 0
 
@@ -353,14 +338,21 @@ class Preprocesador:
         return "".join(resultado)
 
     def _expandir_macros(self, linea: str) -> str:
+        """Ejecuta la expansión completa de macros en una línea.
+        1. Separa comentarios (no expandir dentro de comentarios)
+        2. Expande macros parametrizadas (primer pasada)
+        3. Itera reemplazando macros simples hasta convergencia
+        4. Reintegra comentarios"""
         indice_comentario = self._find_comment_start(linea)
         codigo = linea[:indice_comentario] if indice_comentario is not None else linea
         comentario = linea[indice_comentario:] if indice_comentario is not None else ""
 
+        # Primero: macros parametrizadas
         for macro_def in self._defines.values():
             if macro_def.parametros is not None:
                 codigo = self._reemplazar_macro_parametrizada(codigo, macro_def)
 
+        # Segundo: macros simples (iterativo hasta convergencia)
         for _ in range(self.max_macro_expansion):
             codigo_anterior = codigo
             codigo = self._reemplazar_macros_simples(codigo)
@@ -374,6 +366,33 @@ class Preprocesador:
     def _procesar_tokens(
         self, texto: str, fuente: str
     ) -> Tuple[List[str], List[SourceLine]]:
+        """FUNCIÓN CENTRAL DE PREPROCESAMIENTO: Implementa el algoritmo de dos pasadas con PLY Lex.
+        
+        ARQUITECTURA DE DOS PASADAS:
+        
+        PRIMERA PASADA (Tokenización + Procesamiento):
+        1. Usa PLY Lex para tokenizar entrada separando directivas de código
+        2. Procesa directivas: #include, #define, #ifdef, #ifndef, #else, #endif, #undef, #error, #warning
+        3. Mantiene pila de condicionales para #ifdef/#ifndef/#endif anidados
+        4. Detecta y expande macros (simples como PI y parametrizadas como SQUARE(x))
+        5. Detecta funciones calificadas: math.lib.sqrt → registra para auto-import
+        6. Reemplaza llamadas calificadas por simples: math.lib.sqrt() → sqrt()
+        
+        SEGUNDA PASADA (Reorganización):
+        7. Agrupa .extern bajo sus .import correspondientes
+        8. Evita duplicados de .extern
+        9. Mantiene mapa de trazabilidad para debugging (SourceLine)
+        
+        Args:
+            texto: Código fuente completo (con directivas de preprocesador)
+            fuente: Nombre del archivo para traceabilidad de errores
+            
+        Returns:
+            (lineas_salida, mapa_salida): Código procesado sin directivas + metadata de líneas
+            
+        Raises:
+            PreprocesadorError: Errores sintácticos en directivas
+            CondicionalError: #endif sin #ifdef o pila de condicionales desequilibrada"""
         lineas_salida: List[str] = []
         mapa_salida: List[SourceLine] = []
 
@@ -423,7 +442,6 @@ class Preprocesador:
                     )
                     # Registrar librería para detección de llamadas calificadas
                     self._librerias_importadas[nombre_archivo] = nombre_archivo
-                    self._log(f"Libreria registrada para uso calificado: {nombre_archivo}")
                     
                     if funciones:
                         for funcion in funciones:
@@ -444,34 +462,22 @@ class Preprocesador:
                     if self._activo():
                         macro = self._parsear_define(linea_original)
                         self._defines[macro.nombre] = macro
-                        self._log(f"Macro definida: {macro}")
                     continue
 
                 if nombre_directiva == "undef":
                     if self._activo():
-                        nombre_macro = self._parsear_nombre_macro(
-                            linea_original, "undef"
-                        )
+                        nombre_macro = self._parsear_nombre_macro(linea_original, "undef")
                         self._defines.pop(nombre_macro, None)
-                        self._log(f"Macro eliminada: {nombre_macro}")
                     continue
 
                 if nombre_directiva == "ifdef":
                     nombre_macro = self._parsear_nombre_macro(linea_original, "ifdef")
-                    activo = nombre_macro in self._defines
-                    self._pila_cond.append(activo)
-                    self._log(
-                        f"#ifdef {nombre_macro} -> {'activo' if activo else 'ignorado'}"
-                    )
+                    self._pila_cond.append(nombre_macro in self._defines)
                     continue
 
                 if nombre_directiva == "ifndef":
                     nombre_macro = self._parsear_nombre_macro(linea_original, "ifndef")
-                    activo = nombre_macro not in self._defines
-                    self._pila_cond.append(activo)
-                    self._log(
-                        f"#ifndef {nombre_macro} -> {'activo' if activo else 'ignorado'}"
-                    )
+                    self._pila_cond.append(nombre_macro not in self._defines)
                     continue
 
                 if nombre_directiva == "else":
@@ -500,10 +506,8 @@ class Preprocesador:
 
                 if nombre_directiva == "warning":
                     if self._activo():
-                        mensaje = self._extraer_payload_directiva(
-                            linea_original, "warning"
-                        )
-                        self._advertir(mensaje, fuente, numero_linea)
+                        mensaje = self._extraer_payload_directiva(linea_original, "warning")
+                        self.advertencias.append(f"[{fuente}:{numero_linea}] {mensaje}")
                     continue
 
                 raise PreprocesadorError(
@@ -571,13 +575,13 @@ class Preprocesador:
                             mapa_salida_organizada.append(SourceLine(path=fuente, line=numero_linea))
                             self._externs_explicit.add(nombre_normalizado)
                             funciones_vistas.add(nombre_normalizado)
-                            self._log(f"Función externa detectada: {nombre_funcion} (de {nombre_lib})")
             
             i += 1
         
         return lineas_salida_organizada, mapa_salida_organizada
 
     def _reset_state(self) -> None:
+        """Reinicia estado para procesar próximo archivo."""
         self._defines = dict(self._macros_base)
         self._pila_cond = []
         self.advertencias = []
@@ -586,23 +590,29 @@ class Preprocesador:
         self._librerias_importadas = {}
         self._funciones_por_libreria = {}
 
-    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> PreprocessResult:
+    def _preprocess(self, codigo: str, nombre_fuente: str) -> str:
+        """Flujo privado de preprocesamiento."""
         self._reset_state()
+        lineas_salida, _ = self._procesar_tokens(codigo, nombre_fuente)
+        self._reset_state()
+        return "\n".join(lineas_salida)
 
+    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> PreprocessResult:
+        """Preprocesa código y retorna resultado con mapa de líneas."""
+        self._reset_state()
         lineas_salida, mapa_salida = self._procesar_tokens(codigo, nombre_fuente)
-
         texto_salida = "\n".join(lineas_salida)
         if texto_salida:
             texto_salida += "\n"
-
         return PreprocessResult(text=texto_salida, line_map=mapa_salida)
 
     def preprocess_archivo(self, ruta: str) -> PreprocessResult:
+        """Preprocesa un archivo completo."""
         ruta_absoluta = os.path.abspath(ruta)
         if not os.path.isfile(ruta_absoluta):
             raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'")
         with open(ruta_absoluta, "r", encoding="utf-8-sig") as f:
-            contenido_archivo = f.read()
-        return self.preprocess(contenido_archivo, nombre_fuente=ruta_absoluta)
+            contenido = f.read()
+        return self.preprocess(contenido, nombre_fuente=ruta_absoluta)
 
 
