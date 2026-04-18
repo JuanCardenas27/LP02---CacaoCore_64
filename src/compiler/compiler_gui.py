@@ -8,6 +8,7 @@ from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
 from gui.zoom_manager import ZoomManager
 from assembler import ASM
 from compiler import compiler
+from enlazador_cargador.linker import Linker, LinkerError
 from preprocesador import Preprocesador, PreprocesadorError
 
 
