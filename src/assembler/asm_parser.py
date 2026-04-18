@@ -170,7 +170,7 @@ class AsmParser:
         'instruction : MNEMONIC REGISTER'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_r':
-                code =  str(instruction["opcode"].to_bytes(8, byteorder='big').hex())[1:] + str(p[2])
+                code =  str(instruction["opcode"].to_bytes(8, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
                 code = "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code

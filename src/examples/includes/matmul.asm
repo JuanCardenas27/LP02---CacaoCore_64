@@ -6,108 +6,150 @@
     matrix_a_base: 1028
     matrix_b_base: 1076
     matrix_c_base: 20455
+    rows_a: 3
+    rows_b: 2
     cols_a: 2
     cols_b: 4
-    cols_c: 4
-    result: 0
+    temp: 0
 
 .text
-    # Multiplicación de matrices: A(3x2) * B(2x4) = C(3x4)
-    # Usa funciones de lib_vectores para acceso a matrices
+    # cargar bases
+    MOVH R10, [matrix_a_base]
+    MOVH R11, [matrix_b_base]
+    MOVH R12, [matrix_c_base]
 
-    # Cargar base de matriz A directamente
-    MOVH R9, 1028
+    # INIT MATRIZ A
+    MOVD R6, 0        # i
+    MOVD R7, 1        # valor inicial
 
-    # Cargar base de matriz B directamente
-    MOVH R10, 1076
+INIT_A_I:
+    MOVD R9, 0        # j
 
-    # Cargar base de matriz C directamente
-    MOVH R11, 2455
+INIT_A_J:
+    MOVD R0, R10
+    MOVD R1, [cols_a]
+    MOVD R2, R6
+    MOVD R3, R9
+    MOVD R4, R7
 
-    # i = 0 (contador de filas)
-    MOVH R3, 0
-
-    # --- LOOP_I (filas: 0 a 2) ---
-LOOP_I:
-    # j = 0 (contador de columnas)
-    MOVH R4, 0
-
-    # --- LOOP_J (columnas: 0 a 3) ---
-LOOP_J:
-    # suma = 0 (acumulador)
-    MOVH R8, 0
-
-    # k = 0 (contador de sumatoria)
-    MOVH R5, 0
-
-    # --- LOOP_K (sumatoria: 0 a 1) ---
-LOOP_K:
-    # Leer A[i][k] usando matrix_get_linear
-    # Preparar parámetros
-    MOVD R0, R9        # r0 = base A
-    LEA R1, [cols_a]
-    MOVH R1, [R1]      # r1 = cols de A = 2
-    MOVD R2, R3        # r2 = row = i
-    MOVD R3, R5        # r3 = col = k
-
-    # Llamar a matrix_get_linear
-    CALL MATRIX_GET_LINEAR
-    MOVD R6, R5        # r6 = A[i][k] (resultado en r5)
-
-    # Leer B[k][j] usando matrix_get_linear
-    # Preparar parámetros
-    MOVD R0, R10       # r0 = base B
-    LEA R1, [cols_b]
-    MOVH R1, [R1]      # r1 = cols de B = 4
-    MOVD R2, R5        # r2 = row = k
-    MOVD R3, R4        # r3 = col = j
-
-    # Llamar a matrix_get_linear
-    CALL MATRIX_GET_LINEAR
-    MOVD R7, R5        # r7 = B[k][j] (resultado en r5)
-
-    # Multiplicar A[i][k] * B[k][j]
-    MUL R6, R7
-
-    # Acumular suma += r6
-    ADD R8, R6
-
-    # k++
-    INC R5
-
-    # if (k < 2) goto LOOP_K
-    CMP R5, 2
-    JL LOOP_K
-
-    # --- Guardar resultado en C[i][j] usando matrix_set_linear ---
-    # Preparar parámetros
-    MOVD R0, R11       # r0 = base C
-    LEA R1, [cols_c]
-    MOVH R1, [R1]      # r1 = cols de C = 4
-    MOVD R2, R3        # r2 = row = i
-    MOVD R3, R4        # r3 = col = j
-    MOVD R4, R8        # r4 = value = suma
-
-    # Llamar a matrix_set_linear
     CALL MATRIX_SET_LINEAR
 
-    # j++
-    INC R4
+    INC R7            # value++
 
-    # if (j < 4) goto LOOP_J
-    CMP R4, 4
+    INC R9
+    CMP R9, [cols_a]
+    JL INIT_A_J
+
+    INC R6
+    CMP R6, [rows_a]
+    JL INIT_A_I
+
+
+    # INIT MATRIZ B
+    MOVD R6, 0        # i
+    MOVD R7, 1        # valor inicial
+
+INIT_B_I:
+    MOVD R9, 0        # j
+
+INIT_B_J:
+    MOVD R0, R11
+    MOVD R1, [cols_b]
+    MOVD R2, R6
+    MOVD R3, R9
+    MOVD R4, R7
+
+    CALL MATRIX_SET_LINEAR
+
+    INC R7            # value++
+
+    INC R9
+    CMP R9, [cols_b]
+    JL INIT_B_J
+
+    INC R6
+    CMP R6, [rows_b]
+    JL INIT_B_I
+
+
+    # i = 0
+    MOVD R6, 0
+
+LOOP_I:
+    MOVD R7, 0        # j
+
+LOOP_J:
+    MOVD R8, 0        # suma
+    MOVD R9, 0        # k
+
+LOOP_K:
+    # A[i][k]
+    MOVD R0, R10
+    MOVD R1, [cols_a]
+    MOVD R2, R6
+    MOVD R3, R9
+
+    CALL MATRIX_GET_LINEAR
+    MOVD R4, R5        # A
+
+    PUSH R4
+
+    # B[k][j]
+    MOVD R0, R11
+    MOVD R1, [cols_b]
+    MOVD R2, R9
+    MOVD R3, R7
+
+    CALL MATRIX_GET_LINEAR
+    # B en R5
+
+    POP R4
+
+    # suma += A * B
+    MUL R4, R5
+    ADD R8, R4
+
+    INC R9
+    CMP R9, [cols_a]
+    JL LOOP_K
+
+    # C[i][j]
+    MOVD R0, R12
+    MOVD R1, [cols_b]
+    MOVD R2, R6
+    MOVD R3, R7
+    MOVD R4, R8
+
+    CALL MATRIX_SET_LINEAR
+
+    INC R7
+    CMP R7, [cols_b]
     JL LOOP_J
 
-    # i++
-    INC R3
-
-    # if (i < 3) goto LOOP_I
-    CMP R3, 3
+    INC R6
+    CMP R6, [rows_a]
     JL LOOP_I
 
-    # --- FIN DEL PROGRAMA ---
-    MOVH R0, 0
-    LEA R3, [result]
-    MOVW R12, 1
+    # print init
+    MOVH R0, [rows_a]
+    MUL R0, [cols_b]
+    MUL R0, 8
+    MOVD R6, 0        # i
+    MOVD R11, 0
+
+PRINT_C_I:
+    MOVD R7, [matrix_c_base]
+    ADD R7, R6
+    MOVD R2, [R7]
+
+    MOVD [temp], R2
+    MOVD R10, 0
+    LEA R11, [temp]
+    MOVD R12, 1
     INTR 0
+
+    ADD R6, 8
+    CMP R0, R6
+    JG PRINT_C_I
+
     HLT

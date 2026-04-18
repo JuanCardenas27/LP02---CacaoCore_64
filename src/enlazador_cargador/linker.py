@@ -53,7 +53,7 @@ class Linker:
         self._func_index: dict[str, int] = {}
 
         self._lib_files: dict[str, str] = {
-            "math.lib": "lib_vectores.reloc",
+            "math": "lib_vectores.reloc",
         }
 
     # ------------------------------------------------------------------

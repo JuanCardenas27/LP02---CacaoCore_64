@@ -188,6 +188,7 @@ class RAM:
         if size == 0:
             return
         self._check_bounds(addr, size)
+        # TODO: Descomentarear.
         # self._check_write_protection(addr, size)
         self._mem[addr : addr + size] = data
 
