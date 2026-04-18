@@ -23,13 +23,13 @@ class Linker:
     --------------------------
         linker = Linker()
         output_text = linker.link_and_load(reloc_text, base_address=0x00001000)
-        # → output_text es el listado formateado para mostrar en ll_loaded
-        # → la RAM global ya tiene los bytes escritos
+        # -> output_text es el listado formateado para mostrar en ll_loaded
+        # -> la RAM global ya tiene los bytes escritos
     """
 
     # Expresiones regulares para los marcadores
-    _RE_BRACE  = re.compile(r'\{(\d+)\}([0-9a-fA-F]*)')   # {N}hexresto
-    _RE_BRACK  = re.compile(r'\[(\d+)\](-)?')              # [N] o [N]-
+    _RE_BRACE = re.compile(r'\{(\d+)\}([0-9a-fA-F]*)')   # {N}hexresto
+    _RE_BRACK = re.compile(r'\[(\d+)\](-)?')              # [N] o [N]-
 
     # Directivas de importación y declaración de externos
     _RE_IMPORT = re.compile(r'^\.import\s+"([^"]+)"', re.IGNORECASE)
@@ -40,17 +40,21 @@ class Linker:
 
     # Definición de función en archivo de librería: cabecera tras token @func
     # El token que sigue a @func tiene la forma: NOMBRE{offset}
-    _RE_FUNC_DEF  = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\{(\d+)\}$')
+    _RE_FUNC_DEF = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\{(\d+)\}$')
 
     def __init__(self):
         self._data_words: list[str] = []   # palabras hex del .data (sin resolver)
         self._text_words: list[str] = []   # palabras hex del .text (pueden tener marcadores)
-        self._base_addr:  int       = 0
+        self._base_addr:  int = 0
         self._data_addrs: list[int] = []   # dirección absoluta de cada variable .data
         self._text_addrs: list[int] = []   # dirección absoluta de cada instrucción .text
 
-        # Importaciones: nombre_funcion → índice absoluto en self._text_words
+        # Importaciones: nombre_funcion -> índice absoluto en self._text_words
         self._func_index: dict[str, int] = {}
+
+        self._lib_files: dict[str, str] = {
+            "math.lib": "lib_vectores.reloc",
+        }
 
     # ------------------------------------------------------------------
     # Punto de entrada principal
@@ -117,11 +121,11 @@ class Linker:
         # Tokenizar: cada token es una palabra o un @func NOMBRE{offset}
         tokens = lib_text.split()
 
-        # Primero construir el mapa completo: nombre_func → índice_en_tokens_de_instrucciones
+        # Primero construir el mapa completo: nombre_func -> índice_en_tokens_de_instrucciones
         # Para ello necesitamos separar tokens @func de instrucciones.
         # Reconstruimos la lista lineal de instrucciones y el mapa de offsets.
         lib_instructions: list[str] = []   # todas las instrucciones en orden
-        lib_func_offsets: dict[str, int] = {}  # nombre → índice en lib_instructions
+        lib_func_offsets: dict[str, int] = {}  # nombre -> índice en lib_instructions
 
         i = 0
         while i < len(tokens):
@@ -136,7 +140,7 @@ class Linker:
                     raise LinkerError(
                         f"Cabecera de función inválida en librería: '{header}'"
                     )
-                func_name   = m.group(1)
+                func_name = m.group(1)
                 # El offset {N} es el índice absoluto dentro de lib_instructions
                 # donde empieza esta función. Lo usamos sólo para validar.
                 stated_offset = int(m.group(2))
@@ -205,7 +209,7 @@ class Linker:
         # Insertar instrucciones ajustando {N}
         for fname, instrs in funcs_to_insert:
             func_lib_start = lib_func_offsets[fname]  # índice en lib_instructions
-            main_start     = final_offsets[fname]      # índice en self._text_words
+            main_start = final_offsets[fname]      # índice en self._text_words
 
             for instr in instrs:
                 adjusted = self._adjust_brace_refs(
@@ -243,17 +247,17 @@ class Linker:
           - Si no está siendo importada, es un error.
         """
         def replace_brace(m: re.Match) -> str:
-            n       = int(m.group(1))
-            rest    = m.group(2)
+            n = int(m.group(1))
+            rest = m.group(2)
 
             # Determinar a qué función pertenece el índice N en la lib
             # (buscar la función cuyo rango [start, end) contiene N)
             sorted_starts = sorted(lib_func_offsets.items(), key=lambda x: x[1])
-            owner_func  = None
+            owner_func = None
             owner_start = 0
             for fname, fstart in sorted_starts:
                 if fstart <= n:
-                    owner_func  = fname
+                    owner_func = fname
                     owner_start = fstart
                 else:
                     break
@@ -283,13 +287,13 @@ class Linker:
         Antes de parsear las secciones, procesa las directivas .import y .extern
         para cargar las funciones de librería al final del .text.
         """
-        self._data_words  = []
-        self._text_words  = []
-        self._func_index  = {}
+        self._data_words = []
+        self._text_words = []
+        self._func_index = {}
 
         # ── Pre-parseo: recoger .import y .extern ──────────────────────
-        import_files: list[str]  = []
-        extern_names: list[str]  = []
+        import_files: list[str] = []
+        extern_names: list[str] = []
 
         for raw_line in text.splitlines():
             line = raw_line.strip()
@@ -339,7 +343,7 @@ class Linker:
         # ── Cargar funciones de librería al final del .text ─────────────
         if import_files and extern_names:
             for lib_file in import_files:
-                self._load_library(lib_file, extern_names)
+                self._load_library(self._lib_files.get(lib_file), extern_names)
 
     @staticmethod
     def _is_valid_data_word(word: str) -> bool:
@@ -389,16 +393,16 @@ class Linker:
 
         Casos manejados
         ---------------
-        1. {N}XXXXXXXX        →  dirección de instrucción N en los 3 primeros bytes
-        2. [N]                →  dirección de variable N en bytes [2..4] (6 nibbles)
-        3. [N]-XX             →  modo dash
-        4. "@func Nombre"XXXX →  dirección de primera instrucción de la función importada
+        1. {N}XXXXXXXX        ->  dirección de instrucción N en los 3 primeros bytes
+        2. [N]                ->  dirección de variable N en bytes [2..4] (6 nibbles)
+        3. [N]-XX             ->  modo dash
+        4. "@func Nombre"XXXX ->  dirección de primera instrucción de la función importada
         """
         # ── Caso 4: llamada a función importada ──────────────────────────
         m_call = self._RE_FUNC_CALL.match(word)
         if m_call:
             func_name = m_call.group(1).strip()
-            rest_hex  = m_call.group(2)
+            rest_hex = m_call.group(2)
 
             if func_name not in self._func_index:
                 raise LinkerError(
@@ -406,9 +410,9 @@ class Linker:
                     f"¿Falta .import o .extern?"
                 )
 
-            func_instr_idx  = self._func_index[func_name]
-            target_addr     = self._text_addrs[func_instr_idx]
-            addr_bytes      = self._addr_to_3bytes_le(target_addr) # 3 bytes LE
+            func_instr_idx = self._func_index[func_name]
+            target_addr = self._text_addrs[func_instr_idx]
+            addr_bytes = self._addr_to_3bytes_le(target_addr) # 3 bytes LE
 
             rest_bytes = bytes.fromhex(rest_hex.ljust(10, 'f'))[:5]
             word_bytes = addr_bytes + rest_bytes
@@ -418,7 +422,7 @@ class Linker:
         m_brace = self._RE_BRACE.match(word)
         if m_brace:
             instr_idx = int(m_brace.group(1))
-            rest_hex  = m_brace.group(2)
+            rest_hex = m_brace.group(2)
 
             if instr_idx >= len(self._text_addrs):
                 raise LinkerError(
@@ -427,7 +431,7 @@ class Linker:
                 )
 
             target_addr = self._text_addrs[instr_idx]
-            addr_bytes  = self._addr_to_3bytes_le(target_addr)
+            addr_bytes = self._addr_to_3bytes_le(target_addr)
 
             rest_bytes = bytes.fromhex(rest_hex.ljust(10, 'f'))[:5]
             word_bytes = addr_bytes + rest_bytes
@@ -482,7 +486,7 @@ class Linker:
 
             addr = self._data_addrs[var_idx]
             addr_bytes = self._addr_to_3bytes_le(addr)
-            addr_hex6  = addr_bytes.hex()
+            addr_hex6 = addr_bytes.hex()
 
             return addr_hex6
 
@@ -492,10 +496,10 @@ class Linker:
             print('-------------')
 
             i = result.find('-')
-            result_end   = result[0:i]
+            result_end = result[0:i]
             result_start = result[i + 1:]
-            address      = result_end[1:i - 1]
-            address      = "".join(
+            address = result_end[1:i - 1]
+            address = "".join(
                 [address[ind] + address[ind + 1]
                  for ind in range(len(address) - 1, -1, -1) if ind % 2 == 0]
             )
@@ -508,7 +512,7 @@ class Linker:
 
         if len(result) != 16:
             raise LinkerError(
-                f"Longitud incorrecta tras resolver marcadores: '{word}' → '{result}' "
+                f"Longitud incorrecta tras resolver marcadores: '{word}' -> '{result}' "
                 f"({len(result)} nibbles, se esperan 16)"
             )
 
@@ -541,7 +545,7 @@ class Linker:
             if not (addr):
                 raise LinkerError(
                     f"Instrucción {i} en dirección 0x{addr:08X} fuera de la zona "
-                    f"de código (0x{CODE_START:08X}–0x{CODE_END-1:08X})"
+                    f"de código (0x{CODE_START:08X}-0x{CODE_END-1:08X})"
                 )
             ram.write(addr, word_bytes)
 
@@ -586,7 +590,7 @@ class Linker:
         Extrae los 3 bytes menos significativos de una dirección de 32 bits
         en orden little-endian.
 
-        Ejemplo: 0x00001000 → b'\\x00\\x10\\x00'
+        Ejemplo: 0x00001000 -> b'\\x00\\x10\\x00'
         """
         b0 = addr & 0xFF
         b1 = (addr >> 8)  & 0xFF

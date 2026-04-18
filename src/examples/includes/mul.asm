@@ -1,4 +1,4 @@
-.import "lib_vectores_reloc.reloc"
+.import "math.lib"
 .extern VEC_INIT
 .extern VEC_SET
 .extern VEC_GET
