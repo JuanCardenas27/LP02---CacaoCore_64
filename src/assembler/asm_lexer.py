@@ -32,7 +32,7 @@ class AsmLexer:
         return t
     
     def t_REFERENCE(self, t):
-        r'"[a-zA-Z0-9.]+"'
+        r'"[^"]+"'
         return t
         
     def t_REGISTER(self, t):

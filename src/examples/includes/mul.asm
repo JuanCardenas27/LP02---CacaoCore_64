@@ -1,6 +1,9 @@
-.import "math.lib"
-.extern suma
-.extern resta
+.import "lib_vectores_reloc.reloc"
+.extern VEC_INIT
+.extern VEC_SET
+.extern VEC_GET
+.extern VEC_LEN
+.extern VEC_SUM
 .data
     a1: 1
     a2: 8
@@ -19,6 +22,7 @@
     MOVH R2, [a1]
     INC R1
     DEC R0
+    CALL VEC_SUM
     LOOP:
         CMP R1, R0
         JG END

@@ -52,7 +52,8 @@ class AsmParser:
 
     def p_line_import(self, p):
         '''line : SECTION REFERENCE
-                | SECTION VAR'''
+                | SECTION VAR
+                | SECTION LABEL'''
                 
         self.sect = p[1].lower()
         self.program.append(f"{str(p[1])} {p[2]}")
