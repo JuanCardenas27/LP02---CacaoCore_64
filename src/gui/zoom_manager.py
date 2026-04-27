@@ -124,7 +124,8 @@ class ZoomManager:
         settings_button,
         status_label,
         reg_labels,
-        flag_widgets,
+        flag_widgets_alu,
+        flag_widgets_fau,
         format_rbs,
     ):
         self._hdr_title = header_title
@@ -133,7 +134,8 @@ class ZoomManager:
         self._settings_btn = settings_button
         self._status_label = status_label
         self._reg_labels = reg_labels
-        self._flag_widgets = flag_widgets
+        self._flag_widgets_alu = flag_widgets_alu
+        self._flag_widgets_fau = flag_widgets_fau
         self._format_rbs = format_rbs
 
     def initialize(self):
