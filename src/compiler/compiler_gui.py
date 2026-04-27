@@ -218,7 +218,8 @@ class CompilerGui:
             settings_button=self._settings_btn,
             status_label=None,
             reg_labels={},
-            flag_widgets={},
+            flag_widgets_alu={},
+            flag_widgets_fau={},
             format_rbs=[],
         )
         self._zoom_manager.initialize()
@@ -474,20 +475,26 @@ class CompilerGui:
         right = tk.Frame(area, bg=BG_PANEL)
         right.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
         right.grid_rowconfigure(1, weight=1)
-        right.grid_rowconfigure(3, weight=4)
+        right.grid_rowconfigure(3, weight=1)
+        right.grid_rowconfigure(5, weight=2)
         right.grid_columnconfigure(0, weight=1)
 
         self._section_label(right, "◈  Symbol Table", ACCENT4
-                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+                            ).grid(row=0, column=0, sticky="ew", pady=(3, 1))
         columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
         tf_r, self.lex_symbol = self._scrollable_table(right, columns)
         tf_r.grid(row=1, column=0, sticky="nsew")
-        tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Numeric Symbol Table", ACCENT3
+                            ).grid(row=2, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Type', 'Value', 'Line']
+        tf_n, self.num_symbol = self._scrollable_table(right, columns)
+        tf_n.grid(row=3, column=0, sticky="nsew")
 
         self._section_label(right, "◈  Errores", ACCENT5
-                            ).grid(row=2, column=0, sticky="ew", pady=(4, 2))
+                            ).grid(row=4, column=0, sticky="ew", pady=(3, 1))
         tf_e, self.lex_error = self._scrollable_text(right, fg=ACCENT5, state="disabled", font=FM_SM)
-        tf_e.grid(row=3, column=0, sticky="nsew")
+        tf_e.grid(row=5, column=0, sticky="nsew")
 
         # Botón
         btn_bar = tk.Frame(self.content, bg=BG_PANEL)
@@ -772,6 +779,7 @@ class CompilerGui:
         lex_errors = resultado[0]
         symbol_table = resultado[1]
         tokens = resultado[2]
+        number_table = resultado[3]
 
         self.lex_tokens.config(state="normal")
         self.lex_tokens.delete("1.0", tk.END)
@@ -783,6 +791,11 @@ class CompilerGui:
             self.lex_symbol.delete(row)
         for val in symbol_table.values():
             self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+            
+        for row in self.num_symbol.get_children():
+            self.num_symbol.delete(row)
+        for val in number_table.values():
+            self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
 
         self.lex_error.config(state="normal")
         self.lex_error.delete("1.0", tk.END)
