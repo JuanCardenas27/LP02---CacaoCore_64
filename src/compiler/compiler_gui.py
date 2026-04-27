@@ -6,7 +6,7 @@ import gui.styles_spl as styles_spl_module
 from gui.styles_spl import *
 from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
 from gui.zoom_manager import ZoomManager
-from assembler import ASM
+from assembler import ASM, ASMLexicError, ASMParseError
 from compiler import compiler
 from enlazador_cargador.linker import Linker, LinkerError
 from preprocesador import Preprocesador, PreprocesadorError
@@ -793,10 +793,17 @@ class CompilerGui:
 
     def _translate_asm(self):
         asm_mod = ASM()
-        asm_mod.process(self.asm_src.get("1.0", "end"))
-        output = asm_mod.get_output()
+        try:
+            asm_mod.process(self.asm_src.get("1.0", "end"))
+        except  (ASMLexicError, ASMParseError) as e:
+            self.asm_out.configure(state="normal")
+            self.asm_out.delete("1.0", "end")
+            self.asm_out.insert("1.0", e)
+            self.asm_out.configure(state="disabled")
+        else:
+            output = asm_mod.get_output()
 
-        self.asm_out.configure(state="normal")
-        self.asm_out.delete("1.0", "end")
-        self.asm_out.insert("1.0", output)
-        self.asm_out.configure(state="disabled")
+            self.asm_out.configure(state="normal")
+            self.asm_out.delete("1.0", "end")
+            self.asm_out.insert("1.0", output)
+            self.asm_out.configure(state="disabled")
