@@ -217,7 +217,7 @@ class AnalizadorLexico:
         self.lexer.input(code)
         tokens = list(self.lexer)
 
-        return self.oops, self.symbol_table, tokens
+        return self.oops, self.symbol_table, tokens, self.number_table
 
 
 if __name__ == '__main__':
