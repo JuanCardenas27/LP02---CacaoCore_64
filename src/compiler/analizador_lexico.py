@@ -44,6 +44,11 @@ class AnalizadorLexico:
         'GT',         # >
         'LEQ',        # <=
         'GEQ',        # >=
+
+        # Operadores lógicos
+        'OP_OR',      # or
+        'OP_AND',     # and
+        'OP_NOT',     # not
     
         # Asignación
         'ASSIGN',     # =
@@ -90,6 +95,9 @@ class AnalizadorLexico:
         'bool':      'BOOL_TYPE',
         'indeed':    'INDEED',
         'nope':      'NOPE',
+        'or':        'OP_OR',
+        'and':       'OP_AND',
+        'not':       'OP_NOT',
         'nothing':   'NOTHING',
         'mold':      'MOLD',
         'ohmy':      'OHMY',
@@ -132,18 +140,31 @@ class AnalizadorLexico:
     def __init__(self)      -> None:
         self.lexer = lex.lex(module=self)
         self.symbol_table = {}
+        self.number_table = {}
         self.oops = []
 
-    @staticmethod
-    def t_FLOAT_LIT(t):
+    
+    def t_FLOAT_LIT(self, t):
         r'\d+\.\d+'
         t.value = float(t.value)
+        self.number_table[t.value] = {
+        'lexeme': t.value,        # "123", "3.14"
+        'type': 'float',          # tipo del número
+        'value': float(t.value),  # Valor ya convertido (float)
+        'line' : [t.lineno],      # Dónde aparece
+        }
         return t
 
-    @staticmethod
-    def t_INT_LIT(t):
+    
+    def t_INT_LIT(self, t):
         r'\d+'
         t.value = int(t.value)
+        self.number_table[t.value] = {
+        'lexeme': t.value,        # "123", "3.14"
+        'type': 'int',            # tipo del número
+        'value': int(t.value),    # Valor ya convertido (int)
+        'line' : [t.lineno],      # Dónde aparece
+        }
         return t
     
     @staticmethod
@@ -189,6 +210,7 @@ class AnalizadorLexico:
     def analize(self, code):
         # Limpiar el lexer
         self.symbol_table = {}
+        self.number_table = {}
         self.oops= []
         self.lexer.lineno = 1
 
@@ -213,7 +235,7 @@ func greet(name: text) {
 let age: int = 25
 let active: bool = indeed
  
-if age > 18 {
+if (age > 18) and (age < 65) {
     show "Welcome."
 } otherwise {
     set active = nope
