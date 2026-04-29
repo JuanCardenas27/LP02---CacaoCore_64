@@ -14,9 +14,14 @@ class AnalizadorLexico:
         'DELIVER',    # deliver         - return
         'SHOW',       # show            - print
         'OOPS',       # oops            - throw / raise
+
+        # Operadores lógicos (palabras clave)
+        'AND',        # and             - conjunción lógica
+        'OR',         # or              - disyunción lógica
+        'NOT',        # not             - negación lógica
     
         # Tipos de datos
-        'INT_TYPE', # int               - tipo integer
+        'INT_TYPE',   # int             - tipo integer
         'FLOAT_TYPE', # float           - tipo flotante
         'TEXT_TYPE',  # text            - tipo string
         'BOOL_TYPE',  # bool            - tipo booleano
@@ -47,8 +52,7 @@ class AnalizadorLexico:
     
         # Asignación
         'ASSIGN',     # =
-        'SWEET_PLUS',  # +=
-
+        'SWEET_PLUS', # +=
     
         # Delimitadores
         'LPAREN',     # (
@@ -67,8 +71,8 @@ class AnalizadorLexico:
         'SUMMON',     # new             - creación explícita
 
         # Referencias de Preprocesador
-        'PREPRO_IMPORT',    # Referencia formateada de nombre de librería incluida que debe llegar al enlazador
-        'PREPRO_EXTERN'     # Referencia formateada de nombre de símbolo incluido que debe llegar al enlazador
+        'PREPRO_IMPORT',    # Referencia formateada de nombre de librería incluida
+        'PREPRO_EXTERN',    # Referencia formateada de nombre de símbolo incluido
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -84,6 +88,9 @@ class AnalizadorLexico:
         'deliver':   'DELIVER',
         'show':      'SHOW',
         'oops':      'OOPS',
+        'and':       'AND',
+        'or':        'OR',
+        'not':       'NOT',
         'int':       'INT_TYPE',
         'float':     'FLOAT_TYPE',
         'text':      'TEXT_TYPE',

@@ -498,9 +498,74 @@ class CompilerGui:
     # ── Paso 1: Sintáctico ────────────────────────────────────────────────
 
     def _build_syntactic(self, area):
-        tk.Label(area, text="[ Syntactic Analysis — coming soon ]",
-                 bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=3, pady=40)
+        # Izquierda: código fuente editable
+        left = tk.Frame(area, bg=BG_PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
+
+        self._section_label(left, "◈  SOURCE INPUT", ACCENT2
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_l, self.syn_input = self._scrollable_text(left)
+        tf_l.grid(row=1, column=0, sticky="nsew")
+
+        # Precargar con carry del paso léxico si existe
+        if self._carry_compiler.strip():
+            self.syn_input.insert("1.0", self._carry_compiler.strip())
+
+        # Centro: árbol AST
+        center = tk.Frame(area, bg=BG_PANEL)
+        center.grid(row=0, column=1, sticky="nsew", padx=(0, 5))
+        center.grid_rowconfigure(1, weight=1)
+        center.grid_columnconfigure(0, weight=1)
+
+        self._section_label(center, "◈  PARSE TREE (AST)", ACCENT3
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_c, self.syn_tree = self._scrollable_text(
+            center, fg=ACCENT3, state="disabled", font=("Courier New", 10))
+        tf_c.grid(row=1, column=0, sticky="nsew")
+
+        # Derecha: errores sintácticos
+        right = tk.Frame(area, bg=BG_PANEL)
+        right.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        self._section_label(right, "◈  Errores sintácticos", ACCENT5
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_e, self.syn_error = self._scrollable_text(
+            right, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=1, column=0, sticky="nsew")
+
+        # Botón
+        btn_bar = tk.Frame(self.content, bg=BG_PANEL)
+        btn_bar.grid(row=2, column=0, pady=(0, 10))
+        self._action_btn(btn_bar, "⚙  Start Syntactic Analysis", ACCENT3,
+                         self._do_syntactic).pack()
+
+    def _do_syntactic(self):
+        """Llama al parser y muestra el AST o los errores."""
+        code = self.syn_input.get("1.0", tk.END)
+        errors, ast = compiler.parse(code)
+
+        # Mostrar árbol
+        self.syn_tree.config(state="normal")
+        self.syn_tree.delete("1.0", tk.END)
+        if ast is not None:
+            self.syn_tree.insert(tk.END, ast.pprint())
+        else:
+            self.syn_tree.insert(tk.END, "(no se pudo construir el árbol)")
+        self.syn_tree.config(state="disabled")
+
+        # Mostrar errores
+        self.syn_error.config(state="normal")
+        self.syn_error.delete("1.0", tk.END)
+        if errors:
+            self.syn_error.insert(tk.END, "\n─────────────\n".join(errors))
+        else:
+            self.syn_error.insert(tk.END, "✓ Sin errores sintácticos.")
+        self.syn_error.config(state="disabled")
+
 
     # ── Paso 2: Semántico ─────────────────────────────────────────────────
 
