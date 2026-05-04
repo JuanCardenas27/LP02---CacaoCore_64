@@ -7,8 +7,10 @@ Basado en enlazador.py original pero integrado con analizador_modulos.py
 """
 
 import struct
+import re
 from typing import Dict, List
 from compiler.analizador_modulos import AnalizadorModulos, Simbolo
+from .gestor_librerias import GestorLibrerias, ErrorLibreria
 
 
 class ErrorEnlazador(Exception):
@@ -89,8 +91,8 @@ class Modulo:
         self.referencias_externas: Dict[str, List[tuple]] = {}
 
 
-class EnlazadorMejorado:
-    """Enlazador que integra análisis léxico con PLY"""
+class Enlazador:
+    """Enlazador que integra análisis léxico con PLY y manejo de librerías"""
 
     def __init__(self):
         self.modulos: List[Modulo] = []
@@ -99,6 +101,112 @@ class EnlazadorMejorado:
         self.datos_enlazados = bytearray()
         self.mapeo_direcciones: Dict[str, int] = {}
         self.analizador = AnalizadorModulos()
+        self.gestor_librerias = GestorLibrerias()
+        self.mapa_funciones: Dict[str, int] = {}  # nombre_funcion -> offset
+
+    def procesar_relocalizable(self, reloc_text: str, direccion_base: int = 0x00001000) -> BinarioEjectable:
+        """
+        Procesa código relocalizable con .import y .extern directivas.
+        
+        Este es el nuevo método que reemplaza la funcionalidad de linker.py
+        pero dentro del sistema de Enlazador.
+        
+        Args:
+            reloc_text: Texto con formato relocalizable (.import, .extern, .data, .text)
+            direccion_base: Dirección base para cargar el código
+            
+        Returns:
+            BinarioEjectable listo para ejecutar
+            
+        Raises:
+            ErrorEnlazador: Si hay errores en el procesamiento
+        """
+        try:
+            # Paso 1: Parsear directivas .import y .extern
+            imports, externs = self.gestor_librerias.parsear_directivas(reloc_text)
+
+            # Paso 2: Cargar funciones de librerías si hay imports
+            funciones_cargadas = {}
+            if imports and externs:
+                funciones_cargadas = self.gestor_librerias.obtener_funciones(imports, externs)
+
+            # Paso 3: Parsear secciones .data y .text
+            data_bytes, text_bytes = self._parsear_seccionnes_reloc(reloc_text)
+
+            # Paso 4: Inyectar funciones en el código
+            codigo_final = bytearray(text_bytes)
+            if funciones_cargadas:
+                self.mapa_funciones = self.gestor_librerias.inyectar_funciones(
+                    codigo_final, 
+                    funciones_cargadas
+                )
+
+            # Paso 5: Construir binario ejecutable
+            binario = BinarioEjectable()
+            binario.direccion_base = direccion_base
+            binario.codigo = codigo_final
+            binario.datos = bytearray(data_bytes)
+
+            return binario
+
+        except ErrorLibreria as e:
+            raise ErrorEnlazador(f"Error al cargar librerías: {e}")
+        except Exception as e:
+            raise ErrorEnlazador(f"Error procesando relocalizable: {e}")
+
+    def _parsear_seccionnes_reloc(self, reloc_text: str) -> tuple:
+        """
+        Parsea las secciones .data y .text de un formato relocalizable.
+        
+        Returns:
+            Tupla (data_bytes, text_bytes)
+        """
+        data_words = []
+        text_words = []
+        seccion_actual = None
+
+        for linea in reloc_text.splitlines():
+            linea = linea.strip()
+
+            # Ignorar líneas vacías y comentarios
+            if not linea or linea.startswith("#"):
+                continue
+
+            # Ignorar directivas de import/extern
+            if linea.lower().startswith(".import") or linea.lower().startswith(".extern"):
+                continue
+
+            # Detectar secciones
+            if linea.lower() == ".data":
+                seccion_actual = "data"
+                continue
+            elif linea.lower() == ".text":
+                seccion_actual = "text"
+                continue
+
+            # Procesar según sección
+            if seccion_actual == "data":
+                # Validar que sea palabra hex válida (16 nibbles)
+                if re.match(r"^[0-9a-fA-F]{16}$", linea):
+                    data_words.append(linea)
+
+            elif seccion_actual == "text":
+                # Validar palabra hex
+                if re.match(r"^[0-9a-fA-F]{16}$", linea):
+                    text_words.append(linea)
+
+        # Convertir palabras hex a bytes
+        data_bytes = bytearray()
+        for word in data_words:
+            valor = int(word, 16)
+            data_bytes.extend(valor.to_bytes(8, byteorder='little'))
+
+        text_bytes = bytearray()
+        for word in text_words:
+            valor = int(word, 16)
+            text_bytes.extend(valor.to_bytes(8, byteorder='little'))
+
+        return data_bytes, text_bytes
 
     def agregar_archivo_modulo(self, contenido: str) -> None:
         """
@@ -232,4 +340,4 @@ class EnlazadorMejorado:
 
 
 # Instancia global del enlazador
-enlazador = EnlazadorMejorado()
+enlazador = Enlazador()
