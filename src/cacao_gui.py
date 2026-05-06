@@ -104,7 +104,8 @@ class CacaoCoreGUI(tk.Tk):
         self._core = CacaoCore64()
         self._fmt  = tk.StringVar(value="hex")
         self._reg_labels   = {}
-        self._flag_widgets = {}
+        self._flag_widgets_alu = {}
+        self._flag_widgets_fau = {}
         self._format_rbs = []
         self._palette_name = "current"
 
@@ -153,7 +154,8 @@ class CacaoCoreGUI(tk.Tk):
             settings_button=self._settings_btn,
             status_label=self._status_lbl,
             reg_labels=self._reg_labels,
-            flag_widgets=self._flag_widgets,
+            flag_widgets_alu=self._flag_widgets_alu,
+            flag_widgets_fau=self._flag_widgets_fau,
             format_rbs=self._format_rbs,
         )
         self._zoom_manager.initialize()
@@ -410,7 +412,7 @@ class CacaoCoreGUI(tk.Tk):
                         fg=TEXT_DIM, bg=BG_MID, pady=0)
             ind.pack(pady=(1,1), fill="x")
         
-            self._flag_widgets[bit_idx] = (ind, color)
+            self._flag_widgets_alu[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA A: FLAGS FAU
@@ -445,7 +447,7 @@ class CacaoCoreGUI(tk.Tk):
                         fg=TEXT_DIM, bg=BG_MID, pady=0)
             ind.pack(pady=(1,1), fill="x")
         
-            self._flag_widgets[bit_idx] = (ind, color)
+            self._flag_widgets_fau[bit_idx] = (ind, color)
 
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA B: PC y IR
@@ -631,8 +633,9 @@ class CacaoCoreGUI(tk.Tk):
             if lbl:
                 val = int(regs.get(name, 0)) & 0xFF
                 lbl.config(text=f"0x{val:02X} · 0b{val:08b}")
+                widgets = self._flag_widgets_fau if name == "fflg" else self._flag_widgets_alu
 
-            for bit_idx, (ind, color) in self._flag_widgets.items():
+            for bit_idx, (ind, color) in widgets.items():
                 bit_set = bool((val >> bit_idx) & 1)
                 ind.config(
                     text="1" if bit_set else "0",

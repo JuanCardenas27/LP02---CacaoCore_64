@@ -3,6 +3,11 @@ from .asm_lexer import AsmLexer
 import ply.yacc as yacc
 from isa.microinstructions import MICROINSTRUCTION_SPECS
 
+# ASM's custom errors
+class ASMParseError(Exception):
+    """Exception raised for sintactic analysis."""
+    pass
+
 class AsmParser:
     lexer_obj = AsmLexer()
     lexer = lexer_obj.build()
@@ -209,8 +214,24 @@ class AsmParser:
                 p[0] = code
 
     def p_error(self, p):
-        if p:
-            print(f"Error sintáctico en línea {len(self.program)}: '{p.value}'")
+        if not p:
+            raise ASMParseError("Error de sintaxis: fin de archivo inesperado")
+
+        data = p.lexer.lexdata
+
+        # encontrar inicio y fin de la línea
+        start = data.rfind('\n', 0, p.lexpos) + 1
+        end = data.find('\n', p.lexpos)
+        if end == -1:
+            end = len(data)
+
+        line = data[start:end]
+
+        raise ASMParseError(
+            f"Error de sintaxis en '{p.value}' \n"
+            f"Línea {p.lineno}\n"
+            f"{line}\n"
+        )
     
     def get_parser(self):
         self.parser = yacc.yacc(module=self)

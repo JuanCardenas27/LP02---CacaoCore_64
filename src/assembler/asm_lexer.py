@@ -1,5 +1,10 @@
 import ply.lex as lex
 
+# ASM's custom errors
+class ASMLexicError(Exception):
+    """Exception raised for lexic analysis."""
+    pass
+
 class AsmLexer:
     tokens = (
     'MNEMONIC', 'REGISTER', 'NUMBER', 'LABEL', 'COLON',
@@ -90,8 +95,9 @@ class AsmLexer:
         pass
     
     def t_error(self, t):
-        print(f"Token desconocido: '{t.value[0]}'")
-        t.lexer.skip(1)
+        raise ASMLexicError(
+        f"Token no identificado '{t.value[0]}' en línea {t.lineno}, posición {t.lexpos}"
+        )
 
     def build(self):
         self.lexer = lex.lex(module=self)
