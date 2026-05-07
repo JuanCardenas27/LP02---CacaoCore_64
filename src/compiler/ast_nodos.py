@@ -11,38 +11,41 @@ class _NodoTreePrinter:
     """Renderizador genérico del AST en formato de árbol."""
 
     _LABELS = {
-        "NodoPrograma": "Program",
-        "NodoDeclaracion": "Declaration",
-        "NodoReasignacion": "Assignment",
-        "NodoFuncion": "FunctionDecl",
-        "NodoMold": "MoldDecl",
-        "NodoSi": "IfStatement",
-        "NodoMientras": "WhileLoop",
-        "NodoPara": "ForLoop",
-        "NodoEntregar": "Return",
-        "NodoMostrar": "Show",
-        "NodoOops": "Oops",
-        "NodoBloque": "Block",
-        "NodoBinario": "BinaryOp",
-        "NodoUnario": "UnaryOp",
-        "NodoLlamada": "Call",
-        "NodoAccesoMiembro": "MemberAccess",
-        "NodoAccesoArreglo": "ArrayAccess",
-        "NodoSummon": "Summon",
-        "NodoListaValores": "ArrayInit",
-        "NodoID": "Identifier",
-        "NodoEntero": "Integer",
-        "NodoFlotante": "Float",
-        "NodoCadena": "String",
-        "NodoBooleano": "Boolean",
-        "NodoNada": "Nothing",
-        "NodoOhmy": "Self",
+        "NodoPrograma": "program",
+        "NodoDeclaracion": "let_stmt",
+        "NodoReasignacion": "set_stmt",
+        "NodoFuncion": "func_def",
+        "NodoMold": "mold_def",
+        "NodoSi": "if_stmt",
+        "NodoMientras": "while_stmt",
+        "NodoPara": "for_stmt",
+        "NodoEntregar": "deliver_stmt",
+        "NodoMostrar": "show_stmt",
+        "NodoOops": "oops_stmt",
+        "NodoBloque": "block",
+        "NodoBinario": "expr_binop",
+        "NodoUnario": "expr_unary",
+        "NodoLlamada": "expr_call",
+        "NodoAccesoMiembro": "expr_member",
+        "NodoAccesoArreglo": "expr_index",
+        "NodoSummon": "expr_summon",
+        "NodoListaValores": "value_list",
+        "NodoID": "ID",
+        "NodoEntero": "INT_LIT",
+        "NodoFlotante": "FLOAT_LIT",
+        "NodoCadena": "STRING",
+        "NodoBooleano": "BOOLEAN",
+        "NodoNada": "NOTHING",
+        "NodoOhmy": "OHMY",
     }
 
     def render(self, value) -> str:
         return "\n".join(self._render_value(value, prefix="", is_last=True, field_name=None, is_root=True))
 
     def _render_value(self, value, prefix: str, is_last: bool, field_name: str | None, is_root: bool = False) -> list[str]:
+        if value is None:
+            return []
+
         if isinstance(value, Nodo):
             label = self._label_for_node(value)
             if field_name is not None:
@@ -53,7 +56,7 @@ class _NodoTreePrinter:
             fields = [
                 (name, child)
                 for name, child in value.__dict__.items()
-                if not name.startswith("_") and name != "linea"
+                if not name.startswith("_") and name != "linea" and child is not None
             ]
             for index, (name, child) in enumerate(fields):
                 child_is_last = index == len(fields) - 1
@@ -61,11 +64,11 @@ class _NodoTreePrinter:
             return lines
 
         if isinstance(value, dict):
-            label = f"{field_name}: dict[{len(value)}]" if field_name is not None else f"dict[{len(value)}]"
+            items = [(key, child) for key, child in value.items() if child is not None]
+            label = f"{field_name}: dict[{len(items)}]" if field_name is not None else f"dict[{len(items)}]"
             connector = "" if is_root else ("└── " if is_last else "├── ")
             lines = [f"{prefix}{connector}{label}"]
             child_prefix = "" if is_root else prefix + ("    " if is_last else "│   ")
-            items = list(value.items())
             for index, (key, child) in enumerate(items):
                 child_is_last = index == len(items) - 1
                 lines.extend(self._render_value(child, child_prefix, child_is_last, f"[{key!r}]") )
@@ -73,12 +76,13 @@ class _NodoTreePrinter:
 
         if isinstance(value, (list, tuple)):
             kind = "list" if isinstance(value, list) else "tuple"
-            label = f"{field_name}: {kind}[{len(value)}]" if field_name is not None else f"{kind}[{len(value)}]"
+            elements = [(index, child) for index, child in enumerate(value) if child is not None]
+            label = f"{field_name}: {kind}[{len(elements)}]" if field_name is not None else f"{kind}[{len(elements)}]"
             connector = "" if is_root else ("└── " if is_last else "├── ")
             lines = [f"{prefix}{connector}{label}"]
             child_prefix = "" if is_root else prefix + ("    " if is_last else "│   ")
-            for index, child in enumerate(value):
-                child_is_last = index == len(value) - 1
+            for pos, (index, child) in enumerate(elements):
+                child_is_last = pos == len(elements) - 1
                 lines.extend(self._render_value(child, child_prefix, child_is_last, f"[{index}]"))
             return lines
 
