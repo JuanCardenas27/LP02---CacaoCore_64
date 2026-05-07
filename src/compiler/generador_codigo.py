@@ -82,13 +82,13 @@ from .ast_nodos import (
 )
 
 
-class AnalizadorSintactico:
+class GeneradorCodigo:
     """
     Parser LALR(1) para CacaoScript.
 
     Uso:
-        parser = AnalizadorSintactico()
-        errores, ast = parser.parse(codigo_fuente)
+        parser = GeneradorCodigo()
+        errores, asmc = parser.parse(codigo_fuente)
     """
 
     # ── Tokens (lista completa del lenguaje) ───────────────────────────────
@@ -549,7 +549,7 @@ class AnalizadorSintactico:
 # Programa de prueba
 if __name__ == '__main__':
 
-    a_s = AnalizadorSintactico()
+    a_s = GeneradorCodigo()
  
     sample_code = '''
 let n: int = 5
