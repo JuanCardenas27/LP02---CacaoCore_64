@@ -557,7 +557,7 @@ let a: int[n] = 1,8,4,2,10
 
 let max: int = a[0]
 
-for (let i: int = 1, i < n, set i += 1){
+for (let i: int = 1, i < f, set i += 1){
     if (max < a[i]){
         set max = a[i]
     }
