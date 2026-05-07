@@ -863,7 +863,7 @@ class CompilerGui:
         self.pc_out.configure(state="disabled")
 
     def _do_lexical(self):
-        resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
+        resultado = compiler.compile_lexer(self.lex_input.get("1.0", "end"))
         lex_errors = resultado[0]
         symbol_table = resultado[1]
         tokens = resultado[2]

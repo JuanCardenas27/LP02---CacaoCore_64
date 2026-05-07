@@ -182,18 +182,6 @@ class NodoOops(Nodo):
         return f"{sp}Oops {self.expr.pprint()}  (l.{self.linea})"
 
 
-class NodoPreprocesador(Nodo):
-    """Referencia de preprocesador (.import / .extern)"""
-    def __init__(self, tipo, valor, linea=0):
-        self.tipo  = tipo   # 'import' | 'extern'
-        self.valor = valor
-        self.linea = linea
-
-    def pprint(self, indent=0):
-        sp = "  " * indent
-        return f"{sp}Prepro[{self.tipo}] '{self.valor}'  (l.{self.linea})"
-
-
 # ─── Bloque ───────────────────────────────────────────────────────────────────
 
 class NodoBloque(Nodo):

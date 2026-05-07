@@ -71,16 +71,24 @@ arg_list        ::= expr { ',' expr }
 """
 
 import ply.yacc as yacc
-from .analizador_lexico import AnalizadorLexico
+from analizador_lexico import AnalizadorLexico
+from .ast_nodos import (
+    NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
+    NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
+    NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
+    NodoAccesoMiembro, NodoAccesoArreglo, NodoSummon, NodoListaValores,
+    NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
+    NodoOhmy,
+)
 
 
-class GeneradorCodigo:
+class AnalizadorSintactico:
     """
     Parser LALR(1) para CacaoScript.
 
     Uso:
-        parser = GeneradorCodigo()
-        errores, asmc = parser.parse(codigo_fuente)
+        parser = AnalizadorSintactico()
+        errores, ast = parser.parse(codigo_fuente)
     """
 
     # ── Tokens (lista completa del lenguaje) ───────────────────────────────
@@ -541,7 +549,7 @@ class GeneradorCodigo:
 # Programa de prueba
 if __name__ == '__main__':
 
-    a_s = GeneradorCodigo()
+    a_s = AnalizadorSintactico()
  
     sample_code = '''
 let n: int = 5
