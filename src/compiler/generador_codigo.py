@@ -71,8 +71,8 @@ arg_list        ::= expr { ',' expr }
 """
 
 import ply.yacc as yacc
-from .analizador_lexico import AnalizadorLexico
-from .ast_nodos import (
+from analizador_lexico import AnalizadorLexico
+from ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
     NodoPreprocesador, NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
@@ -82,12 +82,12 @@ from .ast_nodos import (
 )
 
 
-class AnalizadorSemantico:
+class AnalizadorSintactico:
     """
     Parser LALR(1) para CacaoScript.
 
     Uso:
-        parser = AnalizadorSemantico()
+        parser = AnalizadorSintactico()
         errores, ast = parser.parse(codigo_fuente)
     """
 
@@ -549,7 +549,7 @@ class AnalizadorSemantico:
 # Programa de prueba
 if __name__ == '__main__':
 
-    a_s = AnalizadorSemantico()
+    a_s = AnalizadorSintactico()
  
     sample_code = '''
 let n: int = 5
