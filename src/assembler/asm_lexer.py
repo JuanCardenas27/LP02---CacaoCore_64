@@ -9,10 +9,11 @@ class AsmLexer:
     tokens = (
     'MNEMONIC', 'REGISTER', 'NUMBER', 'LABEL', 'COLON',
     'COMMA', 'LBRACKET', 'RBRACKET', 'NEWLINE', 'MEMORY',
-    'SECTION', 'FLOAT', 'VAR', 'REFERENCE'
+    'SECTION', 'FLOAT', 'VAR', 'REFERENCE', 'QUOTE'
     )
 
     t_COLON    = r':'
+    t_QUOTE    = r'\''
     t_COMMA    = r','
     t_LBRACKET = r'\['
     t_RBRACKET = r'\]'

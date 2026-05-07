@@ -87,8 +87,8 @@ class GeneradorCodigo:
     Parser LALR(1) para CacaoScript.
 
     Uso:
-        parser = GeneradorCodigo()
-        errores, asmc = parser.parse(codigo_fuente)
+        parser = AnalizadorSemantico()
+        errores, ast = parser.parse(codigo_fuente)
     """
 
     # ── Tokens (lista completa del lenguaje) ───────────────────────────────
@@ -108,13 +108,16 @@ class GeneradorCodigo:
         ('left',  'DOT'),
     )
 
+    
+
     # ══════════════════════════════════════════════════════════════════════
     # PROGRAMA
     # ══════════════════════════════════════════════════════════════════════
 
     def p_program(self, p):
         """program : stmt_list"""
-        p[0] = NodoPrograma(p[1])
+        p[0] = p[1]
+        return p[1]
 
     def p_stmt_list_multi(self, p):
         """stmt_list : stmt_list statement"""
@@ -146,6 +149,7 @@ class GeneradorCodigo:
 
     def p_let_simple(self, p):
         """let_stmt : LET ID COLON type_annot"""
+        
         p[0] = NodoDeclaracion(p[2], p[4], linea=p.lineno(1))
 
     def p_let_with_val(self, p):
@@ -549,7 +553,7 @@ class GeneradorCodigo:
 # Programa de prueba
 if __name__ == '__main__':
 
-    a_s = GeneradorCodigo()
+    a_s = AnalizadorSemantico()
  
     sample_code = '''
 let n: int = 5

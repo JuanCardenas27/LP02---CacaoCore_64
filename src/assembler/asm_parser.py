@@ -50,6 +50,13 @@ class AsmParser:
         p[0] = p[3].to_bytes(8, byteorder='little').hex()
         self.program.append(str(p[0]))
 
+    def p_line_variable_char(self, p):
+        'line : VAR COLON QUOTE VAR QUOTE'
+        self.var_table[p[1]] = len(self.program_data)
+        self.program_data.append(p[1])
+        p[0] = ord(p[4]).to_bytes(8, byteorder='little').hex()
+        self.program.append(str(p[0]))
+
     def p_line_section(self, p):
         'line : SECTION'
         self.sect = p[1].lower()
