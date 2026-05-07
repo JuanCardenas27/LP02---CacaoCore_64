@@ -864,10 +864,13 @@ class CompilerGui:
 
     def _do_lexical(self):
         resultado = compiler.compile_lexer(self.lex_input.get("1.0", "end"))
+        self.program2compile = self.lex_input.get("1.0", "end")
         lex_errors = resultado[0]
         symbol_table = resultado[1]
+        self.symbol_table_c = resultado[1]
         tokens = resultado[2]
         number_table = resultado[3]
+        self.num_table_c = resultado[3]
 
         self.lex_tokens.config(state="normal")
         self.lex_tokens.delete("1.0", tk.END)
@@ -879,7 +882,7 @@ class CompilerGui:
             self.lex_symbol.delete(row)
         for val in symbol_table.values():
             self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
-            
+        
         for row in self.num_symbol.get_children():
             self.num_symbol.delete(row)
         for val in number_table.values():
@@ -893,7 +896,24 @@ class CompilerGui:
         self.lex_error.config(state="disabled")
     
     def _do_syntactic(self):
-        pass
+        error, resultado = compiler.compile_syntactic(self.program2compile)
+        self.ast_tree.insert(tk.END, f"{resultado}")
+
+        for row in self.lex_symbol.get_children():
+            self.lex_symbol.delete(row)
+        for val in self.symbol_table_c.values():
+            self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+        
+        for row in self.num_symbol.get_children():
+            self.num_symbol.delete(row)
+        for val in self.num_table_c.values():
+            self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        for err in error:
+            self.sint_error.insert(tk.END, err+"\n-------------\n")
+        self.sint_error.config(state="disabled")
+        
+
 
     def _do_semantic(self):
         pass
