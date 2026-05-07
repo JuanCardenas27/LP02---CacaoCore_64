@@ -71,8 +71,8 @@ arg_list        ::= expr { ',' expr }
 """
 
 import ply.yacc as yacc
-from .analizador_lexico import AnalizadorLexico
-from .ast_nodos import (
+from analizador_lexico import AnalizadorLexico
+from ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
     NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
@@ -108,7 +108,7 @@ class GeneradorCodigo:
         ('left',  'DOT'),
     )
 
-    
+
 
     # ══════════════════════════════════════════════════════════════════════
     # PROGRAMA
@@ -117,7 +117,6 @@ class GeneradorCodigo:
     def p_program(self, p):
         """program : stmt_list"""
         p[0] = p[1]
-        return p[1]
 
     def p_stmt_list_multi(self, p):
         """stmt_list : stmt_list statement"""
@@ -149,28 +148,133 @@ class GeneradorCodigo:
 
     def p_let_simple(self, p):
         """let_stmt : LET ID COLON type_annot"""
+        defecto = 0
+        if p[4] == "int":
+            defecto = 0
+        elif p[4] == "float":
+            defecto = 0.0
+        elif p[4] == "text":
+            defecto = ' '
+        elif p[4] == "bool":
+            defecto = 0
         
-        p[0] = NodoDeclaracion(p[2], p[4], linea=p.lineno(1))
+        p[0] = f'{p[2]} : {defecto}'
+        self.data.append(p[0])
 
     def p_let_with_val(self, p):
         """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], valor=p[6], linea=p.lineno(1))
+        p[0] = f'{p[2]} : {p[6]}'
+        self.data.append(p[0])
 
     def p_let_array_1d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], linea=p.lineno(1))
+        defecto = 0
+        if p[4] == "int":
+            defecto = 0
+        elif p[4] == "float":
+            defecto = 0.0
+        elif p[4] == "text":
+            defecto = ' '
+        elif p[4] == "bool":
+            defecto = 0
+        
+        lenght = 0
+        if type(p[6]) == int:
+            lenght = p[6]
+        elif type(p[6]) == str:
+            lenght = self.sim_table[p[6]]['value']
+
+        p[0] = f'{p[2]}0 : {defecto}'
+        self.data.append(f'{p[2]}0 : {defecto}')
+        for i in range(1, lenght):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
+            self.data.append(f'{p[2]}{i} : {defecto}')
 
     def p_let_array_1d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], valor=p[9], linea=p.lineno(1))
+        lenght = 0
+        if type(p[6]) == int:
+            lenght = p[6]
+        elif type(p[6]) == str:
+            lenght = self.sim_table[p[6]]['value']
+
+        p[0] = f'{p[2]}0 : {p[9]}'
+        self.data.append(f'{p[2]}0 : {p[9][0]}')
+        for i in range(1, lenght):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[9][i]}'])
+            self.data.append(f'{p[2]}{i} : {p[9][i]}')
 
     def p_let_array_2d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], dim2=p[9], linea=p.lineno(1))
+        defecto = 0
+        if p[4] == "int":
+            defecto = 0
+        elif p[4] == "float":
+            defecto = 0.0
+        elif p[4] == "text":
+            defecto = ' '
+        elif p[4] == "bool":
+            defecto = 0
+        
+        lenght = 0
+        if type(p[6]) == int:
+            lenght = p[6]
+        elif type(p[6]) == str:
+            lenght = self.sim_table[p[6]]['value']
+
+        p[0] = f'{p[2]}0 : {defecto}'
+        self.data.append(f'{p[2]}0 : {defecto}')
+        for i in range(1, lenght):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
+            self.data.append(f'{p[2]}{i} : {defecto}')
+
+        prev_len = lenght
+        if type(p[9]) == int:
+            lenght = p[9]
+        elif type(p[9]) == str:
+            lenght = self.sim_table[p[9]]['value']
+
+        p[0] = f'{p[2]}{prev_len} : {defecto}'
+        self.data.append(f'{p[2]}0 : {defecto}')
+        for i in range(prev_len+1, lenght + prev_len):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
+            self.data.append(f'{p[2]}{i} : {defecto}')
 
     def p_let_array_2d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], dim2=p[9], valor=p[12], linea=p.lineno(1))
+        defecto = 0
+        if p[4] == "int":
+            defecto = 0
+        elif p[4] == "float":
+            defecto = 0.0
+        elif p[4] == "text":
+            defecto = ' '
+        elif p[4] == "bool":
+            defecto = 0
+        
+        lenght = 0
+        if type(p[6]) == int:
+            lenght = p[6]
+        elif type(p[6]) == str:
+            lenght = self.sim_table[p[6]]['value']
+
+        p[0] = f'{p[2]}0 : {defecto}'
+        self.data.append(f'{p[2]}0 : {p[12][0]}')
+        for i in range(1, lenght):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[12][i]}'])
+            self.data.append(f'{p[2]}{i} : {p[12][i]}')
+
+        prev_len = lenght
+        if type(p[9]) == int:
+            lenght = p[9]
+        elif type(p[9]) == str:
+            lenght = self.sim_table[p[9]]['value']
+
+        p[0] = f'{p[2]}{prev_len} : {p[12][prev_len]}'
+        self.data.append(f'{p[2]}0 : {defecto}')
+        for i in range(prev_len+1, lenght + prev_len):
+            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[12][i]}'])
+            self.data.append(f'{p[2]}{i} : {p[12][i]}')
 
     # Inicializador: expresión simple o lista de valores separada por comas
 
@@ -184,11 +288,11 @@ class GeneradorCodigo:
 
     def p_value_list_start(self, p):
         """value_list : expr COMMA expr"""
-        p[0] = NodoListaValores([p[1], p[3]], linea=p.lineno(2))
+        p[0] = [p[1], p[3]]
 
     def p_value_list_grow(self, p):
         """value_list : value_list COMMA expr"""
-        p[1].valores.append(p[3])
+        p[1].append(p[3])
         p[0] = p[1]
 
     # ── Tipo anotación ────────────────────────────────────────────────────
@@ -227,7 +331,7 @@ class GeneradorCodigo:
 
     def p_lvalue_id(self, p):
         """lvalue : ID"""
-        p[0] = NodoID(p[1], linea=p.lineno(1))
+        p[0] = p[1]
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
@@ -446,7 +550,7 @@ class GeneradorCodigo:
 
     def p_expr_ohmy(self, p):
         """expr : OHMY"""
-        p[0] = NodoOhmy(linea=p.lineno(1))
+        p[0] = p[1]
 
     # Agrupación
     def p_expr_group(self, p):
@@ -456,31 +560,31 @@ class GeneradorCodigo:
     # Literales e identificadores
     def p_expr_id(self, p):
         """expr : ID"""
-        p[0] = NodoID(p[1], linea=p.lineno(1))
+        p[0] = p[1]
 
     def p_expr_int(self, p):
         """expr : INT_LIT"""
-        p[0] = NodoEntero(p[1], linea=p.lineno(1))
+        p[0] = p[1]
 
     def p_expr_float(self, p):
         """expr : FLOAT_LIT"""
-        p[0] = NodoFlotante(p[1], linea=p.lineno(1))
+        p[0] = p[1]
 
     def p_expr_string(self, p):
         """expr : STRING"""
-        p[0] = NodoCadena(p[1], linea=p.lineno(1))
+        p[0] = p[1]
 
     def p_expr_indeed(self, p):
         """expr : INDEED"""
-        p[0] = NodoBooleano(True, linea=p.lineno(1))
+        p[0] = True
 
     def p_expr_nope(self, p):
         """expr : NOPE"""
-        p[0] = NodoBooleano(False, linea=p.lineno(1))
+        p[0] = False
 
     def p_expr_nothing(self, p):
         """expr : NOTHING"""
-        p[0] = NodoNada(linea=p.lineno(1))
+        p[0] = None
 
     # ── Lista de argumentos ───────────────────────────────────────────────
 
@@ -496,7 +600,6 @@ class GeneradorCodigo:
 
     def p_empty(self, p):
         """empty :"""
-        p[0] = None
 
     # ══════════════════════════════════════════════════════════════════════
     # MANEJO DE ERRORES
@@ -524,6 +627,8 @@ class GeneradorCodigo:
             debug=False,
             write_tables=False,
         )
+        self.text = []
+        self.data = []
 
     def parse(self, codigo: str) -> tuple[list[str], object]:
         """
@@ -537,37 +642,30 @@ class GeneradorCodigo:
             ast     -- NodoPrograma raíz del árbol, o None si no se pudo parsear.
         """
         self.errors = []
-
+        _, self.sim_table, _, self.num_table = self._lex.analize(codigo)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1
-
         ast = self.parser.parse(
             lexer=self._lex.lexer,
             tracking=True,
         )
-
         return self.errors, ast
 
 
 # Programa de prueba
 if __name__ == '__main__':
 
-    a_s = AnalizadorSemantico()
+    a_s = GeneradorCodigo()
  
     sample_code = '''
-let n: int = 5
-let a: int[n] = 1,8,4,2,10
-
-let max: int = a[0]
-
-for (let i: int = 1, i < n, set i += 1){
-    if (max < a[i]){
-        set max = a[i]
-    }
-}
+let a: int = 2
+let b: int = 2
+let arr: int[5] = 1,8,4,2,10
+set a = a + b
 '''
 
     errors, ast = a_s.parse(sample_code)
     print(errors)
-    print(ast)
+    print(a_s.data)
+    print(a_s.text)
