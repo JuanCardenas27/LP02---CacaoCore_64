@@ -77,8 +77,8 @@ from .ast_nodos import (
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
     NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
     NodoAccesoMiembro, NodoAccesoArreglo, NodoSummon, NodoListaValores,
-    NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
-    NodoOhmy,
+    NodoParametro, NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
+    NodoOhmy, NodoTerminal,
 )
 
 
@@ -184,30 +184,32 @@ class AnalizadorSintactico:
 
     def p_value_list_grow(self, p):
         """value_list : value_list COMMA expr"""
-        p[1].valores.append(p[3])
+        # Agregar a lista interleaved: ... , expr
+        p[1].items.append(NodoTerminal(',', p.lineno(2)))
+        p[1].items.append(p[3])
         p[0] = p[1]
 
     # ── Tipo anotación ────────────────────────────────────────────────────
 
     def p_type_int(self, p):
         """type_annot : INT_TYPE"""
-        p[0] = 'int'
+        p[0] = NodoTerminal('int', p.lineno(1))
 
     def p_type_float(self, p):
         """type_annot : FLOAT_TYPE"""
-        p[0] = 'float'
+        p[0] = NodoTerminal('float', p.lineno(1))
 
     def p_type_text(self, p):
         """type_annot : TEXT_TYPE"""
-        p[0] = 'text'
+        p[0] = NodoTerminal('text', p.lineno(1))
 
     def p_type_bool(self, p):
         """type_annot : BOOL_TYPE"""
-        p[0] = 'bool'
+        p[0] = NodoTerminal('bool', p.lineno(1))
 
     def p_type_id(self, p):
         """type_annot : ID"""
-        p[0] = p[1]
+        p[0] = NodoTerminal(p[1], p.lineno(1))
 
     # ── Reasignación set ──────────────────────────────────────────────────
 
@@ -232,7 +234,10 @@ class AnalizadorSintactico:
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
         if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
+            # Agregar a la lista interleaved: [ expr ]
+            p[1].brackets_indices.append(NodoTerminal('[', p.lineno(2)))
+            p[1].brackets_indices.append(p[3])
+            p[1].brackets_indices.append(NodoTerminal(']', p.lineno(2)))
             p[0] = p[1]
         else:
             p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
@@ -257,11 +262,13 @@ class AnalizadorSintactico:
 
     def p_param_list_many(self, p):
         """param_list : param_list COMMA param"""
-        p[0] = p[1] + [p[3]]
+        p[1].append(NodoTerminal(',', p.lineno(2)))
+        p[1].append(p[3])
+        p[0] = p[1]
 
     def p_param(self, p):
         """param : ID COLON type_annot"""
-        p[0] = (p[1], p[3])
+        p[0] = NodoParametro(p[1], p[3], linea=p.lineno(1))
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
 
@@ -399,7 +406,10 @@ class AnalizadorSintactico:
     def p_expr_index(self, p):
         """expr : expr LBRACKET expr RBRACKET"""
         if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
+            # Agregar a la lista interleaved: [ expr ]
+            p[1].brackets_indices.append(NodoTerminal('[', p.lineno(2)))
+            p[1].brackets_indices.append(p[3])
+            p[1].brackets_indices.append(NodoTerminal(']', p.lineno(2)))
             p[0] = p[1]
         else:
             p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
@@ -486,7 +496,9 @@ class AnalizadorSintactico:
 
     def p_arg_list_many(self, p):
         """arg_list : arg_list COMMA expr"""
-        p[0] = p[1] + [p[3]]
+        p[1].append(NodoTerminal(',', p.lineno(2)))
+        p[1].append(p[3])
+        p[0] = p[1]
 
     # ── Vacío ─────────────────────────────────────────────────────────────
 

@@ -30,6 +30,7 @@ class _NodoTreePrinter:
         "NodoAccesoArreglo": "expr_index",
         "NodoSummon": "expr_summon",
         "NodoListaValores": "value_list",
+        "NodoParametro": "param",
         "NodoID": "ID",
         "NodoEntero": "INT_LIT",
         "NodoFlotante": "FLOAT_LIT",
@@ -37,6 +38,7 @@ class _NodoTreePrinter:
         "NodoBooleano": "BOOLEAN",
         "NodoNada": "NOTHING",
         "NodoOhmy": "OHMY",
+        "NodoTerminal": "TERMINAL",
     }
 
     def render(self, value) -> str:
@@ -47,6 +49,14 @@ class _NodoTreePrinter:
             return []
 
         if isinstance(value, Nodo):
+            # Los NodoTerminal se renderizan de forma compacta
+            if type(value).__name__ == 'NodoTerminal':
+                label = f'"{value.valor}"'
+                if field_name is not None:
+                    label = f"{field_name}: {label}"
+                connector = "" if is_root else ("└── " if is_last else "├── ")
+                return [f"{prefix}{connector}{label}"]
+            
             label = self._label_for_node(value)
             if field_name is not None:
                 label = f"{field_name}: {label}"
@@ -122,10 +132,18 @@ class NodoPrograma(Nodo):
 class NodoDeclaracion(Nodo):
     """let ID : tipo [dim1][dim2] [= valor]"""
     def __init__(self, nombre, tipo, dim1=None, dim2=None, valor=None, linea=0):
+        self.let_keyword = NodoTerminal('let', linea)
         self.nombre = nombre
-        self.tipo = tipo
+        self.colon = NodoTerminal(':', linea)
+        # El tipo es un NodoTerminal (de la regla type_annot)
+        self.tipo = tipo if isinstance(tipo, NodoTerminal) else NodoTerminal(tipo, linea)
+        self.lbracket1 = NodoTerminal('[', linea) if dim1 is not None else None
         self.dim1 = dim1
+        self.rbracket1 = NodoTerminal(']', linea) if dim1 is not None else None
+        self.lbracket2 = NodoTerminal('[', linea) if dim2 is not None else None
         self.dim2 = dim2
+        self.rbracket2 = NodoTerminal(']', linea) if dim2 is not None else None
+        self.assign = NodoTerminal('=', linea) if valor is not None else None
         self.valor = valor
         self.linea = linea
 
@@ -133,8 +151,9 @@ class NodoDeclaracion(Nodo):
 class NodoReasignacion(Nodo):
     """set lvalue (= | +=) expr"""
     def __init__(self, lvalue, op, expr, linea=0):
+        self.set_keyword = NodoTerminal('set', linea)
         self.lvalue = lvalue
-        self.op = op
+        self.op = NodoTerminal(op, linea)
         self.expr = expr
         self.linea = linea
 
@@ -142,8 +161,11 @@ class NodoReasignacion(Nodo):
 class NodoFuncion(Nodo):
     """func ID(params) { cuerpo }"""
     def __init__(self, nombre, params, cuerpo, linea=0):
+        self.func_keyword = NodoTerminal('func', linea)
         self.nombre = nombre
+        self.lparen = NodoTerminal('(', linea)
         self.params = params
+        self.rparen = NodoTerminal(')', linea)
         self.cuerpo = cuerpo
         self.linea = linea
 
@@ -151,16 +173,21 @@ class NodoFuncion(Nodo):
 class NodoMold(Nodo):
     """mold ID { miembros }"""
     def __init__(self, nombre, miembros, linea=0):
+        self.mold_keyword = NodoTerminal('mold', linea)
         self.nombre = nombre
+        self.lbrace = NodoTerminal('{', linea)
         self.miembros = miembros
+        self.rbrace = NodoTerminal('}', linea)
         self.linea = linea
 
 
 class NodoSi(Nodo):
     """if cond block [otherwise block]"""
     def __init__(self, condicion, entonces, sino=None, linea=0):
+        self.if_keyword = NodoTerminal('if', linea)
         self.condicion = condicion
         self.entonces = entonces
+        self.otherwise_keyword = NodoTerminal('otherwise', linea) if sino is not None else None
         self.sino = sino
         self.linea = linea
 
@@ -168,6 +195,7 @@ class NodoSi(Nodo):
 class NodoMientras(Nodo):
     """asLongAs cond { cuerpo }"""
     def __init__(self, condicion, cuerpo, linea=0):
+        self.aslongas_keyword = NodoTerminal('asLongAs', linea)
         self.condicion = condicion
         self.cuerpo = cuerpo
         self.linea = linea
@@ -176,9 +204,14 @@ class NodoMientras(Nodo):
 class NodoPara(Nodo):
     """for (inicio , condicion , actualizacion) { cuerpo }"""
     def __init__(self, inicio, condicion, actualizacion, cuerpo, linea=0):
+        self.for_keyword = NodoTerminal('for', linea)
+        self.lparen = NodoTerminal('(', linea)
         self.inicio = inicio
+        self.comma1 = NodoTerminal(',', linea)
         self.condicion = condicion
+        self.comma2 = NodoTerminal(',', linea)
         self.actualizacion = actualizacion
+        self.rparen = NodoTerminal(')', linea)
         self.cuerpo = cuerpo
         self.linea = linea
 
@@ -186,6 +219,7 @@ class NodoPara(Nodo):
 class NodoEntregar(Nodo):
     """deliver [expr]"""
     def __init__(self, expr=None, linea=0):
+        self.deliver_keyword = NodoTerminal('deliver', linea)
         self.expr = expr
         self.linea = linea
 
@@ -193,6 +227,7 @@ class NodoEntregar(Nodo):
 class NodoMostrar(Nodo):
     """show expr"""
     def __init__(self, expr, linea=0):
+        self.show_keyword = NodoTerminal('show', linea)
         self.expr = expr
         self.linea = linea
 
@@ -200,6 +235,7 @@ class NodoMostrar(Nodo):
 class NodoOops(Nodo):
     """oops expr"""
     def __init__(self, expr, linea=0):
+        self.oops_keyword = NodoTerminal('oops', linea)
         self.expr = expr
         self.linea = linea
 
@@ -207,15 +243,17 @@ class NodoOops(Nodo):
 class NodoBloque(Nodo):
     """{ sentencias }"""
     def __init__(self, sentencias, linea=0):
+        self.lbrace = NodoTerminal('{', linea)
         self.sentencias = sentencias
+        self.rbrace = NodoTerminal('}', linea)
         self.linea = linea
 
 
 class NodoBinario(Nodo):
     """expr OP expr"""
     def __init__(self, op, izq, der, linea=0):
-        self.op = op
         self.izq = izq
+        self.op = NodoTerminal(op, linea)
         self.der = der
         self.linea = linea
 
@@ -223,7 +261,7 @@ class NodoBinario(Nodo):
 class NodoUnario(Nodo):
     """OP expr  (negación, not)"""
     def __init__(self, op, expr, linea=0):
-        self.op = op
+        self.op = NodoTerminal(op, linea)
         self.expr = expr
         self.linea = linea
 
@@ -232,7 +270,9 @@ class NodoLlamada(Nodo):
     """ID(args) o expr.ID(args)"""
     def __init__(self, func, args, linea=0):
         self.func = func
+        self.lparen = NodoTerminal('(', linea)
         self.args = args
+        self.rparen = NodoTerminal(')', linea)
         self.linea = linea
 
 
@@ -240,6 +280,7 @@ class NodoAccesoMiembro(Nodo):
     """expr . ID"""
     def __init__(self, obj, miembro, linea=0):
         self.obj = obj
+        self.dot = NodoTerminal('.', linea)
         self.miembro = miembro
         self.linea = linea
 
@@ -248,22 +289,44 @@ class NodoAccesoArreglo(Nodo):
     """expr[idx] o expr[idx1][idx2]"""
     def __init__(self, arreglo, indices, linea=0):
         self.arreglo = arreglo
-        self.indices = indices
+        # Lista interleaved: [ idx ] [ idx ] ...
+        self.brackets_indices = []
+        for idx in indices:
+            self.brackets_indices.append(NodoTerminal('[', linea))
+            self.brackets_indices.append(idx)
+            self.brackets_indices.append(NodoTerminal(']', linea))
         self.linea = linea
 
 
 class NodoSummon(Nodo):
     """summon ID(args)"""
     def __init__(self, clase, args, linea=0):
+        self.summon_keyword = NodoTerminal('summon', linea)
         self.clase = clase
+        self.lparen = NodoTerminal('(', linea)
         self.args = args
+        self.rparen = NodoTerminal(')', linea)
         self.linea = linea
 
 
 class NodoListaValores(Nodo):
     """Inicializador de arreglo: v1, v2, ..., vN"""
     def __init__(self, valores, linea=0):
-        self.valores = valores
+        # Lista interleaved: valor , valor , valor
+        self.items = []
+        for i, valor in enumerate(valores):
+            self.items.append(valor)
+            if i < len(valores) - 1:
+                self.items.append(NodoTerminal(',', linea))
+        self.linea = linea
+
+
+class NodoParametro(Nodo):
+    """param ::= ID : type"""
+    def __init__(self, nombre, tipo, linea=0):
+        self.nombre = nombre
+        self.colon = NodoTerminal(':', linea)
+        self.tipo = tipo if isinstance(tipo, NodoTerminal) else NodoTerminal(tipo, linea)
         self.linea = linea
 
 
@@ -305,4 +368,11 @@ class NodoNada(Nodo):
 class NodoOhmy(Nodo):
     """Referencia al objeto actual (self)"""
     def __init__(self, linea=0):
+        self.linea = linea
+
+
+class NodoTerminal(Nodo):
+    """Nodo terminal: símbolo de puntuación o palabra clave sin contenido semántico."""
+    def __init__(self, valor, linea=0):
+        self.valor = valor
         self.linea = linea

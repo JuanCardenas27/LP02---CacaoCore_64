@@ -266,16 +266,23 @@ class CompilerGui:
         frame.grid_rowconfigure(0, weight=1)
         frame.grid_columnconfigure(0, weight=1)
 
-        sb = tk.Scrollbar(frame, orient="vertical", bg=BG_MID,
-                          troughcolor=BG_DARK, activebackground=ACCENT2)
-        sb.grid(row=0, column=1, sticky="ns")
+        # Scrollbar vertical
+        vsb = tk.Scrollbar(frame, orient="vertical", bg=BG_MID,
+                           troughcolor=BG_DARK, activebackground=ACCENT2)
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        # Scrollbar horizontal
+        hsb = tk.Scrollbar(frame, orient="horizontal", bg=BG_MID,
+                           troughcolor=BG_DARK, activebackground=ACCENT2)
+        hsb.grid(row=1, column=0, sticky="ew")
 
         txt = tk.Text(frame, bg=BG_INPUT, fg=fg,
                       insertbackground=ACCENT2, font=font,
-                      wrap="word", padx=8, pady=8, bd=0,
-                      yscrollcommand=sb.set, state=state)
+                      wrap="none", padx=8, pady=8, bd=0,
+                      yscrollcommand=vsb.set, xscrollcommand=hsb.set, state=state)
         txt.grid(row=0, column=0, sticky="nsew")
-        sb.config(command=txt.yview)
+        vsb.config(command=txt.yview)
+        hsb.config(command=txt.xview)
 
         return frame, txt
 
