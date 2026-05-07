@@ -505,16 +505,104 @@ class CompilerGui:
     # ── Paso 1: Sintáctico ────────────────────────────────────────────────
 
     def _build_syntactic(self, area):
-        tk.Label(area, text="[ Syntactic Analysis — coming soon ]",
-                 bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=3, pady=40)
+             # Izquierda: ARBOL AST
+        left = tk.Frame(area, bg=BG_PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
 
+        self._section_label(left, "◈  AST Created", ACCENT2
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_l, self.ast_tree = self._scrollable_text(left)
+        tf_l.grid(row=1, column=0, sticky="nsew")
+
+        # Derecha: tabla de símbolos + errores
+        right = tk.Frame(area, bg=BG_PANEL)
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_rowconfigure(3, weight=1)
+        right.grid_rowconfigure(5, weight=2)
+        right.grid_columnconfigure(0, weight=1)
+
+        self._section_label(right, "◈  Symbol Table", ACCENT4
+                            ).grid(row=0, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
+        tf_r, self.lex_symbol = self._scrollable_table(right, columns)
+        tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Numeric Symbol Table", ACCENT3
+                            ).grid(row=2, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Type', 'Value', 'Line']
+        tf_n, self.num_symbol = self._scrollable_table(right, columns)
+        tf_n.grid(row=3, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Errores", ACCENT5
+                            ).grid(row=4, column=0, sticky="ew", pady=(3, 1))
+        tf_e, self.sint_error = self._scrollable_text(right, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=5, column=0, sticky="nsew")
+
+        # Botón
+        btn_bar = tk.Frame(self.content, bg=BG_PANEL)
+        btn_bar.grid(row=2, column=0, pady=(0, 10))
+        self._action_btn(btn_bar, "⚙  Start Sintactic Analysis", ACCENT2,
+                         self._do_syntactic).pack()
     # ── Paso 2: Semántico ─────────────────────────────────────────────────
 
     def _build_semantic(self, area):
-        tk.Label(area, text="[ Semantic Analysis — coming soon ]",
-                 bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=3, pady=40)
+                     # Izquierda: ARBOL ANNOTATED AST
+        left = tk.Frame(area, bg=BG_PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
+
+        self._section_label(left, "◈  ANNOTATED AST", ACCENT2
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_l, self.ann_ast_tree = self._scrollable_text(left)
+        tf_l.grid(row=1, column=0, sticky="nsew")
+
+        # Centro: tabla de símbolos + errores
+        center = tk.Frame(area, bg=BG_PANEL)
+        center.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        center.grid_rowconfigure(1, weight=1)
+        center.grid_rowconfigure(3, weight=1)
+        center.grid_rowconfigure(5, weight=2)
+        center.grid_columnconfigure(0, weight=1)
+
+        self._section_label(center, "◈  Symbol Table", ACCENT4
+                            ).grid(row=0, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
+        tf_r, self.lex_symbol = self._scrollable_table(center, columns)
+        tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(center, "◈  Numeric Symbol Table", ACCENT3
+                            ).grid(row=2, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Type', 'Value', 'Line']
+        tf_n, self.num_symbol = self._scrollable_table(center, columns)
+        tf_n.grid(row=3, column=0, sticky="nsew")
+
+        self._section_label(center, "◈  Errores", ACCENT5
+                            ).grid(row=4, column=0, sticky="ew", pady=(3, 1))
+        tf_e, self.sem_error = self._scrollable_text(center, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=5, column=0, sticky="nsew")
+
+        # Derecha: cod generado
+        right = tk.Frame(area, bg=BG_PANEL)
+        right.grid(row=0, column=2, sticky="nsew", padx=(0, 5))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        self._section_label(right, "◈  Generated code", ACCENT3
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_c, self.gen_code = self._scrollable_text(right,state="disabled")
+        tf_c.grid(row=1, column=0, sticky="nsew")
+
+        # Botón
+        btn_bar = tk.Frame(self.content, bg=BG_PANEL)
+        btn_bar.grid(row=2, column=0, pady=(0, 10))
+        self._action_btn(btn_bar, "⚙  Start Semantic Analysis", ACCENT2,
+                         self._do_semantic).grid(row=0, column=0, sticky='nsw', padx=10)
+        self._action_btn(btn_bar, "⚙ Generate code", ACCENT3,
+                         self._do_generation).grid(row=0, column=1, sticky='nse', padx=10)
 
     def _compiler_prev(self):
         if self.compiler_step > 0:
@@ -803,6 +891,15 @@ class CompilerGui:
         for err in lex_errors:
             self.lex_error.insert(tk.END, err+"\n-------------\n")
         self.lex_error.config(state="disabled")
+    
+    def _do_syntactic(self):
+        pass
+
+    def _do_semantic(self):
+        pass
+
+    def _do_generation(self):
+        pass
 
     def _translate_asm(self):
         asm_mod = ASM()
