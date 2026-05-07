@@ -75,7 +75,7 @@ from .analizador_lexico import AnalizadorLexico
 from .ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
-    NodoPreprocesador, NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
+    NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
     NodoAccesoMiembro, NodoAccesoArreglo, NodoSummon, NodoListaValores,
     NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
     NodoOhmy,
