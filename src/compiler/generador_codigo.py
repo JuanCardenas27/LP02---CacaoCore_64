@@ -71,8 +71,9 @@ arg_list        ::= expr { ',' expr }
 """
 
 import ply.yacc as yacc
-from analizador_lexico import AnalizadorLexico
-from ast_nodos import (
+from .analizador_lexico import AnalizadorLexico
+from .analizador_semantico import AnalizadorSemantico
+from .ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
     NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
@@ -1243,6 +1244,7 @@ class GeneradorCodigo:
         """
         self.errors = []
         _, self.sim_table, _, self.num_table = self._lex.analize(codigo)
+        _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1
@@ -1260,7 +1262,7 @@ if __name__ == '__main__':
  
     sample_code = '''
     let n: int = 5
-    let a: int[5] = 1,8,4,2,10
+    let a: int[n] = 1,8,4,2,10
 
     let max: int = 0
 

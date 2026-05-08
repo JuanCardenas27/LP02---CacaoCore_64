@@ -952,7 +952,31 @@ class CompilerGui:
         self.sem_error.config(state="disabled")
 
     def _do_generation(self):
-        pass
+
+        self.gen_code.config(state="normal")
+
+        file_content = self.program2compile
+
+        self.gen_code.delete("1.0", tk.END)
+
+        result = compiler.compile_generator(file_content)
+
+        lines = result[1]
+        errors = result[0]
+
+        for val in lines:
+            self.gen_code.insert(tk.END, val + "\n")
+
+        self.gen_code.config(state="disabled")
+
+        self.sem_error.config(state="normal")
+
+        self.sem_error.delete("1.0", tk.END)
+
+        for error in errors:
+            self.sem_error.insert(tk.END, error + "\n")
+
+        self.sem_error.config(state="disabled")
 
     def _translate_asm(self):
         asm_mod = ASM()

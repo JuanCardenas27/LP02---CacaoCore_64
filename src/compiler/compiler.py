@@ -30,7 +30,7 @@ class Compiler:
         errors, asmc = self._generator.parse(file_content)
         return errors, asmc
     
-    def compile_generator(self, file_content:str):
+    def compile_full(self, file_content:str):
         # 4. Paso del analisis: Generación de código
         errors, _, _, _ = self._lexer.analize(file_content)
         if errors:
