@@ -129,7 +129,7 @@ class GeneradorCodigo:
 
             if isinstance(stmt, dict):
                 final_code.extend(stmt.get('code', []))
-
+        final_code.append('HLT')
         self.text = final_code
 
         p[0] = final_code
@@ -570,37 +570,33 @@ class GeneradorCodigo:
         """while_stmt : ASLONGAS expr block"""
 
         start_label = f"LWHILE_START{self.while_counter}"
-        end_label   = f"LWHILE_END{self.whilw_counter}"
+        end_label   = f"LWHILE_END{self.while_counter}"
 
         self.while_counter += 1
 
         cond_code = p[2]["code"]
-        cond_reg  = p[2]["result"]
+        cond_reg  = self.format_operand(p[2])
 
-        body_code = p[3]
+        body_code = p[3]["code"]
 
         code = []
 
-        # inicio del loop
         code.append(f"{start_label}:")
 
-        # condición
         code.extend(cond_code)
 
-        # si condición == 0 -> salir
         code.append(f"CMP {cond_reg}, 0")
         code.append(f"JE {end_label}")
 
-        # cuerpo
         code.extend(body_code)
 
-        # volver al inicio
         code.append(f"JMP {start_label}")
 
-        # fin
         code.append(f"{end_label}:")
 
-        p[0] = code
+        p[0] = {
+            "code": code
+        }
     # ── for ───────────────────────────────────────────────────────────────
 
     def p_for(self, p):
@@ -614,40 +610,34 @@ class GeneradorCodigo:
         init_code = p[3]["code"]
 
         cond_code = p[5]["code"]
-        cond_reg  = p[5]["result"]
+        cond_reg  = self.format_operand(p[5])
 
         update_code = p[7]["code"]
 
-        body_code = p[9]
+        body_code = p[9]["code"]
 
         code = []
 
-        # init
         code.extend(init_code)
 
-        # start
         code.append(f"{start_label}:")
 
-        # condición
         code.extend(cond_code)
 
         code.append(f"CMP {cond_reg}, 0")
         code.append(f"JE {end_label}")
 
-        # cuerpo
         code.extend(body_code)
 
-        # update
         code.extend(update_code)
 
-        # loop
         code.append(f"JMP {start_label}")
 
-        # end
         code.append(f"{end_label}:")
 
-        p[0] = code
-
+        p[0] = {
+            "code": code
+        }
     # for_init: declaración let simple, expresión, o vacío
     def p_for_init_let(self, p):
         """for_init : LET ID COLON type_annot ASSIGN expr"""
@@ -869,10 +859,10 @@ class GeneradorCodigo:
         left  = self.format_operand(p[1])
         right = self.format_operand(p[3])
 
-        true_label = f"LTRUE{self.label_counter}"
-        end_label  = f"LEND{self.label_counter}"
+        true_label = f"LTRUE{self.cmp_label_count}"
+        end_label  = f"LEND{self.cmp_label_count}"
 
-        self.label_counter += 1
+        self.cmp_label_count += 1
 
         instr = []
 
@@ -1045,11 +1035,38 @@ class GeneradorCodigo:
     # Acceso a arreglo
     def p_expr_index(self, p):
         """expr : expr LBRACKET expr RBRACKET"""
-        if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
-            p[0] = p[1]
-        else:
-            p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
+
+        array_expr = p[1]
+        index_expr = p[3]
+
+        code = []
+
+        # código base arreglo
+        code.extend(array_expr["code"])
+
+        # código índice
+        code.extend(index_expr["code"])
+
+        array_name = array_expr["result"]
+        index_value = self.format_operand(index_expr)
+
+        # calcular offset
+        code.append(f"MOV R1, {index_value}")
+        code.append("MUL R1, 8")
+
+        # dirección base
+        code.append(f"LEA R2, {array_name}")
+
+        # dirección final
+        code.append("ADD R1, R2")
+
+        # cargar valor
+        code.append("MOV R3, [R1]")
+
+        p[0] = {
+            "code": code,
+            "result": "R3"
+        }
 
     # Acceso a miembro / llamada a método
     def p_expr_method_call(self, p):
@@ -1243,9 +1260,11 @@ if __name__ == '__main__':
  
     sample_code = '''
     let n: int = 5
-    let a: int[n] = 1,8,4,2,10
+    let a: int[5] = 1,8,4,2,10
 
-    let max: int = a[0]
+    let max: int = 0
+
+    set max = a[0]
 
     for (let i: int = 1, i < n, set i += 1){
         if (max < a[i]){
@@ -1259,4 +1278,3 @@ if __name__ == '__main__':
     print(errors)
     print(a_s.data)
     print(a_s.text)
-
