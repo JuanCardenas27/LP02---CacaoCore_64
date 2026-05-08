@@ -74,6 +74,7 @@ arg_list        ::= expr { ',' expr }
 import ply.yacc as yacc
 from .analizador_lexico import AnalizadorLexico
 from .analizador_sintactico import AnalizadorSintactico
+from .ast_nodos import Nodo, NodoID, NodoDeclaracion, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoParametro
 
 
 class AnalizadorSemantico:
@@ -1286,7 +1287,6 @@ class AnalizadorSemantico:
         """Recorrido del AST para agregar metadatos semánticos básicos.
         Añade `symbol` y `tipo` en nodos relevantes.
         """
-        from .ast_nodos import Nodo, NodoID, NodoDeclaracion, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoParametro
 
         if node is None:
             return
