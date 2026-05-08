@@ -923,7 +923,33 @@ class CompilerGui:
 
 
     def _do_semantic(self):
-        pass
+        error, resultado = compiler.compile_semantic(self.program2compile)
+        # Mostrar AST anotado
+        try:
+            self.ann_ast_tree.delete("1.0", tk.END)
+        except Exception:
+            pass
+        self.ann_ast_tree.insert(tk.END, f"{resultado}")
+
+        # Usar tabla semántica real generada por yacc
+        for row in self.lex_symbol.get_children():
+            self.lex_symbol.delete(row)
+        sem_table = getattr(getattr(compiler, '_semantic', None), 'semantic_symbol_table', {})
+        for val in sem_table.values():
+            self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        # Tabla numérica
+        for row in self.num_symbol.get_children():
+            self.num_symbol.delete(row)
+        for val in self.num_table_c.values():
+            self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        # Mostrar errores semánticos
+        self.sem_error.config(state="normal")
+        self.sem_error.delete("1.0", tk.END)
+        for err in error:
+            self.sem_error.insert(tk.END, err + "\n-------------\n")
+        self.sem_error.config(state="disabled")
 
     def _do_generation(self):
         pass
