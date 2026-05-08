@@ -1014,19 +1014,10 @@ class AnalizadorSemantico:
             tracking=True,
         )
 
-        # Paso 2: Si no hay errores semánticos, obtener el AST sintáctico
-        if not self.errors:
-            errors_syntactic, ast = self._syntactic.parse(codigo)
-            # Anotar AST sintáctico con la información recolectada
-            try:
-                if ast is not None:
-                    self._annotate_ast(ast)
-            except Exception:
-                # No interrumpir por anotación: devolver ast aunque la anotación falle
-                pass
-            return errors_syntactic + self.errors, ast
-        else:
-            return self.errors, None
+        # Paso 2: Obtener el AST sintáctico
+        _, ast = self._syntactic.parse(codigo)
+        self._annotate_ast(ast)
+        return self.errors, ast, self.semantic_symbol_table
 
     def _make_expr_data(
         self,

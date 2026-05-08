@@ -923,7 +923,7 @@ class CompilerGui:
 
 
     def _do_semantic(self):
-        error, resultado = compiler.compile_semantic(self.program2compile)
+        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile)
         # Mostrar AST anotado
         try:
             self.ann_ast_tree.delete("1.0", tk.END)
@@ -934,7 +934,7 @@ class CompilerGui:
         # Usar tabla semántica real generada por yacc
         for row in self.lex_symbol.get_children():
             self.lex_symbol.delete(row)
-        sem_table = getattr(getattr(compiler, '_semantic', None), 'semantic_symbol_table', {})
+        sem_table = symbol_table_sem
         for val in sem_table.values():
             self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
 
