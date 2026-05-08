@@ -22,8 +22,8 @@ class Compiler:
     
     def compile_semantic(self, file_content:str):
         # 3. Paso del analisis: Semántico
-        errors, ast = self._semantic.parse(file_content)
-        return errors, ast
+        errors, ast, sym_table = self._semantic.parse(file_content)
+        return errors, ast, sym_table
     
     def compile_generator(self, file_content:str):
         # 4. Paso del analisis: Generación de código
@@ -38,7 +38,7 @@ class Compiler:
         errors, _ = self._syntactic.parse(file_content)
         if errors:
             return errors
-        errors, _ = self._semantic.parse(file_content)
+        errors, _, _ = self._semantic.parse(file_content)
         if errors:
             return errors
         errors, asmc = self._generator.parse(file_content)
