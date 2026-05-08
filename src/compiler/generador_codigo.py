@@ -114,16 +114,41 @@ class GeneradorCodigo:
     # PROGRAMA
     # ══════════════════════════════════════════════════════════════════════
 
+    
+
+    # ─────────────────────────────────────────────────────────────
+    # PROGRAM
+    # ─────────────────────────────────────────────────────────────
+
     def p_program(self, p):
         """program : stmt_list"""
-        p[0] = p[1]
+
+        final_code = []
+
+        for stmt in p[1]:
+
+            if isinstance(stmt, dict):
+                final_code.extend(stmt.get('code', []))
+
+        self.text = final_code
+
+        p[0] = final_code
+
+
+
+    # ─────────────────────────────────────────────────────────────
+    # STMT LIST
+    # ─────────────────────────────────────────────────────────────
 
     def p_stmt_list_multi(self, p):
         """stmt_list : stmt_list statement"""
+
         p[0] = p[1] + [p[2]]
+
 
     def p_stmt_list_empty(self, p):
         """stmt_list : empty"""
+
         p[0] = []
 
     # ══════════════════════════════════════════════════════════════════════
@@ -148,7 +173,9 @@ class GeneradorCodigo:
 
     def p_let_simple(self, p):
         """let_stmt : LET ID COLON type_annot"""
+
         defecto = 0
+
         if p[4] == "int":
             defecto = 0
         elif p[4] == "float":
@@ -157,18 +184,50 @@ class GeneradorCodigo:
             defecto = ' '
         elif p[4] == "bool":
             defecto = 0
-        
-        p[0] = f'{p[2]} : {defecto}'
-        self.data.append(p[0])
+
+        decl = f'{p[2]} : {defecto}'
+
+        self.data.append(decl)
+
+        p[0] = {
+            "code": [],
+            "result": p[2]
+        }
+
 
     def p_let_with_val(self, p):
         """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
-        p[0] = f'{p[2]} : {p[6]}'
-        self.data.append(p[0])
+
+        value = p[6]
+
+        if isinstance(value, dict):
+            init_value = value["result"]
+            code = value["code"]
+        else:
+            init_value = value
+            code = []
+
+        # string -> convertir a arreglo de chars
+        if isinstance(init_value, str) and p[4] == "text":
+
+            for i, ch in enumerate(init_value):
+                self.data.append(f"{p[2]}{i} : '{ch}'")
+
+        else:
+
+            decl = f'{p[2]} : {init_value}'
+            self.data.append(decl)
+
+        p[0] = {
+            "code": code,
+            "result": p[2]
+        }
 
     def p_let_array_1d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
+
         defecto = 0
+
         if p[4] == "int":
             defecto = 0
         elif p[4] == "float":
@@ -177,36 +236,48 @@ class GeneradorCodigo:
             defecto = ' '
         elif p[4] == "bool":
             defecto = 0
-        
-        lenght = 0
-        if type(p[6]) == int:
-            lenght = p[6]
-        elif type(p[6]) == str:
-            lenght = self.sim_table[p[6]]['value']
 
-        p[0] = f'{p[2]}0 : {defecto}'
-        self.data.append(f'{p[2]}0 : {defecto}')
-        for i in range(1, lenght):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
+        length = p[6]
+
+        if isinstance(length, dict):
+            length = self.sim_table[length["result"]]["value"]
+
+        for i in range(length):
             self.data.append(f'{p[2]}{i} : {defecto}')
+
+        p[0] = {
+            "code": [],
+            "result": p[2]
+        }
+
 
     def p_let_array_1d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
-        lenght = 0
-        if type(p[6]) == int:
-            lenght = p[6]
-        elif type(p[6]) == str:
-            lenght = self.sim_table[p[6]]['value']
 
-        p[0] = f'{p[2]}0 : {p[9]}'
-        self.data.append(f'{p[2]}0 : {p[9][0]}')
-        for i in range(1, lenght):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[9][i]}'])
-            self.data.append(f'{p[2]}{i} : {p[9][i]}')
+        length = p[6]
+        
+        if isinstance(length, dict):
+            try:
+                length = self.sim_table[length["result"]]["value"]
+            except KeyError:
+                length = length["result"]
+
+        values = p[9]
+
+        for i in range(length):
+            self.data.append(f'{p[2]}{i} : {values[i]['result']}')
+
+        p[0] = {
+            "code": [],
+            "result": p[2]
+        }
+
 
     def p_let_array_2d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
+
         defecto = 0
+
         if p[4] == "int":
             defecto = 0
         elif p[4] == "float":
@@ -215,67 +286,50 @@ class GeneradorCodigo:
             defecto = ' '
         elif p[4] == "bool":
             defecto = 0
-        
-        lenght = 0
-        if type(p[6]) == int:
-            lenght = p[6]
-        elif type(p[6]) == str:
-            lenght = self.sim_table[p[6]]['value']
 
-        p[0] = f'{p[2]}0 : {defecto}'
-        self.data.append(f'{p[2]}0 : {defecto}')
-        for i in range(1, lenght):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
+        rows = p[6]
+        cols = p[9]
+
+        if isinstance(rows, dict):
+            rows = self.sim_table[rows["result"]]["value"]
+
+        if isinstance(cols, dict):
+            cols = self.sim_table[cols["result"]]["value"]
+
+        total = rows * cols
+
+        for i in range(total):
             self.data.append(f'{p[2]}{i} : {defecto}')
 
-        prev_len = lenght
-        if type(p[9]) == int:
-            lenght = p[9]
-        elif type(p[9]) == str:
-            lenght = self.sim_table[p[9]]['value']
+        p[0] = {
+            "code": [],
+            "result": p[2]
+        }
 
-        p[0] = f'{p[2]}{prev_len} : {defecto}'
-        self.data.append(f'{p[2]}0 : {defecto}')
-        for i in range(prev_len+1, lenght + prev_len):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {defecto}'])
-            self.data.append(f'{p[2]}{i} : {defecto}')
 
     def p_let_array_2d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
-        defecto = 0
-        if p[4] == "int":
-            defecto = 0
-        elif p[4] == "float":
-            defecto = 0.0
-        elif p[4] == "text":
-            defecto = ' '
-        elif p[4] == "bool":
-            defecto = 0
-        
-        lenght = 0
-        if type(p[6]) == int:
-            lenght = p[6]
-        elif type(p[6]) == str:
-            lenght = self.sim_table[p[6]]['value']
 
-        p[0] = f'{p[2]}0 : {defecto}'
-        self.data.append(f'{p[2]}0 : {p[12][0]}')
-        for i in range(1, lenght):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[12][i]}'])
-            self.data.append(f'{p[2]}{i} : {p[12][i]}')
+        rows = p[6]
+        cols = p[9]
 
-        prev_len = lenght
-        if type(p[9]) == int:
-            lenght = p[9]
-        elif type(p[9]) == str:
-            lenght = self.sim_table[p[9]]['value']
+        if isinstance(rows, dict):
+            rows = self.sim_table[rows["result"]]["value"]
 
-        p[0] = f'{p[2]}{prev_len} : {p[12][prev_len]}'
-        self.data.append(f'{p[2]}0 : {defecto}')
-        for i in range(prev_len+1, lenght + prev_len):
-            p[0] = "".join([p[0], '\n', f'{p[2]}{i} : {p[12][i]}'])
-            self.data.append(f'{p[2]}{i} : {p[12][i]}')
+        if isinstance(cols, dict):
+            cols = self.sim_table[cols["result"]]["value"]
 
+        values = p[12]
+
+        total = rows * cols
+
+        for i in range(total):
+            self.data.append(f'{p[2]}{i} : {values[i]}')
+
+        p[0] = {
+            "code": [],
+            "result": p[2]
+        }
     # Inicializador: expresión simple o lista de valores separada por comas
 
     def p_initializer_expr(self, p):
@@ -319,9 +373,27 @@ class GeneradorCodigo:
 
     # ── Reasignación set ──────────────────────────────────────────────────
 
+    # ─────────────────────────────────────────────────────────────
+    # SET
+    # ─────────────────────────────────────────────────────────────
+
     def p_set_assign(self, p):
         """set_stmt : SET lvalue ASSIGN expr"""
-        p[0] = NodoReasignacion(p[2], '=', p[4], linea=p.lineno(1))
+
+        instr = []
+
+        instr.extend(p[2]['code'])
+        instr.extend(p[4]['code'])
+
+        expr_res = self.format_operand(p[4])
+
+        instr.append(f'MOVD [R1], {expr_res}')
+
+        p[0] = {
+            'code': instr
+        }
+
+
 
     def p_set_pluseq(self, p):
         """set_stmt : SET lvalue SWEET_PLUS expr"""
@@ -329,9 +401,17 @@ class GeneradorCodigo:
 
     # ── Lvalue ────────────────────────────────────────────────────────────
 
+    # ─────────────────────────────────────────────────────────────
+    # LVALUES
+    # ─────────────────────────────────────────────────────────────
+
     def p_lvalue_id(self, p):
         """lvalue : ID"""
-        p[0] = p[1]
+
+        p[0] = {
+            'code': [f'LEA R1, {p[1]}'],
+            'result': 'R1'
+        }
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
@@ -339,11 +419,25 @@ class GeneradorCodigo:
 
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
-        if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
-            p[0] = p[1]
-        else:
-            p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
+
+        instr = []
+
+        instr.extend(p[1]['code'])
+        instr.extend(p[3]['code'])
+
+        index = self.format_operand(p[3])
+
+        instr.extend([
+            f'MOV R2, {index}',
+            'MUL R2, 8',
+            'ADD R1, R2'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R1'
+        }
+
 
     def p_lvalue_member(self, p):
         """lvalue : lvalue DOT ID"""
@@ -390,22 +484,123 @@ class GeneradorCodigo:
                        | func_def"""
         p[0] = p[1]
 
-    # ── if / otherwise ────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────
+    # IF
+    # ─────────────────────────────────────────────────────────────
 
     def p_if_simple(self, p):
         """if_stmt : IF expr block"""
-        p[0] = NodoSi(p[2], p[3], linea=p.lineno(1))
 
+        else_label = f"LFALSE{self.if_counter}"
+        end_label  = f"LEND{self.if_counter}"
+
+        self.if_counter += 1
+
+        cond_code = p[2]['code']
+        cond_res  = self.format_operand(p[2])
+
+        block_code = p[3]['code']
+
+        instr = []
+
+        instr.extend(cond_code)
+
+        instr.extend([
+            f'CMP {cond_res}, 0',
+            f'JE {else_label}'
+        ])
+
+        instr.extend(block_code)
+
+        instr.extend([
+            f'JMP {end_label}',
+            f'{else_label}:',
+            f'{end_label}:'
+        ])
+
+        p[0] = {
+            'code': instr
+        }
+
+
+
+    
     def p_if_otherwise(self, p):
         """if_stmt : IF expr block OTHERWISE block"""
-        p[0] = NodoSi(p[2], p[3], sino=p[5], linea=p.lineno(1))
+
+        else_label = f"LELSE{self.else_counter}"
+        end_label  = f"LEND{self.if_counter}"
+
+        self.else_counter += 1
+        self.if_counter += 1
+
+        cond_code = p[2]['code']
+        cond_res  = self.format_operand(p[2])
+
+        then_code = p[3]['code']
+        else_code = p[5]['code']
+
+        instr = []
+
+        instr.extend(cond_code)
+
+        instr.extend([
+            f'CMP {cond_res}, 0',
+            f'JE {else_label}'
+        ])
+
+        instr.extend(then_code)
+
+        instr.extend([
+            f'JMP {end_label}',
+            f'{else_label}:'
+        ])
+
+        instr.extend(else_code)
+
+        instr.append(f'{end_label}:')
+
+        p[0] = {
+            'code': instr
+        }
 
     # ── asLongAs (while) ──────────────────────────────────────────────────
 
     def p_while(self, p):
         """while_stmt : ASLONGAS expr block"""
-        p[0] = NodoMientras(p[2], p[3], linea=p.lineno(1))
 
+        start_label = f"LWHILE_START{self.while_counter}"
+        end_label   = f"LWHILE_END{self.whilw_counter}"
+
+        self.while_counter += 1
+
+        cond_code = p[2]["code"]
+        cond_reg  = p[2]["result"]
+
+        body_code = p[3]
+
+        code = []
+
+        # inicio del loop
+        code.append(f"{start_label}:")
+
+        # condición
+        code.extend(cond_code)
+
+        # si condición == 0 -> salir
+        code.append(f"CMP {cond_reg}, 0")
+        code.append(f"JE {end_label}")
+
+        # cuerpo
+        code.extend(body_code)
+
+        # volver al inicio
+        code.append(f"JMP {start_label}")
+
+        # fin
+        code.append(f"{end_label}:")
+
+        p[0] = code
     # ── for ───────────────────────────────────────────────────────────────
 
     def p_for(self, p):
@@ -454,54 +649,306 @@ class GeneradorCodigo:
 
     # ── Bloque ────────────────────────────────────────────────────────────
 
+    # ─────────────────────────────────────────────────────────────
+    # BLOCK
+    # ─────────────────────────────────────────────────────────────
+
     def p_block(self, p):
         """block : LBRACE stmt_list RBRACE"""
-        p[0] = NodoBloque(p[2], linea=p.lineno(1))
+
+        code = []
+
+        for stmt in p[2]:
+
+            if isinstance(stmt, dict):
+                code.extend(stmt.get('code', []))
+
+        p[0] = {
+            'code': code
+        }
 
     # ══════════════════════════════════════════════════════════════════════
     # EXPRESIONES
     # ══════════════════════════════════════════════════════════════════════
+    
+    # ─────────────────────────────────────────────────────────────
+    # Helpers
+    # ─────────────────────────────────────────────────────────────
 
-    # Aritmética
+    def format_operand(self, value):
+
+        if isinstance(value, dict):
+            return value['result']
+
+        if isinstance(value, (int, float)):
+            return str(value)
+
+        if isinstance(value, str) and value.startswith("R"):
+            return value
+
+        return f'[{value}]'
+    
+    # ─────────────────────────────────────────────────────────────
+    # ARITHMETIC
+    # ─────────────────────────────────────────────────────────────
+
     def p_expr_binop(self, p):
-        """expr : expr PLUS   expr
-                | expr MINUS  expr
-                | expr TIMES  expr
+        """expr : expr PLUS expr
+                | expr MINUS expr
+                | expr TIMES expr
                 | expr DIVIDE expr
-                | expr MOD    expr"""
-        p[0] = NodoBinario(p[2], p[1], p[3], linea=p.lineno(2))
+                | expr MOD expr"""
 
-    # Comparación
+        left_code  = p[1]['code']
+        right_code = p[3]['code']
+
+        left  = self.format_operand(p[1])
+        right = self.format_operand(p[3])
+
+        instr = []
+
+        instr.extend(left_code)
+        instr.extend(right_code)
+
+        instr.append(f'MOV R3, {left}')
+
+        is_float = (
+            isinstance(p[1]['result'], float) or
+            isinstance(p[3]['result'], float)
+        )
+
+        if p[2] == '+':
+
+            if is_float:
+                instr.append(f'FPADD R3, {right}')
+            else:
+                instr.append(f'ADD R3, {right}')
+
+        elif p[2] == '-':
+
+            if is_float:
+                instr.append(f'FPSUB R3, {right}')
+            else:
+                instr.append(f'SUB R3, {right}')
+
+        elif p[2] == '*':
+
+            if is_float:
+                instr.append(f'FPMUL R3, {right}')
+            else:
+                instr.append(f'MUL R3, {right}')
+
+        elif p[2] == '/':
+
+            if is_float:
+                instr.append(f'FPDIV R3, {right}')
+            else:
+                instr.append(f'DIV R3, {right}')
+
+        elif p[2] == '%':
+
+            if is_float:
+                instr.append(f'FPMOD R3, {right}')
+            else:
+                instr.append(f'MOD R3, {right}')
+
+        p[0] = {
+            'code': instr,
+            'result': 'R3'
+        }
+
+
+
+    # ─────────────────────────────────────────────────────────────
+    # COMPARISONS
+    # ─────────────────────────────────────────────────────────────
+
     def p_expr_cmp(self, p):
-        """expr : expr EQ  expr
+        """expr : expr EQ expr
                 | expr NEQ expr
-                | expr LT  expr
-                | expr GT  expr
+                | expr LT expr
+                | expr GT expr
                 | expr LEQ expr
                 | expr GEQ expr"""
-        p[0] = NodoBinario(p[2], p[1], p[3], linea=p.lineno(2))
 
-    # Lógica
+        left_code  = p[1]['code']
+        right_code = p[3]['code']
+
+        left  = self.format_operand(p[1])
+        right = self.format_operand(p[3])
+
+        true_label = f"LTRUE{self.label_counter}"
+        end_label  = f"LEND{self.label_counter}"
+
+        self.label_counter += 1
+
+        instr = []
+
+        instr.extend(left_code)
+        instr.extend(right_code)
+
+        instr.extend([
+            f'MOV R3, {left}',
+            f'CMP R3, {right}',
+        ])
+
+        if p[2] == '==':
+            instr.append(f'JE {true_label}')
+
+        elif p[2] == '!=':
+            instr.append(f'JNE {true_label}')
+
+        elif p[2] == '<':
+            instr.append(f'JL {true_label}')
+
+        elif p[2] == '>':
+            instr.append(f'JG {true_label}')
+
+        elif p[2] == '<=':
+            instr.append(f'JLE {true_label}')
+
+        elif p[2] == '>=':
+            instr.append(f'JGE {true_label}')
+
+        instr.extend([
+            'MOV R5, 0',
+            f'JMP {end_label}',
+            f'{true_label}:',
+            'MOV R5, 1',
+            f'{end_label}:'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R5'
+        }
+
+    # ─────────────────────────────────────────────────────────────
+    # LOGICAL
+    # ─────────────────────────────────────────────────────────────
+
     def p_expr_and(self, p):
         """expr : expr AND expr"""
-        p[0] = NodoBinario('and', p[1], p[3], linea=p.lineno(2))
+
+        left_code  = p[1]['code']
+        right_code = p[3]['code']
+
+        left  = self.format_operand(p[1])
+        right = self.format_operand(p[3])
+
+        instr = []
+
+        instr.extend(left_code)
+        instr.extend(right_code)
+
+        instr.extend([
+            f'MOV R4, {left}',
+            f'AND R4, {right}'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R4'
+        }
+
 
     def p_expr_or(self, p):
         """expr : expr OR expr"""
-        p[0] = NodoBinario('or', p[1], p[3], linea=p.lineno(2))
+
+        left_code  = p[1]['code']
+        right_code = p[3]['code']
+
+        left  = self.format_operand(p[1])
+        right = self.format_operand(p[3])
+
+        instr = []
+
+        instr.extend(left_code)
+        instr.extend(right_code)
+
+        instr.extend([
+            f'MOV R4, {left}',
+            f'OR R4, {right}'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R4'
+        }
+
 
     def p_expr_xor(self, p):
         """expr : expr XOR expr"""
-        p[0] = NodoBinario('xor', p[1], p[3], linea=p.lineno(2))
+
+        left_code  = p[1]['code']
+        right_code = p[3]['code']
+
+        left  = self.format_operand(p[1])
+        right = self.format_operand(p[3])
+
+        instr = []
+
+        instr.extend(left_code)
+        instr.extend(right_code)
+
+        instr.extend([
+            f'MOV R4, {left}',
+            f'XOR R4, {right}'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R4'
+        }
+
 
     def p_expr_not(self, p):
         """expr : NOT expr"""
-        p[0] = NodoUnario('not', p[2], linea=p.lineno(1))
 
-    # Negación unaria
+        value = self.format_operand(p[2])
+
+        instr = []
+
+        instr.extend(p[2]['code'])
+
+        instr.extend([
+            f'MOV R4, {value}',
+            'NOT R4'
+        ])
+
+        p[0] = {
+            'code': instr,
+            'result': 'R4'
+        }
+
+
+
+
+    # ─────────────────────────────────────────────────────────────
+    # UMINUS
+    # ─────────────────────────────────────────────────────────────
+
     def p_expr_uminus(self, p):
         """expr : MINUS expr %prec UMINUS"""
-        p[0] = NodoUnario('-', p[2], linea=p.lineno(1))
+
+        value = self.format_operand(p[2])
+
+        instr = []
+
+        instr.extend(p[2]['code'])
+
+        instr.append(f'MOV R3, {value}')
+
+        if isinstance(p[2]['result'], float):
+            instr.append('FPMUL R3, -1.0')
+        else:
+            instr.append('MUL R3, -1')
+
+        p[0] = {
+            'code': instr,
+            'result': 'R3'
+        }
+
 
     # Acceso a arreglo
     def p_expr_index(self, p):
@@ -557,34 +1004,73 @@ class GeneradorCodigo:
         """expr : LPAREN expr RPAREN"""
         p[0] = p[2]
 
-    # Literales e identificadores
+
+
+
+    # ─────────────────────────────────────────────────────────────
+    # LITERALS
+    # ─────────────────────────────────────────────────────────────
+
     def p_expr_id(self, p):
         """expr : ID"""
-        p[0] = p[1]
+
+        p[0] = {
+            'code': [],
+            'result': p[1]
+        }
+
 
     def p_expr_int(self, p):
         """expr : INT_LIT"""
-        p[0] = p[1]
+
+        p[0] = {
+            'code': [],
+            'result': int(p[1])
+        }
+
 
     def p_expr_float(self, p):
         """expr : FLOAT_LIT"""
-        p[0] = p[1]
+
+        p[0] = {
+            'code': [],
+            'result': float(p[1])
+        }
+
 
     def p_expr_string(self, p):
         """expr : STRING"""
-        p[0] = p[1]
+
+        p[0] = {
+            'code': [],
+            'result': str(p[1])
+        }
+
 
     def p_expr_indeed(self, p):
         """expr : INDEED"""
-        p[0] = True
+
+        p[0] = {
+            'code': [],
+            'result': 1
+        }
+
 
     def p_expr_nope(self, p):
         """expr : NOPE"""
-        p[0] = False
+
+        p[0] = {
+            'code': [],
+            'result': 0
+        }
+
 
     def p_expr_nothing(self, p):
         """expr : NOTHING"""
-        p[0] = None
+        p[0] = {
+            'code': [],
+            'result': -0.0
+        }
 
     # ── Lista de argumentos ───────────────────────────────────────────────
 
@@ -629,6 +1115,10 @@ class GeneradorCodigo:
         )
         self.text = []
         self.data = []
+        self.cmp_label_count = 0
+        self.else_counter = 0
+        self.if_counter = 0
+        self.while_counter = 0
 
     def parse(self, codigo: str) -> tuple[list[str], object]:
         """
@@ -659,13 +1149,21 @@ if __name__ == '__main__':
     a_s = GeneradorCodigo()
  
     sample_code = '''
-let a: int = 2
-let b: int = 2
-let arr: int[5] = 1,8,4,2,10
-set a = a + b
+    let n: int = 5
+    let a: int[n] = 1,8,4,2,10
+
+    let max: int = a[0]
+
+    for (let i: int = 1, i < n, set i += 1){
+        if (max < a[i]){
+            set max = a[i]
+        }
+    }
+
 '''
 
     errors, ast = a_s.parse(sample_code)
     print(errors)
     print(a_s.data)
     print(a_s.text)
+
