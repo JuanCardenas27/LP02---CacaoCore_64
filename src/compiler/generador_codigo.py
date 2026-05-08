@@ -605,21 +605,113 @@ class GeneradorCodigo:
 
     def p_for(self, p):
         """for_stmt : FOR LPAREN for_init COMMA expr COMMA for_update RPAREN block"""
-        p[0] = NodoPara(p[3], p[5], p[7], p[9], linea=p.lineno(1))
+
+        start_label = f"LFOR_START{self.for_counter}"
+        end_label   = f"LFOR_END{self.for_counter}"
+
+        self.for_counter += 1
+
+        init_code = p[3]["code"]
+
+        cond_code = p[5]["code"]
+        cond_reg  = p[5]["result"]
+
+        update_code = p[7]["code"]
+
+        body_code = p[9]
+
+        code = []
+
+        # init
+        code.extend(init_code)
+
+        # start
+        code.append(f"{start_label}:")
+
+        # condición
+        code.extend(cond_code)
+
+        code.append(f"CMP {cond_reg}, 0")
+        code.append(f"JE {end_label}")
+
+        # cuerpo
+        code.extend(body_code)
+
+        # update
+        code.extend(update_code)
+
+        # loop
+        code.append(f"JMP {start_label}")
+
+        # end
+        code.append(f"{end_label}:")
+
+        p[0] = code
 
     # for_init: declaración let simple, expresión, o vacío
     def p_for_init_let(self, p):
         """for_init : LET ID COLON type_annot ASSIGN expr"""
-        p[0] = NodoDeclaracion(p[2], p[4], valor=p[6], linea=p.lineno(1))
+
+        value = p[6]
+
+        if isinstance(value, dict):
+            init_value = value["result"]
+            code = value["code"]
+        else:
+            init_value = value
+            code = []
+
+        self.data.append(f"{p[2]} : 0")
+
+        code.append(f"MOVD [{p[2]}], {init_value}")
+
+        p[0] = {
+            "code": code,
+            "result": p[2]
+        }
 
     # for_update: set simple, expresión, o vacío
     def p_for_update_set_assign(self, p):
         """for_update : SET lvalue ASSIGN expr"""
-        p[0] = NodoReasignacion(p[2], '=', p[4], linea=p.lineno(1))
+
+        lvalue_code = p[2]["code"]
+        expr_code   = p[4]["code"]
+        expr_result = p[4]["result"]
+
+        code = []
+
+        code.extend(lvalue_code)
+        code.extend(expr_code)
+
+        code.append(f"MOVD [R1], {expr_result}")
+
+        p[0] = {
+            "code": code,
+            "result": None
+        }
 
     def p_for_update_set_pluseq(self, p):
         """for_update : SET lvalue SWEET_PLUS expr"""
-        p[0] = NodoReasignacion(p[2], '+=', p[4], linea=p.lineno(1))
+
+        lvalue_code = p[2]["code"]
+        expr_code   = p[4]["code"]
+        expr_result = p[4]["result"]
+
+        code = []
+
+        code.extend(lvalue_code)
+        code.extend(expr_code)
+
+        code.extend([
+            "MOV R6, [R1]",
+            f"ADD R6, {expr_result}",
+            "MOVD [R1], R6"
+        ])
+
+        p[0] = {
+            "code": code,
+            "result": None
+        }
 
     def p_for_update_expr(self, p):
         """for_update : expr"""
@@ -1119,6 +1211,7 @@ class GeneradorCodigo:
         self.else_counter = 0
         self.if_counter = 0
         self.while_counter = 0
+        self.for_counter = 0
 
     def parse(self, codigo: str) -> tuple[list[str], object]:
         """
