@@ -8,6 +8,7 @@ from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
 from gui.zoom_manager import ZoomManager
 from assembler import ASM, ASMLexicError, ASMParseError
 from compiler import compiler
+from enlazador_cargador.enlazador import Enlazador, ErrorEnlazador
 from enlazador_cargador.linker import Linker, LinkerError
 from preprocesador import Preprocesador, PreprocesadorError
 
@@ -787,10 +788,12 @@ class CompilerGui:
                 return
 
             # ── Ejecutar el enlazador/cargador ───────────────────────────────
-            linker = Linker()
             try:
-                output_text = linker.link_and_load(reloc_text, base_address)
-            except LinkerError as exc:
+                # Usar el nuevo Enlazador para procesar relocalizable con librerías
+                enlazador = Enlazador()
+                binario = enlazador.procesar_relocalizable(reloc_text, base_address)
+                output_text = self._formato_salida_binario(binario)
+            except ErrorEnlazador as exc:
                 self._ll_show_error(f"Error de enlazado:\n{exc}")
                 return
             except Exception as exc:
@@ -809,6 +812,40 @@ class CompilerGui:
         self.ll_loaded.delete("1.0", tk.END)
         self.ll_loaded.insert("1.0", f"[ERROR]\n{message}")
         self.ll_loaded.configure(state="disabled")
+
+    def _formato_salida_binario(self, binario) -> str:
+        """
+        Formatea un BinarioEjectable para mostrar en la GUI.
+        
+        Args:
+            binario: Objeto BinarioEjectable con código y datos
+            
+        Returns:
+            String formateado con información del binario
+        """
+        lineas = []
+        lineas.append(f"[BINARIO EJECUTABLE]")
+        lineas.append(f"Dirección base: 0x{binario.direccion_base:08x}")
+        lineas.append(f"Tamaño código: {len(binario.codigo)} bytes")
+        lineas.append(f"Tamaño datos: {len(binario.datos)} bytes")
+        lineas.append("")
+        lineas.append("[CÓDIGO (hexadecimal)]")
+        
+        # Mostrar código en palabras de 8 bytes (16 hex chars) 
+        for i in range(0, len(binario.codigo), 8):
+            chunk = binario.codigo[i:i+8]
+            hex_str = chunk.hex().upper().zfill(16)
+            lineas.append(hex_str)
+        
+        if binario.datos:
+            lineas.append("")
+            lineas.append("[DATOS (hexadecimal)]")
+            for i in range(0, len(binario.datos), 8):
+                chunk = binario.datos[i:i+8]
+                hex_str = chunk.hex().upper().zfill(16)
+                lineas.append(hex_str)
+        
+        return "\n".join(lineas)
 
     def _ll_load(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])

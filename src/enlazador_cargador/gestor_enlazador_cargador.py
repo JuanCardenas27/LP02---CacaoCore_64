@@ -14,7 +14,7 @@ Uso típico:
 
 import os
 from typing import List, Optional, Dict
-from .enlazador import EnlazadorMejorado, BinarioEjectable, ErrorEnlazador
+from .enlazador import Enlazador, BinarioEjectable, ErrorEnlazador
 from .cargador import CargadorMejorado, ErrorCargador
 
 
@@ -31,7 +31,7 @@ class GestorEnlazadorCargador:
         """
         self.procesador = procesador
         self.verbose = verbose
-        self.enlazador = EnlazadorMejorado()
+        self.enlazador = Enlazador()
         self.cargador = CargadorMejorado(procesador)
         self.ultimo_error = None
         self.ultimo_binario: Optional[BinarioEjectable] = None
