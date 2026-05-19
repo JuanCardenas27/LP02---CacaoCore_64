@@ -94,7 +94,7 @@ class AnalizadorSemantico:
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
     precedence = (
-        ('left',  'OR'),
+        ('left',  'OR', 'XOR'),
         ('left',  'AND'),
         ('right', 'NOT'),
         ('left',  'EQ', 'NEQ'),
@@ -145,6 +145,11 @@ class AnalizadorSemantico:
         # Validar y definir símbolo
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(
             name,
             'variable',
@@ -158,6 +163,11 @@ class AnalizadorSemantico:
 
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
 
         init_data = p[6]
 
@@ -173,6 +183,11 @@ class AnalizadorSemantico:
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(
             name,
             'array',
@@ -186,6 +201,11 @@ class AnalizadorSemantico:
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(
             name,
             'array',
@@ -199,6 +219,11 @@ class AnalizadorSemantico:
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(name, 'array', type_name, p.lineno(1), dims=2)
 
     def p_let_array_2d_val(self, p):
@@ -206,6 +231,11 @@ class AnalizadorSemantico:
 
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
 
         self._define_symbol(
             name,
@@ -372,14 +402,21 @@ class AnalizadorSemantico:
         """func_def : FUNC ID LPAREN enter_function_scope param_list RPAREN block"""
 
         name = p[2]
+        params = p[5]
 
         self._define_symbol(
             name,
             'function',
-            None,
+            'void',
             p.lineno(1),
             value=None
         )
+
+        sym = self._resolve_symbol(name)
+
+        if sym is not None:
+            sym['params'] = params
+            sym['return_type'] = 'void'
 
     def p_enter_function_scope(self, p):
         """enter_function_scope :"""
@@ -393,23 +430,36 @@ class AnalizadorSemantico:
         self._define_symbol(
             name,
             'function',
-            None,
+            'void',
             p.lineno(1),
             value=None
         )
 
+        sym = self._resolve_symbol(name)
+
+        if sym is not None:
+            sym['params'] = []
+            sym['return_type'] = 'void'
+
     def p_param_list_one(self, p):
         """param_list : param"""
-        pass
+
+        p[0] = [p[1]]
 
     def p_param_list_many(self, p):
         """param_list : param_list COMMA param"""
-        pass
+
+        p[0] = p[1] + [p[3]]
 
     def p_param(self, p):
         """param : ID COLON type_annot"""
         name = p[1]
         type_name = p[3]
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(
             name,
             'parameter',
@@ -417,6 +467,10 @@ class AnalizadorSemantico:
             p.lineno(1),
             value=None
         )
+        p[0] = {
+            'name': name,
+            'type': type_name
+        }
 
     # ── Mold
     def p_mold_def(self, p):
@@ -463,7 +517,14 @@ class AnalizadorSemantico:
     # ── if / otherwise
     def p_if_simple(self, p):
         """if_stmt : IF expr enter_if_scope block"""
-        pass
+        cond_type = self._extract_type(p[2])
+
+        if cond_type != 'bool':
+
+            self._emit_error(
+                p.lineno(1),
+                "la condición del if debe ser bool"
+            )
 
     def p_enter_if_scope(self, p):
         """enter_if_scope :"""
@@ -471,7 +532,14 @@ class AnalizadorSemantico:
 
     def p_if_otherwise(self, p):
         """if_stmt : IF expr enter_if_scope block OTHERWISE enter_else_scope block"""
-        pass
+        cond_type = self._extract_type(p[2])
+
+        if cond_type != 'bool':
+
+            self._emit_error(
+                p.lineno(1),
+                "la condición del if debe ser bool"
+            )
 
     def p_enter_else_scope(self, p):
         """enter_else_scope :"""
@@ -480,7 +548,14 @@ class AnalizadorSemantico:
     # ── asLongAs (while)
     def p_while(self, p):
         """while_stmt : ASLONGAS expr enter_while_scope block"""
-        pass
+        cond_type = self._extract_type(p[2])
+
+        if cond_type != 'bool':
+
+            self._emit_error(
+                p.lineno(1),
+                "la condición del while debe ser bool"
+            )
     
     def p_enter_while_scope(self, p):
         """enter_while_scope :"""
@@ -489,7 +564,14 @@ class AnalizadorSemantico:
     # ── for
     def p_for(self, p):
         """for_stmt : FOR LPAREN enter_for_scope for_init COMMA expr COMMA for_update RPAREN block"""
-        pass
+        cond_type = self._extract_type(p[6])
+
+        if cond_type != 'bool':
+
+            self._emit_error(
+                p.lineno(1),
+                "la condición del for debe ser bool"
+            )
 
     def p_enter_for_scope(self, p):
         """enter_for_scope :"""
@@ -499,6 +581,11 @@ class AnalizadorSemantico:
         """for_init : LET ID COLON type_annot ASSIGN expr"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+        if not self._type_exists(type_name):
+            self._emit_error(
+                p.lineno(3),
+                f"tipo '{type_name}' no existe"
+            )
         self._define_symbol(
             name,
             'variable',
@@ -679,8 +766,16 @@ class AnalizadorSemantico:
 
     def p_expr_uminus(self, p):
         """expr : MINUS expr %prec UMINUS"""
+        expr_type = self._extract_type(p[2])
+
+        if expr_type not in ('int', 'float'):
+            self._emit_error(
+                p.lineno(1),
+                "el operador unario '-' requiere un valor numérico"
+            )
+
         p[0] = self._make_expr_data(
-            self._extract_type(p[2]),
+            expr_type,
             None
         )
 
@@ -698,30 +793,23 @@ class AnalizadorSemantico:
                 "el índice de array debe ser int"
             )
 
-        target_type = self._extract_type(target)
+        target_dims = self._extract_dims(target)
 
-        if isinstance(target, dict):
+        if target_dims <= 0:
 
-            dims = target.get('dims', 0)
-
-            if dims <= 0:
-                self._emit_error(
-                    p.lineno(2),
-                    "el símbolo no es indexable"
-                )
-
-            p[0] = self._make_expr_data(
-                target_type,
-                None,
-                dims=max(dims - 1, 0)
+            self._emit_error(
+                p.lineno(2),
+                "el símbolo no es indexable"
             )
 
-        else:
+            p[0] = self._make_expr_data('unknown')
+            return
 
-            p[0] = self._make_expr_data(
-                'unknown',
-                None
-            )
+        p[0] = self._make_expr_data(
+            self._extract_type(target),
+            None,
+            dims=max(target_dims - 1, 0)
+        )
 
     def p_expr_method_call(self, p):
         """expr : expr DOT ID LPAREN arg_list RPAREN
@@ -774,6 +862,7 @@ class AnalizadorSemantico:
         # Validar que función existe
         name = p[1]
         sym = self._resolve_symbol(name)
+
         if sym is None:
 
             self._emit_error(
@@ -783,16 +872,35 @@ class AnalizadorSemantico:
 
             p[0] = self._make_expr_data('unknown')
             return
+
+        if sym.get('kind') != 'function':
+
+            self._emit_error(
+                p.lineno(1),
+                f"'{name}' no es una función"
+            )
+
+            p[0] = self._make_expr_data('unknown')
+            return
+        
+        expected_params = sym.get('params', [])
+
+        self._validate_call_arguments(
+            p.lineno(1),
+            expected_params,
+            p[3]
+        )
+        
         p[0] = self._make_expr_data(
-            sym.get('type', 'unknown'),
-            sym.get('value'),
-            sym.get('dims', 0)
+            sym.get('return_type', 'void'),
+            None
         )
 
     def p_expr_call_noargs(self, p):
         """expr : ID LPAREN RPAREN"""
         name = p[1]
         sym = self._resolve_symbol(name)
+
         if sym is None:
 
             self._emit_error(
@@ -802,6 +910,26 @@ class AnalizadorSemantico:
 
             p[0] = self._make_expr_data('unknown')
             return
+
+        if sym.get('kind') != 'function':
+
+            self._emit_error(
+                p.lineno(1),
+                f"'{name}' no es una función"
+            )
+
+            p[0] = self._make_expr_data('unknown')
+            return
+        
+        expected_params = sym.get('params', [])
+
+        if len(expected_params) != 0:
+
+            self._emit_error(
+                p.lineno(1),
+                f"la función '{name}' requiere argumentos"
+            )
+        
         p[0] = self._make_expr_data(
             sym.get('type', 'unknown'),
             sym.get('value'),
@@ -933,11 +1061,13 @@ class AnalizadorSemantico:
 
     def p_arg_list_one(self, p):
         """arg_list : expr"""
-        pass
+
+        p[0] = [p[1]]
 
     def p_arg_list_many(self, p):
         """arg_list : arg_list COMMA expr"""
-        pass
+
+        p[0] = p[1] + [p[3]]
 
     # ── Vacío
     def p_empty(self, p):
@@ -975,6 +1105,8 @@ class AnalizadorSemantico:
             debug=False,
             write_tables=False,
         )
+        self.current_function = None
+        self.pending_params = []
 
     def parse(self, codigo: str) -> tuple[list[str], object]:
         """
@@ -1046,6 +1178,64 @@ class AnalizadorSemantico:
         if isinstance(expr_data, dict):
             return expr_data.get('dims', 0)
         return 0
+    
+    def _type_exists(self, type_name):
+
+        primitive_types = {
+            'int',
+            'float',
+            'text',
+            'bool',
+            'void'
+        }
+
+        if type_name in primitive_types:
+            return True
+
+        return type_name in self.molds
+    
+    def _validate_call_arguments(
+        self,
+        line,
+        expected_params,
+        received_args
+    ):
+
+        if len(expected_params) != len(received_args):
+
+            self._emit_error(
+                line,
+                f"se esperaban {len(expected_params)} argumentos "
+                f"y se recibieron {len(received_args)}"
+            )
+
+            return False
+
+        for expected, received in zip(expected_params, received_args):
+
+            expected_type = expected['type']
+            received_type = self._extract_type(received)
+
+            compatible = (
+                expected_type == received_type or
+                (
+                    expected_type == 'float' and
+                    received_type == 'int'
+                )
+            )
+
+            if not compatible:
+
+                self._emit_error(
+                    line,
+                    f"argumento incompatible: "
+                    f"se esperaba '{expected_type}' "
+                    f"y se recibió '{received_type}'"
+                )
+
+                return False
+
+        return True
     
     def _resolve_lvalue_type(self, lvalue, line):
 
@@ -1120,6 +1310,10 @@ class AnalizadorSemantico:
         self.scope_names = ['global']
         self.defined_symbols = []
         self.semantic_symbol_table = {}
+        self.current_function = None
+        self.pending_params = []
+        self.molds = {}
+        self.current_mold = None
 
     def _emit_error(self, line: int, message: str):
         """Emitir error semántico."""
