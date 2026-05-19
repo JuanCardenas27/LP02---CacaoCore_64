@@ -29,6 +29,7 @@ class CompilerGui:
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
         self._zoom_manager   = None
         self._palette_name    = "current"
+        self._pc_source_path = None
 
         # Incializa estilos 
         setup_styles()
@@ -371,12 +372,14 @@ class CompilerGui:
                 data = f.read()
             self.pc_hl.delete("1.0", tk.END)
             self.pc_hl.insert("1.0", data)
+            self._pc_source_path = path
 
     def _pc_erase(self):
         self.pc_hl.delete("1.0", tk.END)
         self.pc_out.configure(state="normal")
         self.pc_out.delete("1.0", tk.END)
         self.pc_out.configure(state="disabled")
+        self._pc_source_path = None
 
     # ══════════════════════════════════════════════════════════════════════
     # FASE 1 – COMPILER  (léxico / sintáctico / semántico)
@@ -764,7 +767,8 @@ class CompilerGui:
         pre = Preprocesador()
 
         try:
-            resultado = pre.preprocess(codigo, nombre_fuente="<gui>")
+            nombre_fuente = self._pc_source_path or "<gui>"
+            resultado = pre.preprocess(codigo, nombre_fuente=nombre_fuente)
             salida = resultado.text
         except PreprocesadorError as exc:
             salida = str(exc)

@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 
 from .errors import CondicionalError, IncludeError, MacroError, PreprocesadorError
 from .lexer_high_level import build_lexer
@@ -24,7 +24,18 @@ class Preprocesador:
         self._imports_set: set = set()
         self._externs_explicit: set = set()
         self._librerias_importadas: Dict[str, str] = {}  # calificador (e.g. "math.lib") -> nombre_archivo
-        self._funciones_por_libreria: Dict[str, List[Tuple[str, int]]] = {}  # libreria -> [(nombre, linea)]
+        self._funciones_por_libreria: Dict[str, List[Tuple[str, SourceLine]]] = {}
+
+        # Seguimiento de imports desde codigo fuente
+        self._include_stack: List[str] = []
+        self._included_sources: Set[str] = set()
+        self._source_defs: Dict[str, Set[str]] = {}
+        self._source_exports_decl: Dict[str, Set[str]] = {}
+        self._source_exports: Dict[str, Set[str]] = {}
+        self._source_internals: Dict[str, Set[str]] = {}
+        self._source_imports: Dict[str, Set[str]] = {}
+        self._public_symbols: Dict[str, str] = {}
+        self._export_decl_lines: Dict[str, Dict[str, int]] = {}
 
         self._macros_base: Dict[str, Macro] = {}
         if macros_iniciales:
@@ -142,8 +153,36 @@ class Preprocesador:
         if fin_llave == -1: raise IncludeError(f"#include inválido: {linea_raw}")
         lista = resto[1:fin_llave].strip()
         if resto[fin_llave+1:].strip(): raise IncludeError(f"#include inválido: {linea_raw}")
-        funcs = [f.strip() for f in lista.split(",") if f.strip()]
+        funcs = self._parsear_lista_nombres(lista)
         return nombre, funcs if funcs else None
+
+    def _parsear_lista_nombres(
+        self,
+        lista_raw: str,
+        fuente: Optional[str] = None,
+        numero_linea: Optional[int] = None,
+    ) -> List[str]:
+        """Parsea lista separada por comas y valida que tenga elementos."""
+        nombres = [f.strip() for f in lista_raw.split(",") if f.strip()]
+        if not nombres:
+            raise PreprocesadorError("Lista vacia en directiva", fuente, numero_linea)
+        return nombres
+
+    def _parsear_export(self, linea_raw: str, fuente: str, numero_linea: int) -> List[str]:
+        """Parsea #export y retorna lista de nombres."""
+        payload = self._extraer_payload_directiva(linea_raw, "export")
+        if not payload:
+            raise PreprocesadorError(f"#export inválido: {linea_raw}", fuente, numero_linea)
+        payload = payload.strip()
+        if payload.startswith("{"):
+            fin_llave = payload.find("}")
+            if fin_llave == -1:
+                raise PreprocesadorError(f"#export inválido: {linea_raw}", fuente, numero_linea)
+            lista = payload[1:fin_llave].strip()
+            if payload[fin_llave+1:].strip():
+                raise PreprocesadorError(f"#export inválido: {linea_raw}", fuente, numero_linea)
+            return self._parsear_lista_nombres(lista, fuente, numero_linea)
+        return self._parsear_lista_nombres(payload, fuente, numero_linea)
 
     def _parsear_nombre_macro(self, linea_raw: str, dir_name: str) -> str:
         """Extrae nombre de macro de directivas."""
@@ -153,6 +192,161 @@ class Preprocesador:
         nombre, _ = self._leer_identificador(payload, idx)
         if not nombre: raise PreprocesadorError(f"#{dir_name} inválido: {linea_raw}")
         return nombre
+
+    # ======================== IMPORTS DESDE FUENTE ========================
+
+    def _es_import_compilado(self, nombre: str) -> bool:
+        lower = nombre.lower()
+        return lower.endswith(".lib") or lower.endswith(".reloc") or lower.endswith(".obj")
+
+    def _resolver_ruta_include(self, nombre: str, fuente: str) -> str:
+        """Resuelve ruta de include relativa a la fuente actual."""
+        if os.path.isabs(nombre):
+            return os.path.abspath(nombre)
+        if fuente and os.path.isfile(fuente):
+            base_dir = os.path.dirname(fuente)
+        else:
+            base_dir = os.getcwd()
+        candidato = os.path.abspath(os.path.join(base_dir, nombre))
+        if os.path.isfile(candidato):
+            return candidato
+
+        encontrado = self._buscar_en_examples(nombre, base_dir)
+        if encontrado:
+            return encontrado
+
+        return candidato
+
+    def _buscar_en_examples(self, nombre: str, base_dir: str) -> Optional[str]:
+        """Busca un include dentro de src/examples (incluye subdirectorios)."""
+        candidatos = []
+        for root in (base_dir, os.getcwd()):
+            src_examples = os.path.join(root, "src", "examples")
+            if os.path.isdir(src_examples):
+                candidatos.append(src_examples)
+            examples = os.path.join(root, "examples")
+            if os.path.isdir(examples):
+                candidatos.append(examples)
+
+        for directorio in candidatos:
+            direct_path = os.path.join(directorio, nombre)
+            if os.path.isfile(direct_path):
+                return os.path.abspath(direct_path)
+
+        for directorio in candidatos:
+            for dirpath, _, filenames in os.walk(directorio):
+                if nombre in filenames:
+                    return os.path.abspath(os.path.join(dirpath, nombre))
+
+        return None
+
+    def _registrar_export(self, fuente: str, nombres: List[str], numero_linea: int) -> None:
+        decl = self._source_exports_decl.setdefault(fuente, set())
+        lineas = self._export_decl_lines.setdefault(fuente, {})
+        for nombre in nombres:
+            if nombre in decl:
+                continue
+            decl.add(nombre)
+            lineas[nombre] = numero_linea
+
+    def _registrar_definicion(self, fuente: str, nombre: str) -> None:
+        defs = self._source_defs.setdefault(fuente, set())
+        defs.add(nombre)
+
+    def _finalizar_archivo(self, fuente: str) -> None:
+        if fuente in self._source_exports:
+            return
+        defs = self._source_defs.get(fuente, set())
+        exports_decl = self._source_exports_decl.get(fuente, set())
+        if exports_decl:
+            missing = exports_decl - defs
+            if missing:
+                nombre = sorted(missing)[0]
+                linea = self._export_decl_lines.get(fuente, {}).get(nombre, 0)
+                raise IncludeError(
+                    f"Export no definido en '{fuente}': {sorted(missing)}",
+                    fuente,
+                    linea,
+                )
+            exports = set(exports_decl)
+        else:
+            exports = set(defs)
+        self._source_exports[fuente] = exports
+        self._source_internals[fuente] = set(defs) - exports
+
+    def _registrar_publicos(
+        self,
+        fuente_origen: str,
+        ruta_modulo: str,
+        nombres: Set[str],
+        numero_linea: int,
+    ) -> None:
+        for nombre in nombres:
+            if nombre in self._public_symbols and self._public_symbols[nombre] != ruta_modulo:
+                raise IncludeError(
+                    f"Conflicto de simbolo '{nombre}' entre '{ruta_modulo}' y '{self._public_symbols[nombre]}'",
+                    fuente_origen,
+                    numero_linea,
+                )
+            self._public_symbols[nombre] = ruta_modulo
+
+    def _registrar_imports(
+        self,
+        ruta_modulo: str,
+        funciones: Optional[List[str]],
+        fuente_origen: str,
+        numero_linea: int,
+    ) -> None:
+        self._finalizar_archivo(ruta_modulo)
+        exports = self._source_exports.get(ruta_modulo, set())
+        if funciones:
+            solicitadas = set(funciones)
+            missing = solicitadas - exports
+            if missing:
+                raise IncludeError(
+                    f"Simbolo(s) no exportado(s) en '{ruta_modulo}': {sorted(missing)}",
+                    fuente_origen,
+                    numero_linea,
+                )
+        else:
+            solicitadas = set(exports)
+
+        self._source_imports.setdefault(ruta_modulo, set()).update(solicitadas)
+        self._registrar_publicos(fuente_origen, ruta_modulo, solicitadas, numero_linea)
+
+    def _detectar_definicion(self, linea: str) -> Optional[str]:
+        codigo = self._strip_comment(linea).lstrip()
+        if not codigo:
+            return None
+        for keyword in ("func", "let"):
+            if codigo.startswith(keyword):
+                idx = len(keyword)
+                if idx < len(codigo) and not codigo[idx].isspace():
+                    continue
+                idx = self._saltar_espacios(codigo, idx)
+                nombre, _ = self._leer_identificador(codigo, idx)
+                return nombre or None
+        return None
+
+    def _delta_nivel_bloque(self, linea: str) -> int:
+        codigo = self._strip_comment(linea)
+        en_simple = False
+        en_doble = False
+        delta = 0
+        for ch in codigo:
+            if ch == "'" and not en_doble:
+                en_simple = not en_simple
+                continue
+            if ch == '"' and not en_simple:
+                en_doble = not en_doble
+                continue
+            if en_simple or en_doble:
+                continue
+            if ch == "{":
+                delta += 1
+            elif ch == "}":
+                delta -= 1
+        return delta
 
     # ======================== MANEJO DE COMENTARIOS ========================
 
@@ -363,36 +557,45 @@ class Preprocesador:
 
         return codigo + comentario
 
-    def _procesar_tokens(
+    def _procesar_archivo_fuente(
+        self,
+        ruta: str,
+        funciones: Optional[List[str]],
+        fuente_origen: str,
+        numero_linea: int,
+    ) -> Tuple[List[str], List[SourceLine]]:
+        """Procesa un archivo fuente incluido, con deteccion de ciclos."""
+        ruta_absoluta = os.path.abspath(ruta)
+        if ruta_absoluta in self._include_stack:
+            ruta_ciclo = " -> ".join(self._include_stack + [ruta_absoluta])
+            raise IncludeError(f"Import circular detectado: {ruta_ciclo}", fuente_origen, numero_linea)
+
+        if ruta_absoluta in self._included_sources:
+            self._registrar_imports(ruta_absoluta, funciones, fuente_origen, numero_linea)
+            return [], []
+
+        if not os.path.isfile(ruta_absoluta):
+            raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'", fuente_origen, numero_linea)
+
+        self._include_stack.append(ruta_absoluta)
+        prev_pila = self._pila_cond
+        self._pila_cond = []
+        try:
+            with open(ruta_absoluta, "r", encoding="utf-8-sig") as f:
+                contenido = f.read()
+            lineas_salida, mapa_salida = self._procesar_texto(contenido, ruta_absoluta)
+        finally:
+            self._pila_cond = prev_pila
+            self._include_stack.pop()
+
+        self._included_sources.add(ruta_absoluta)
+        self._registrar_imports(ruta_absoluta, funciones, fuente_origen, numero_linea)
+        return lineas_salida, mapa_salida
+
+    def _procesar_texto(
         self, texto: str, fuente: str
     ) -> Tuple[List[str], List[SourceLine]]:
-        """FUNCIÓN CENTRAL DE PREPROCESAMIENTO: Implementa el algoritmo de dos pasadas con PLY Lex.
-        
-        ARQUITECTURA DE DOS PASADAS:
-        
-        PRIMERA PASADA (Tokenización + Procesamiento):
-        1. Usa PLY Lex para tokenizar entrada separando directivas de código
-        2. Procesa directivas: #include, #define, #ifdef, #ifndef, #else, #endif, #undef, #error, #warning
-        3. Mantiene pila de condicionales para #ifdef/#ifndef/#endif anidados
-        4. Detecta y expande macros (simples como PI y parametrizadas como SQUARE(x))
-        5. Detecta funciones calificadas: math.lib.sqrt → registra para auto-import
-        6. Reemplaza llamadas calificadas por simples: math.lib.sqrt() → sqrt()
-        
-        SEGUNDA PASADA (Reorganización):
-        7. Agrupa .extern bajo sus .import correspondientes
-        8. Evita duplicados de .extern
-        9. Mantiene mapa de trazabilidad para debugging (SourceLine)
-        
-        Args:
-            texto: Código fuente completo (con directivas de preprocesador)
-            fuente: Nombre del archivo para traceabilidad de errores
-            
-        Returns:
-            (lineas_salida, mapa_salida): Código procesado sin directivas + metadata de líneas
-            
-        Raises:
-            PreprocesadorError: Errores sintácticos en directivas
-            CondicionalError: #endif sin #ifdef o pila de condicionales desequilibrada"""
+        """Primera pasada: procesa directivas y codigo, con soporte de includes."""
         lineas_salida: List[str] = []
         mapa_salida: List[SourceLine] = []
 
@@ -415,8 +618,8 @@ class Preprocesador:
         if buffer_linea:
             lineas_logicas.append((numero_linea_buffer, "".join(buffer_linea)))
 
-        # Primera pasada: procesar directivas, acumular funciones calificadas, procesar código
-        
+        nivel_bloque = 0
+
         for numero_linea, linea_original in lineas_logicas:
             linea_recortada = linea_original.strip()
             if not linea_recortada:
@@ -433,29 +636,47 @@ class Preprocesador:
                     if not self._activo():
                         continue
                     nombre_archivo, funciones = self._parsear_include(linea_original)
-                    self._emit_import(
-                        nombre_archivo,
-                        lineas_salida,
-                        mapa_salida,
+                    if self._es_import_compilado(nombre_archivo):
+                        self._emit_import(
+                            nombre_archivo,
+                            lineas_salida,
+                            mapa_salida,
+                            fuente,
+                            numero_linea,
+                        )
+                        # Registrar libreria para deteccion de llamadas calificadas
+                        self._librerias_importadas[nombre_archivo] = nombre_archivo
+
+                        if funciones:
+                            for funcion in funciones:
+                                nombre_funcion = funcion.strip()
+                                if not nombre_funcion:
+                                    continue
+                                nombre_normalizado = nombre_funcion.lower()
+                                if nombre_normalizado in self._externs_explicit:
+                                    continue
+                                self._externs_explicit.add(nombre_normalizado)
+                                lineas_salida.append(f".extern {nombre_funcion}")
+                                mapa_salida.append(
+                                    SourceLine(path=fuente, line=numero_linea)
+                                )
+                        continue
+
+                    ruta_include = self._resolver_ruta_include(nombre_archivo, fuente)
+                    lineas_inc, mapa_inc = self._procesar_archivo_fuente(
+                        ruta_include,
+                        funciones,
                         fuente,
                         numero_linea,
                     )
-                    # Registrar librería para detección de llamadas calificadas
-                    self._librerias_importadas[nombre_archivo] = nombre_archivo
-                    
-                    if funciones:
-                        for funcion in funciones:
-                            nombre_funcion = funcion.strip()
-                            if not nombre_funcion:
-                                continue
-                            nombre_normalizado = nombre_funcion.lower()
-                            if nombre_normalizado in self._externs_explicit:
-                                continue
-                            self._externs_explicit.add(nombre_normalizado)
-                            lineas_salida.append(f".extern {nombre_funcion}")
-                            mapa_salida.append(
-                                SourceLine(path=fuente, line=numero_linea)
-                            )
+                    lineas_salida.extend(lineas_inc)
+                    mapa_salida.extend(mapa_inc)
+                    continue
+
+                if nombre_directiva == "export":
+                    if self._activo():
+                        nombres = self._parsear_export(linea_original, fuente, numero_linea)
+                        self._registrar_export(fuente, nombres, numero_linea)
                     continue
 
                 if nombre_directiva == "define":
@@ -519,13 +740,17 @@ class Preprocesador:
             if not self._activo():
                 continue
 
-            # Es línea de código
+            # Es linea de codigo
             linea_expandida = self._expandir_macros(linea_original)
-            
-            # Detectar funciones calificadas (para procesar después)
+
+            if nivel_bloque == 0:
+                definicion = self._detectar_definicion(linea_expandida)
+                if definicion:
+                    self._registrar_definicion(fuente, definicion)
+
+            # Detectar funciones calificadas (para procesar despues)
             funciones_calificadas = self._extractar_funciones_calificadas(linea_expandida)
             for clave_calificada, nombre_funcion in funciones_calificadas.items():
-                # clave_calificada formato: "math.lib.sqrt" → extraer librería "math.lib"
                 partes = clave_calificada.rsplit(".", 1)
                 if len(partes) == 2:
                     nombre_libreria = partes[0]
@@ -533,51 +758,66 @@ class Preprocesador:
                     if nombre_normalizado not in self._externs_explicit:
                         if nombre_libreria not in self._funciones_por_libreria:
                             self._funciones_por_libreria[nombre_libreria] = []
-                        self._funciones_por_libreria[nombre_libreria].append((nombre_funcion, numero_linea))
-            
+                        self._funciones_por_libreria[nombre_libreria].append(
+                            (nombre_funcion, SourceLine(path=fuente, line=numero_linea))
+                        )
+
             # Reemplazar llamadas calificadas por llamadas simples
             linea_reemplazada = self._reemplazar_funciones_calificadas(linea_expandida)
-            
+
             if linea_reemplazada.strip():
                 lineas_salida.append(linea_reemplazada.rstrip())
                 mapa_salida.append(SourceLine(path=fuente, line=numero_linea))
+
+            nivel_bloque += self._delta_nivel_bloque(linea_reemplazada)
+            if nivel_bloque < 0:
+                nivel_bloque = 0
 
         if self._pila_cond:
             raise CondicionalError(
                 f"Faltan {len(self._pila_cond)} directiva(s) #endif", fuente
             )
 
-        # Segunda pasada: insertar .extern debajo de su correspondiente .import
-        # Procesar líneas para insertar .extern después de su .import
-        lineas_salida_organizada = []
-        mapa_salida_organizada = []
-        
+        self._finalizar_archivo(fuente)
+        return lineas_salida, mapa_salida
+
+    def _organizar_externs(
+        self,
+        lineas_salida: List[str],
+        mapa_salida: List[SourceLine],
+    ) -> Tuple[List[str], List[SourceLine]]:
+        """Segunda pasada: inserta .extern debajo de su .import."""
+        lineas_salida_organizada: List[str] = []
+        mapa_salida_organizada: List[SourceLine] = []
+
         i = 0
         while i < len(lineas_salida):
             linea_actual = lineas_salida[i]
             lineas_salida_organizada.append(linea_actual)
             mapa_salida_organizada.append(mapa_salida[i])
-            
-            # Si es un .import, insertar los .extern de esa librería
+
             if linea_actual.startswith('.import "'):
-                # Extraer nombre de la librería: .import "math.lib" → math.lib
-                nombre_lib_with_quotes = linea_actual[9:]  # Skip '.import "'
+                nombre_lib_with_quotes = linea_actual[9:]
                 nombre_lib = nombre_lib_with_quotes.rstrip('"')
-                
-                # Insertar .extern para esta librería si existen
+
                 if nombre_lib in self._funciones_por_libreria:
-                    # Obtener funciones únicas para esta librería (evitar duplicados)
                     funciones_vistas = set()
-                    for nombre_funcion, numero_linea in sorted(self._funciones_por_libreria[nombre_lib], key=lambda x: x[0]):
+                    for nombre_funcion, source_line in sorted(
+                        self._funciones_por_libreria[nombre_lib],
+                        key=lambda x: x[0],
+                    ):
                         nombre_normalizado = nombre_funcion.lower()
-                        if nombre_normalizado not in self._externs_explicit and nombre_normalizado not in funciones_vistas:
+                        if (
+                            nombre_normalizado not in self._externs_explicit
+                            and nombre_normalizado not in funciones_vistas
+                        ):
                             lineas_salida_organizada.append(f".extern {nombre_funcion}")
-                            mapa_salida_organizada.append(SourceLine(path=fuente, line=numero_linea))
+                            mapa_salida_organizada.append(source_line)
                             self._externs_explicit.add(nombre_normalizado)
                             funciones_vistas.add(nombre_normalizado)
-            
+
             i += 1
-        
+
         return lineas_salida_organizada, mapa_salida_organizada
 
     def _reset_state(self) -> None:
@@ -589,22 +829,42 @@ class Preprocesador:
         self._externs_explicit = set()
         self._librerias_importadas = {}
         self._funciones_por_libreria = {}
+        self._include_stack = []
+        self._included_sources = set()
+        self._source_defs = {}
+        self._source_exports_decl = {}
+        self._source_exports = {}
+        self._source_internals = {}
+        self._source_imports = {}
+        self._public_symbols = {}
+        self._export_decl_lines = {}
 
     def _preprocess(self, codigo: str, nombre_fuente: str) -> str:
         """Flujo privado de preprocesamiento."""
         self._reset_state()
-        lineas_salida, _ = self._procesar_tokens(codigo, nombre_fuente)
+        lineas_salida, mapa_salida = self._procesar_texto(codigo, nombre_fuente)
+        lineas_salida, _ = self._organizar_externs(lineas_salida, mapa_salida)
         self._reset_state()
         return "\n".join(lineas_salida)
 
     def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> PreprocessResult:
         """Preprocesa código y retorna resultado con mapa de líneas."""
         self._reset_state()
-        lineas_salida, mapa_salida = self._procesar_tokens(codigo, nombre_fuente)
+        lineas_salida, mapa_salida = self._procesar_texto(codigo, nombre_fuente)
+        lineas_salida, mapa_salida = self._organizar_externs(lineas_salida, mapa_salida)
         texto_salida = "\n".join(lineas_salida)
         if texto_salida:
             texto_salida += "\n"
-        return PreprocessResult(text=texto_salida, line_map=mapa_salida)
+        exports = {k: set(v) for k, v in self._source_exports.items()}
+        internals = {k: set(v) for k, v in self._source_internals.items()}
+        imports = {k: set(v) for k, v in self._source_imports.items()}
+        return PreprocessResult(
+            text=texto_salida,
+            line_map=mapa_salida,
+            exports=exports,
+            internals=internals,
+            imports=imports,
+        )
 
     def preprocess_archivo(self, ruta: str) -> PreprocessResult:
         """Preprocesa un archivo completo."""

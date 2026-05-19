@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional, Set
 
 from .errors import MacroError
 
@@ -18,6 +18,9 @@ class PreprocessResult:
 
     text: str
     line_map: List[SourceLine]
+    exports: Optional[Dict[str, Set[str]]] = None
+    internals: Optional[Dict[str, Set[str]]] = None
+    imports: Optional[Dict[str, Set[str]]] = None
 
 
 @dataclass
