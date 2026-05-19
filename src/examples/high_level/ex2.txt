@@ -1,0 +1,5 @@
+let banana : int = 0
+func a (){
+    set banana = 10
+}
+a()

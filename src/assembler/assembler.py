@@ -15,6 +15,7 @@ class Assembler:
                 self.parser.program[elem[1]] = '{' + self.parser.symbol_table[elem[0]] + '}' + self.parser.program[elem[1]]
             except KeyError:
                 self.parser.program[elem[1]] ='"@func ' + elem[0] + '"' + self.parser.program[elem[1]]
+        print(self.parser.program)
         self.output = "\n".join(self.parser.program)
         return self.output
 

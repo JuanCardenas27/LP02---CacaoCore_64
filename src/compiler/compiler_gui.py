@@ -29,6 +29,7 @@ class CompilerGui:
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
         self._zoom_manager   = None
         self._palette_name    = "current"
+        self.asm_carry = ''
 
         # Incializa estilos 
         setup_styles()
@@ -674,6 +675,7 @@ class CompilerGui:
                          self._asm_erase).pack(side="left", padx=10)
 
         self._refresh_zoom_dynamic()
+        self.asm_src.insert("1.0", self.asm_carry)
 
     def _asm_load(self):
         path = filedialog.askopenfilename(filetypes=[("ASM_FILES", "*.asm"), ("All", "*.*")])
@@ -963,10 +965,10 @@ class CompilerGui:
 
         lines = result[1]
         errors = result[0]
-
+        self.asm_carry = ''
         for val in lines:
             self.gen_code.insert(tk.END, val + "\n")
-
+            self.asm_carry = "".join([self.asm_carry, val + "\n"])
         self.gen_code.config(state="disabled")
 
         self.sem_error.config(state="normal")
@@ -977,6 +979,7 @@ class CompilerGui:
             self.sem_error.insert(tk.END, error + "\n")
 
         self.sem_error.config(state="disabled")
+
 
     def _translate_asm(self):
         asm_mod = ASM()

@@ -51,10 +51,10 @@ class AsmParser:
         self.program.append(str(p[0]))
 
     def p_line_variable_char(self, p):
-        'line : VAR COLON QUOTE VAR QUOTE'
+        'line : VAR COLON STR'
         self.var_table[p[1]] = len(self.program_data)
         self.program_data.append(p[1])
-        p[0] = ord(p[4]).to_bytes(8, byteorder='little').hex()
+        p[0] = ord(p[3][1:-1]).to_bytes(8, byteorder='little').hex()
         self.program.append(str(p[0]))
 
     def p_line_section(self, p):

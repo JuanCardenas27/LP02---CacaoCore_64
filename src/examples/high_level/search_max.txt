@@ -1,5 +1,5 @@
 let n: int = 5
-let a: int[n] = 1,8,4,2,10
+let a: int[5] = 1,8,4,2,10
 
 let max: int = a[0]
 

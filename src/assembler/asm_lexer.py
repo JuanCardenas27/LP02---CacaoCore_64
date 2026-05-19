@@ -9,7 +9,7 @@ class AsmLexer:
     tokens = (
     'MNEMONIC', 'REGISTER', 'NUMBER', 'LABEL', 'COLON',
     'COMMA', 'LBRACKET', 'RBRACKET', 'NEWLINE', 'MEMORY',
-    'SECTION', 'FLOAT', 'VAR', 'REFERENCE', 'QUOTE'
+    'SECTION', 'FLOAT', 'STR', 'VAR', 'REFERENCE', 'QUOTE'
     )
 
     t_COLON    = r':'
@@ -65,6 +65,10 @@ class AsmLexer:
         r'\n+'
         return t
 
+    def t_STR(self, t):
+        "\'[a-zA-Z0-9_][a-zA-Z0-9_]*\'"
+        return t    
+    
     def t_VAR(self, t):
         r'[a-z_][a-z0-9_]*'
         
