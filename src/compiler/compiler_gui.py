@@ -1063,9 +1063,9 @@ class CompilerGui:
             return
 
         carry = ""
-        if self.index == 0:        # pre-processor → compiler: llevar pc_out
+        if self.index == 0:        # pre-processor → compiler: llevar salida completa (con metadata)
             try:
-                carry = self.pc_out.get("1.0", tk.END)
+                carry = getattr(self, '_preprocess_full', self.pc_out.get("1.0", tk.END))
             except Exception:
                 carry = ""
         elif self.index == 2:      # assembler → link&load: llevar asm_out
@@ -1093,9 +1093,21 @@ class CompilerGui:
         except PreprocesadorError as exc:
             salida = str(exc)
 
+        # Guardar salida completa (con metadata) para pasar al compilador
+        self._preprocess_full = salida
+
+        # Filtrar metadata (.import/.extern) para la vista, pero mantener internamente
+        lineas_filtradas = []
+        for linea in salida.split('\n'):
+            # Ocultar .import y .extern en la salida visual
+            if not (linea.strip().startswith('.import') or 
+                    linea.strip().startswith('.extern')):
+                lineas_filtradas.append(linea)
+        salida_filtrada = '\n'.join(lineas_filtradas)
+
         self.pc_out.configure(state="normal")
         self.pc_out.delete("1.0", tk.END)
-        self.pc_out.insert("1.0", salida)
+        self.pc_out.insert("1.0", salida_filtrada)
         self.pc_out.configure(state="disabled")
 
     def _do_lexical(self):
