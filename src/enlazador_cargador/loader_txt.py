@@ -182,6 +182,33 @@ class LoaderTxt:
 """
         return modulo
 
+    def read_and_load_from_fs(self, fs, name: str, base_addr: int, mode: str) -> Optional[List[str]]:
+        """
+        Lee un archivo desde un SimpleFS y carga su contenido a memoria.
+
+        Args:
+            fs: Instancia de SimpleFS
+            name: Ruta interna en el disco (ej. '/system/rom_vectors.txt' o 'system/rom_vectors.txt')
+            base_addr: Dirección base
+            mode: Formato ('hex', 'bin', 'dec')
+
+        Returns:
+            Lista de líneas leídas
+        """
+        key = name.lstrip('/')
+        try:
+            raw = fs.read_file(key)
+        except Exception:
+            raise FileNotFoundError(f"Archivo no encontrado en disco: {name}")
+        try:
+            text = raw.decode('utf-8-sig')
+        except Exception:
+            text = raw.decode('utf-8', errors='replace')
+        lines = text.splitlines()
+        # Cargar a memoria
+        self.load_to_ram(lines, base_addr, mode)
+        return lines
+
     def read_and_load(self, path: str, base_addr: int, mode: str) -> Optional[List[str]]:
         """
         Lee un archivo y carga su contenido a memoria.
