@@ -1,0 +1,18 @@
+func fib(n : int){
+     let f_n1 = 0
+     let f_n2 = 0
+     if n == 0 or n == 1{
+	deliver 1
+     }
+     otherwise {
+	f_n1 = call fib(n-1)
+        f_n2 = call fib(n-2)
+	deliver f_n1 + f_n2
+     }
+}
+
+let res : int
+for (let i: int = 0, i < 2, set i += 1){
+    set res = fib(i)
+    show res
+}

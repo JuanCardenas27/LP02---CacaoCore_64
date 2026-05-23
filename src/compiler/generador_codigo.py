@@ -454,7 +454,11 @@ class GeneradorCodigo:
     def p_func_def(self, p):
         """func_def : FUNC ID LPAREN param_list RPAREN block"""
         #stack pointer in R13
-        
+        #for recover 
+        temps = []
+        for param in p[4]:
+            temps.append(f'{param['result'][1:-1]}temp : 0')
+        self.data.extend(temps)
         instrs = []
         label = p[2].upper() + ':'
 
@@ -465,19 +469,30 @@ class GeneradorCodigo:
         reg2 = self._gestor.ocupar()
         write_stmts.append(f'POP {reg2}') #guardamos dir ret
         for param in p[4][::-1]:
+            
+            write_stmts.append(f'MOVD {reg1} , {param['result']}')
+            write_stmts.append(f'MOVD [{param['result'][1:-1]}temp], {reg1}')
             write_stmts.append(f'POP {reg1}')
             write_stmts.append(f'MOVD {param['result']}, {reg1}')
         write_stmts.append(f'PUSH {reg2}')
         self._gestor.liberar(reg1)
         self._gestor.liberar(reg2)
 
-
+        free_stmts = [] #stmts para devolver todo a su lugar luego de la recursion
         b_code = p[6]['code']
-        
+        reg1 = self._gestor.ocupar()
+        for param in p[4][::-1]:
+            
+            free_stmts.append(f'MOVD {reg1}, [{param['result'][1:-1]}temp]')
+            free_stmts.append(f'MOVD {param['result']}, {reg1}')
+        self._gestor.liberar(reg1)
+
         ret = 'RET'
+
         instrs.append(label)
         instrs.extend(write_stmts)
         instrs.extend(b_code)
+        instrs.extend(free_stmts)
         instrs.append(ret)
         self.funcs.extend(instrs)
 
@@ -784,7 +799,17 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        p[0] = None
+        instrs = [
+            f'MOVH R10, 0',
+            f'LEA R11, {p[2]['result']}',
+            f'MOVW R12, 1',
+            f'INTR 0',
+        ]
+        
+        p[0] = {
+            'code': instrs,
+            'result': 1
+        }
 
     def p_oops(self, p):
         """oops_stmt : OOPS expr"""

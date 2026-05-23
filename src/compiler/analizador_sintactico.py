@@ -504,7 +504,7 @@ class AnalizadorSintactico:
 
     def p_empty(self, p):
         """empty :"""
-        p[0] = None
+        p[0] = []
 
     # ══════════════════════════════════════════════════════════════════════
     # MANEJO DE ERRORES
