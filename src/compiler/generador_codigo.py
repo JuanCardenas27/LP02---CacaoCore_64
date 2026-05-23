@@ -152,8 +152,8 @@ class GeneradorCodigo:
             n_code = [f'MOVD [{p[2]}], {init_value}']
 
         elif value["type"] == 'id':
-            if self.sim_table[value['result'][1:-1]]['type'] == 'text':
-                for i, ch in enumerate(self.sim_table[value['result'][1:-1]]['value']):
+            if self.sim_table[value["result"][1:-1]]['type'] == 'text':
+                for i, ch in enumerate(self.sim_table[value["result"][1:-1]]['value']):
                     self.data.append(f"{p[2]}{i} : '{ch}'")
             else:
                 self.data.append(f"{p[2]} : 0")
@@ -338,15 +338,15 @@ class GeneradorCodigo:
         instrs.extend(p[2]['code'])    
 
         if 'temp' in p[4]:
-            n_value = p[4]['result']
-            r1 = p[4]['result']
+            n_value = p[4]["result"]
+            r1 = p[4]["result"]
         else:
-            n_value = p[4]['result']
+            n_value = p[4]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {n_value}'
             )
-        lvalue = p[2]['result']
+        lvalue = p[2]["result"]
         instrs.append(f'MOVD {lvalue}, {r1}')
         
         self._gestor.liberar(r1)
@@ -355,7 +355,7 @@ class GeneradorCodigo:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                'result':lvalue
+                "result":lvalue
                 }
 
 
@@ -366,15 +366,15 @@ class GeneradorCodigo:
         instrs.extend(p[2]['code'])    
 
         if 'temp' in p[4]:
-            n_value = p[4]['result']
-            r1 = p[4]['result']
+            n_value = p[4]["result"]
+            r1 = p[4]["result"]
         else:
-            n_value = p[4]['result']
+            n_value = p[4]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {n_value}'
             )
-        lvalue = p[2]['result']
+        lvalue = p[2]["result"]
         r2 = self._gestor.ocupar()
         instrs.append(f'MOVD {r2}, {lvalue}')
         instrs.append(f'ADD {r1}, {r2}')
@@ -387,7 +387,7 @@ class GeneradorCodigo:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                'result':lvalue
+                "result":lvalue
                 }
 
     # ── Lvalue ────────────────────────────────────────────────────────────
@@ -400,7 +400,7 @@ class GeneradorCodigo:
         """lvalue : ID"""
         p[0] = {
             'code': [],
-            'result': f'[{p[1]}]'
+            "result": f'[{p[1]}]'
         }
 
     def p_lvalue_ohmy(self, p):
@@ -410,7 +410,7 @@ class GeneradorCodigo:
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
         
-        arr = p[1]['result']
+        arr = p[1]["result"]
         arr_name = arr[1:-1]
 
         instrs = []
@@ -419,10 +419,10 @@ class GeneradorCodigo:
         instrs.extend(p[3]['code'])
 
         if 'temp' in p[3]:
-            ind = p[3]['result']
-            r1 = p[3]['result']
+            ind = p[3]["result"]
+            r1 = p[3]["result"]
         else:
-            ind = p[3]['result']
+            ind = p[3]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {ind}'
@@ -439,7 +439,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': instrs,
-            'result': f'[{r1}]',
+            "result": f'[{r1}]',
             'temp': True,
             'reg': f'{r1}'
         }
@@ -457,7 +457,7 @@ class GeneradorCodigo:
         #for recover 
         temps = []
         for param in p[4]:
-            temps.append(f'{param['result'][1:-1]}temp : 0')
+            temps.append(f'{param["result"][1:-1]}temp : 0')
         self.data.extend(temps)
         instrs = []
         label = p[2].upper() + ':'
@@ -470,10 +470,10 @@ class GeneradorCodigo:
         write_stmts.append(f'POP {reg2}') #guardamos dir ret
         for param in p[4][::-1]:
             
-            write_stmts.append(f'MOVD {reg1} , {param['result']}')
-            write_stmts.append(f'MOVD [{param['result'][1:-1]}temp], {reg1}')
+            write_stmts.append(f'MOVD {reg1} , {param["result"]}')
+            write_stmts.append(f'MOVD [{param["result"][1:-1]}temp], {reg1}')
             write_stmts.append(f'POP {reg1}')
-            write_stmts.append(f'MOVD {param['result']}, {reg1}')
+            write_stmts.append(f'MOVD {param["result"]}, {reg1}')
         write_stmts.append(f'PUSH {reg2}')
         self._gestor.liberar(reg1)
         self._gestor.liberar(reg2)
@@ -483,8 +483,8 @@ class GeneradorCodigo:
         reg1 = self._gestor.ocupar()
         for param in p[4][::-1]:
             
-            free_stmts.append(f'MOVD {reg1}, [{param['result'][1:-1]}temp]')
-            free_stmts.append(f'MOVD {param['result']}, {reg1}')
+            free_stmts.append(f'MOVD {reg1}, [{param["result"][1:-1]}temp]')
+            free_stmts.append(f'MOVD {param["result"]}, {reg1}')
         self._gestor.liberar(reg1)
 
         ret = 'RET'
@@ -522,7 +522,7 @@ class GeneradorCodigo:
         self.data.append(decl)
 
         p[0] = {
-            'result': f"[{p[1]}]"
+            "result": f"[{p[1]}]"
         }
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
@@ -556,7 +556,7 @@ class GeneradorCodigo:
         self.label_count += 1
 
         cond_code = p[2]['code']
-        cond_res  = (p[2]['result'])
+        cond_res  = (p[2]["result"])
 
         block_code = p[3]['code']
 
@@ -576,7 +576,7 @@ class GeneradorCodigo:
             f'{end_label}:'
         ])
         if 'temp' in p[2]:
-            self._gestor.liberar(p[2]['result'])
+            self._gestor.liberar(p[2]["result"])
         p[0] = {
             'code': instr
         }
@@ -591,7 +591,7 @@ class GeneradorCodigo:
         self.label_count += 1
 
         cond_code = p[2]['code']
-        cond_res  = (p[2]['result'])
+        cond_res  = (p[2]["result"])
 
         then_code = p[3]['code']
         else_code = p[5]['code']
@@ -631,7 +631,7 @@ class GeneradorCodigo:
         self.label_count += 1
 
         cond_code = p[2]["code"]
-        cond_reg  = (p[2]['result'])
+        cond_reg  = (p[2]["result"])
 
         body_code = p[3]["code"]
 
@@ -651,7 +651,7 @@ class GeneradorCodigo:
         code.append(f"{end_label}:")
 
         if 'temp' in p[2]:
-            self._gestor.liberar(p[2]['result'])
+            self._gestor.liberar(p[2]["result"])
         p[0] = {
             "code": code
         }
@@ -668,7 +668,7 @@ class GeneradorCodigo:
         init_code = p[3]["code"]
 
         cond_code = p[5]["code"]
-        cond_reg  = (p[5]['result'])
+        cond_reg  = (p[5]["result"])
 
         update_code = p[7]["code"]
 
@@ -727,15 +727,15 @@ class GeneradorCodigo:
         instrs.extend(p[2]['code'])    
 
         if 'temp' in p[4]:
-            n_value = p[4]['result']
-            r1 = p[4]['result']
+            n_value = p[4]["result"]
+            r1 = p[4]["result"]
         else:
-            n_value = p[4]['result']
+            n_value = p[4]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {n_value}'
             )
-        lvalue = p[2]['result']
+        lvalue = p[2]["result"]
         instrs.append(f'MOVD {lvalue}, {r1}')
         
         self._gestor.liberar(r1)
@@ -744,7 +744,7 @@ class GeneradorCodigo:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                'result':lvalue
+                "result":lvalue
                 }
 
     def p_for_update_set_pluseq(self, p):
@@ -755,15 +755,15 @@ class GeneradorCodigo:
         instrs.extend(p[2]['code'])    
 
         if 'temp' in p[4]:
-            n_value = p[4]['result']
-            r1 = p[4]['result']
+            n_value = p[4]["result"]
+            r1 = p[4]["result"]
         else:
-            n_value = p[4]['result']
+            n_value = p[4]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {n_value}'
             )
-        lvalue = p[2]['result']
+        lvalue = p[2]["result"]
         r2 = self._gestor.ocupar()
         instrs.append(f'MOVD {r2}, {lvalue}')
         instrs.append(f'ADD {r1}, {r2}')
@@ -776,7 +776,7 @@ class GeneradorCodigo:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                'result':lvalue
+                "result":lvalue
                 }
 
     def p_for_update_expr(self, p):
@@ -788,7 +788,7 @@ class GeneradorCodigo:
     def p_deliver_val(self, p):
         """deliver_stmt : DELIVER expr"""
         p[0] = {
-            'code': [f'MOVD R1, {p[2]['result']}','RET']
+            'code': [f'MOVD R1, {p[2]["result"]}','RET']
         }
 
     def p_deliver_nothing(self, p):
@@ -801,14 +801,14 @@ class GeneradorCodigo:
         """show_stmt : SHOW expr"""
         instrs = [
             f'MOVH R10, 0',
-            f'LEA R11, {p[2]['result']}',
+            f'LEA R11, {p[2]["result"]}',
             f'MOVW R12, 1',
             f'INTR 0',
         ]
         
         p[0] = {
             'code': instrs,
-            'result': 1
+            "result": 1
         }
 
     def p_oops(self, p):
@@ -864,10 +864,10 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]['result']
-            r1 = p[1]['result']
+            op1 = p[1]["result"]
+            r1 = p[1]["result"]
         else:
-            op1 = p[1]['result']
+            op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
@@ -879,7 +879,7 @@ class GeneradorCodigo:
             p[3]['type'] == 'float'
         )
 
-        op2 = p[3]['result']
+        op2 = p[3]["result"]
 
         if p[2] == '+':
 
@@ -917,11 +917,11 @@ class GeneradorCodigo:
                 instrs.append(f'MOD {r1}, {op2}')
         
         if 'temp' in p[3]:
-            self._gestor.liberar(p[3]['result'])
+            self._gestor.liberar(p[3]["result"])
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp': True,
             'type': p[1]['type']
         }
@@ -953,16 +953,16 @@ class GeneradorCodigo:
         
          #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]['result']
-            r1 = p[1]['result']
+            op1 = p[1]["result"]
+            r1 = p[1]["result"]
         else:
-            op1 = p[1]['result']
+            op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
             )
 
-        op2 = p[3]['result']
+        op2 = p[3]["result"]
 
         instrs.append(f'CMP {r1}, {op2}')
 
@@ -982,11 +982,11 @@ class GeneradorCodigo:
         ])
 
         if 'temp' in p[3]:
-            self._gestor.liberar(p[3]['result'])
+            self._gestor.liberar(p[3]["result"])
 
 
         p[0] = {'code': instrs, 
-                'result': f'{r1}',
+                "result": f'{r1}',
                 'temp': True
                 }
 
@@ -1008,16 +1008,16 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]['result']
-            r1 = p[1]['result']
+            op1 = p[1]["result"]
+            r1 = p[1]["result"]
         else:
-            op1 = p[1]['result']
+            op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
             )
 
-        op2 = (p[3]['result'])
+        op2 = (p[3]["result"])
 
         
         instrs.extend([
@@ -1026,11 +1026,11 @@ class GeneradorCodigo:
 
         #Liberamos el registro del segundo operando
         if 'temp' in p[3]:
-            self._gestor.liberar(p[3]['result'])
+            self._gestor.liberar(p[3]["result"])
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp': True
         }
 
@@ -1048,16 +1048,16 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]['result']
-            r1 = p[1]['result']
+            op1 = p[1]["result"]
+            r1 = p[1]["result"]
         else:
-            op1 = p[1]['result']
+            op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
             )
 
-        op2 = (p[3]['result'])
+        op2 = (p[3]["result"])
 
         
         instrs.extend([
@@ -1066,11 +1066,11 @@ class GeneradorCodigo:
 
         #Liberamos el registro del segundo operando
         if 'temp' in p[3]:
-            self._gestor.liberar(p[3]['result'])
+            self._gestor.liberar(p[3]["result"])
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp': True
         }
 
@@ -1088,16 +1088,16 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]['result']
-            r1 = p[1]['result']
+            op1 = p[1]["result"]
+            r1 = p[1]["result"]
         else:
-            op1 = p[1]['result']
+            op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
             )
 
-        op2 = (p[3]['result'])
+        op2 = (p[3]["result"])
 
         
         instrs.extend([
@@ -1106,11 +1106,11 @@ class GeneradorCodigo:
 
         #Liberamos el registro del segundo operando
         if 'temp' in p[3]:
-            self._gestor.liberar(p[3]['result'])
+            self._gestor.liberar(p[3]["result"])
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp': True
         }
 
@@ -1126,10 +1126,10 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[2]:
-            op1 = p[2]['result']
-            r1 = p[2]['result']
+            op1 = p[2]["result"]
+            r1 = p[2]["result"]
         else:
-            op1 = p[2]['result']
+            op1 = p[2]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
@@ -1141,7 +1141,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp': True
         }
 
@@ -1163,10 +1163,10 @@ class GeneradorCodigo:
 
         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[2]:
-            op1 = p[2]['result']
-            r1 = p[2]['result']
+            op1 = p[2]["result"]
+            r1 = p[2]["result"]
         else:
-            op1 = p[2]['result']
+            op1 = p[2]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
@@ -1180,7 +1180,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': instrs,
-            'result': f'{r1}',
+            "result": f'{r1}',
             'temp' : True
         }
 
@@ -1196,14 +1196,14 @@ class GeneradorCodigo:
         instrs.extend(arr_code)
         instrs.extend(ind_code)
 
-        arr = p[1]['result']
+        arr = p[1]["result"]
         arr_name = arr[1:-1]
 
         if 'temp' in p[3]:
-            ind = p[3]['result']
-            r1 = p[3]['result']
+            ind = p[3]["result"]
+            r1 = p[3]["result"]
         else:
-            ind = p[3]['result']
+            ind = p[3]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {ind}'
@@ -1222,7 +1222,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': instrs,
-            'result': f'{r2}',
+            "result": f'{r2}',
             'temp': True,
             'type' : f'{self.sim_table[arr_name]["type"]}'
         }
@@ -1247,7 +1247,7 @@ class GeneradorCodigo:
         instrs = []
         r = self._gestor.ocupar()
         for param in p[3]:
-            ins0 = f'MOVD {r}, {param['result']}'
+            ins0 = f'MOVD {r}, {param["result"]}'
             ins1 = f'PUSH {r}'
             instrs.append(ins0)
             instrs.append(ins1)
@@ -1255,12 +1255,12 @@ class GeneradorCodigo:
         instrs.append(f'CALL {p[1].upper()}')
         
         p[0] = {'code': instrs,
-                'result':'R1'}
+                "result":'R1'}
 
     def p_expr_call_noargs(self, p):
         """expr : ID LPAREN RPAREN"""
         p[0] = {'code': [f'CALL {p[1].upper()}'],
-                'result': 'R1' }
+                "result": 'R1' }
 
     # summon
     def p_expr_summon_args(self, p):
@@ -1297,7 +1297,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            'result': f'[{p[1]}]',
+            "result": f'[{p[1]}]',
             'type': 'id'
         }
 
@@ -1307,7 +1307,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            'result': int(p[1]),
+            "result": int(p[1]),
             'type': 'int'
         }
 
@@ -1317,7 +1317,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            'result': float(p[1]),
+            "result": float(p[1]),
             'type': 'float'
         }
 
@@ -1326,7 +1326,7 @@ class GeneradorCodigo:
         """expr : STRING"""
         p[0] = {
             'code': [],
-            'result': str(p[1]),
+            "result": str(p[1]),
             'type': 'str'
         }
 
@@ -1336,7 +1336,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            'result': 1,
+            "result": 1,
             'type': 'bool'
         }
 
@@ -1346,7 +1346,7 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            'result': 0,
+            "result": 0,
             'type': 'bool'
         }
 
@@ -1355,7 +1355,7 @@ class GeneradorCodigo:
         """expr : NOTHING"""
         p[0] = {
             'code': [],
-            'result': -0.0,
+            "result": -0.0,
             'type': 'none'
         }
 
