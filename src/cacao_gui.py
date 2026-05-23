@@ -181,9 +181,16 @@ class CacaoCoreGUI(tk.Tk):
         hdr = tk.Frame(self, bg=BG_DARK, pady=10)
         hdr.pack(fill="x", padx=18, side="top")
 
-        self.icono = tk.PhotoImage(file=r"src\gui\assets\Cacao_logo.png").subsample(10)
-        tk.Label(hdr, image=self.icono, width=40, height=40,
-                 bg=BG_DARK).pack(side="left", padx=(0, 10))
+        # Usar path.join para compatibilidad multiplataforma
+        logo_path = os.path.join(os.path.dirname(__file__), "gui", "assets", "Cacao_logo.png")
+        try:
+            self.icono = tk.PhotoImage(file=logo_path).subsample(10)
+            tk.Label(hdr, image=self.icono, width=40, height=40,
+                     bg=BG_DARK).pack(side="left", padx=(0, 10))
+        except Exception as e:
+            # Si el logo no está disponible, crear un placeholder
+            tk.Label(hdr, text="🔲", font=("Arial", 20),
+                     bg=BG_DARK, fg=ACCENT).pack(side="left", padx=(0, 10))
 
         self._hdr_title = tk.Label(
             hdr,
