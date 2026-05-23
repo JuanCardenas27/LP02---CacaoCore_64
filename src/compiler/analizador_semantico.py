@@ -1364,14 +1364,22 @@ class AnalizadorSemantico:
         sym = self._resolve_symbol(name)
 
         if sym is None:
+            isImport = self._validate_extern_function(name)
+            
+            if not isImport:
+                self._emit_error(
+                    p.lineno(1),
+                    f"función '{name}' no declarada"
+                )
 
-            self._emit_error(
-                p.lineno(1),
-                f"función '{name}' no declarada"
-            )
-
-            p[0] = self._make_expr_data('unknown')
+                p[0] = self._make_expr_data('unknown')
+            else:
+                p[0] = self._make_expr_data(
+                'unknown',
+                name,
+                p[3])
             return
+
 
         if sym.get('kind') != 'function':
 
@@ -1402,13 +1410,20 @@ class AnalizadorSemantico:
         sym = self._resolve_symbol(name)
 
         if sym is None:
+            isImport = self._validate_extern_function(name)
+            
+            if not isImport:
+                self._emit_error(
+                    p.lineno(1),
+                    f"función '{name}' no declarada"
+                )
 
-            self._emit_error(
-                p.lineno(1),
-                f"función '{name}' no declarada"
-            )
-
-            p[0] = self._make_expr_data('unknown')
+                p[0] = self._make_expr_data('unknown')
+            else:
+                p[0] = self._make_expr_data(
+                'unknown',
+                name,
+                0)
             return
 
         if sym.get('kind') != 'function':
@@ -1692,8 +1707,9 @@ class AnalizadorSemantico:
         self.current_function = None
         self.pending_params = []
         self._ast_annotator = ASTSemanticAnnotator(self)
+        self.import_metadata = []
 
-    def parse(self, codigo: str) -> tuple[list[str], object, dict]:
+    def parse(self, codigo: str, import_metadata) -> tuple[list[str], object, dict]:
         """
         Analiza y valida semánticamente el código.
         
@@ -1706,6 +1722,7 @@ class AnalizadorSemantico:
         """
         self.errors = []
         self._reset_semantic_state()
+        self.import_metadata = import_metadata
 
         # Paso 0: ejecutar lexer para obtener la tabla base real
         # y usarla como base de la tabla semántica enriquecida.
@@ -2130,6 +2147,7 @@ class AnalizadorSemantico:
         self.molds = {}
         self.current_mold = None
         self.current_method_mold = None
+        self.import_metadata = []
 
     def _emit_error(self, line: int, message: str):
         """Emitir error semántico."""
@@ -2306,3 +2324,11 @@ class AnalizadorSemantico:
 
     def _annotate_ast(self, node, _visited=None):
         return self._ast_annotator.annotate(node, _visited)
+
+    def _validate_extern_function(self, name):
+        print('entro')
+        for instruction in self.import_metadata:
+            print(instruction)
+            if name in instruction:
+                return True
+        return False

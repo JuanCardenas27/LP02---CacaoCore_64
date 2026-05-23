@@ -20,18 +20,18 @@ class Compiler:
         errors, ast = self._syntactic.parse(file_content)
         return errors, ast
     
-    def compile_semantic(self, file_content:str):
+    def compile_semantic(self, file_content:str, import_metadata):
         # 3. Paso del analisis: Semántico
-        errors, ast, sym_table = self._semantic.parse(file_content)
+        errors, ast, sym_table = self._semantic.parse(file_content, import_metadata)
         return errors, ast, sym_table
     
-    def compile_generator(self, file_content:str):
+    def compile_generator(self, file_content:str, import_metadata):
         # 4. Paso del analisis: Generación de código
         self._generator.funcs = []
-        errors, asmc = self._generator.parse(file_content)
+        errors, asmc = self._generator.parse(file_content,import_metadata)
         return errors, asmc
     
-    def compile_full(self, file_content:str):
+    def compile_full(self, file_content:str, import_metadata):
         # 4. Paso del analisis: Generación de código
         errors, _, _, _ = self._lexer.analize(file_content)
         if errors:
@@ -39,10 +39,10 @@ class Compiler:
         errors, _ = self._syntactic.parse(file_content)
         if errors:
             return errors
-        errors, _, _ = self._semantic.parse(file_content)
+        errors, _, _ = self._semantic.parse(file_content, import_metadata)
         if errors:
             return errors
-        errors, asmc = self._generator.parse(file_content)
+        errors, asmc = self._generator.parse(file_content, import_metadata)
         return errors, asmc
 
 

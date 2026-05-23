@@ -1407,7 +1407,7 @@ class GeneradorCodigo:
         self.label_count = 0
         self.scope_count = 0
         self.params_id = {} #func: {param:id} 
-    def parse(self, codigo: str) -> tuple[list[str], object]:
+    def parse(self, codigo: str, metadata) -> tuple[list[str], object]:
         """
         Analiza el código fuente y devuelve (errores, ast).
 
@@ -1422,7 +1422,7 @@ class GeneradorCodigo:
         self.data = []
         self.errors = []
         _, self.sim_table, _, self.num_table = self._lex.analize(codigo)
-        _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
+        _, _, self.sim_table = AnalizadorSemantico().parse(codigo, metadata)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1

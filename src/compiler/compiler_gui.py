@@ -928,7 +928,7 @@ class CompilerGui:
 
 
     def _do_semantic(self):
-        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile)
+        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile, self.imports)
         # Mostrar AST anotado
         try:
             self.ann_ast_tree.delete("1.0", tk.END)
@@ -964,7 +964,7 @@ class CompilerGui:
 
         self.gen_code.delete("1.0", tk.END)
 
-        result = compiler.compile_generator(file_content)
+        result = compiler.compile_generator(file_content, self.imports)
 
         lines = result[1]
         errors = result[0]
