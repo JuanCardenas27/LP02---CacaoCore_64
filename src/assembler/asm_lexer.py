@@ -47,7 +47,7 @@ class AsmLexer:
         return t
     
     def t_SECTION(self, t):
-        r'.DATA|.data|.TEXT|.text|.import|.IMPORT|.extern|.EXTERN'
+        r'.DATA|.data|.TEXT|.text'
         
         return t    
     

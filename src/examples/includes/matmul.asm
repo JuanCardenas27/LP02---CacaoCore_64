@@ -1,7 +1,3 @@
-.import "math.lib"
-.extern MATRIX_GET_LINEAR
-.extern MATRIX_SET_LINEAR
-
 .data
     matrix_a_base: 1028
     matrix_b_base: 1076
