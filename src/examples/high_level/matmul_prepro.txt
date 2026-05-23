@@ -1,8 +1,10 @@
-#include "utils.lib"
+#include "math.lib"
 #define rows_a 3
 #define rows_b 2
 #define cols_a 2
 #define cols_b 4
+
+math.lib.MATRIX_GET_LINEAR()
 
 let temp:   int = 0
 
@@ -20,6 +22,6 @@ for (let i:int = 0, i<rows_a, set i += 1){
 
 for (let i:int = 0, i<rows_a, set i += 1){
     for (let j:int = 0, j<cols_b, set j += 1){
-        utils.lib.PRINT(c[i][j])
+        math.lib.MATRIX_SET_LINEAR(c[i][j])
     }
 }
