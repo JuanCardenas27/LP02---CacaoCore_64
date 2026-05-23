@@ -9,10 +9,11 @@ class AsmLexer:
     tokens = (
     'MNEMONIC', 'REGISTER', 'NUMBER', 'LABEL', 'COLON',
     'COMMA', 'LBRACKET', 'RBRACKET', 'NEWLINE', 'MEMORY',
-    'SECTION', 'FLOAT', 'VAR', 'REFERENCE'
+    'SECTION', 'FLOAT', 'STR', 'VAR', 'REFERENCE', 'QUOTE'
     )
 
     t_COLON    = r':'
+    t_QUOTE    = r'\''
     t_COMMA    = r','
     t_LBRACKET = r'\['
     t_RBRACKET = r'\]'
@@ -46,7 +47,7 @@ class AsmLexer:
         return t
     
     def t_SECTION(self, t):
-        r'.DATA|.data|.TEXT|.text|.import|.IMPORT|.extern|.EXTERN'
+        r'.DATA|.data|.TEXT|.text'
         
         return t    
     
@@ -64,6 +65,10 @@ class AsmLexer:
         r'\n+'
         return t
 
+    def t_STR(self, t):
+        "\'[a-zA-Z0-9_][a-zA-Z0-9_]*\'"
+        return t    
+    
     def t_VAR(self, t):
         r'[a-z_][a-z0-9_]*'
         

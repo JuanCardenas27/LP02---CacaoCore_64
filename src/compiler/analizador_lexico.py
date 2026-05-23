@@ -10,11 +10,10 @@ class AnalizadorLexico:
         'OTHERWISE',  # otherwise       - else
         'ASLONGAS',   # asLongAs        - while
         'FOR',        # for             - for
-        'IN',         # in              - for x in lista
         'DELIVER',    # deliver         - return
         'SHOW',       # show            - print
         'OOPS',       # oops            - throw / raise
-    
+
         # Tipos de datos
         'INT_TYPE', # int               - tipo integer
         'FLOAT_TYPE', # float           - tipo flotante
@@ -46,9 +45,10 @@ class AnalizadorLexico:
         'GEQ',        # >=
 
         # Operadores lógicos
-        'OP_OR',      # or
-        'OP_AND',     # and
-        'OP_NOT',     # not
+        'OR',      # or
+        'AND',     # and
+        'NOT',     # not
+        'XOR',     # xor
     
         # Asignación
         'ASSIGN',     # =
@@ -70,10 +70,6 @@ class AnalizadorLexico:
         'MOLD',       # class           - definición de TDA
         'OHMY',       # self            - referencia al objeto actual
         'SUMMON',     # new             - creación explícita
-
-        # Referencias de Preprocesador
-        'PREPRO_IMPORT',    # Referencia formateada de nombre de librería incluida que debe llegar al enlazador
-        'PREPRO_EXTERN'     # Referencia formateada de nombre de símbolo incluido que debe llegar al enlazador
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -85,7 +81,6 @@ class AnalizadorLexico:
         'otherwise': 'OTHERWISE',
         'asLongAs':  'ASLONGAS',
         'for':       'FOR',
-        'in':        'IN',
         'deliver':   'DELIVER',
         'show':      'SHOW',
         'oops':      'OOPS',
@@ -95,23 +90,14 @@ class AnalizadorLexico:
         'bool':      'BOOL_TYPE',
         'indeed':    'INDEED',
         'nope':      'NOPE',
-        'or':        'OP_OR',
-        'and':       'OP_AND',
-        'not':       'OP_NOT',
+        'or':        'OR',
+        'and':       'AND',
+        'not':       'NOT',
         'nothing':   'NOTHING',
         'mold':      'MOLD',
         'ohmy':      'OHMY',
         'summon':    'SUMMON',
     }
-
-    # Expresiones de preprocesador antes que DOT
-    def t_PREPRO_IMPORT(self, t):
-        r'\.import[^\n]*'
-        return t
-
-    def t_PREPRO_EXTERN(self, t):
-        r'\.extern[^\n]*'
-        return t
 
     t_EQ       = r'=='
     t_NEQ      = r'!='

@@ -1,0 +1,26 @@
+// let n: text = "HOLA"
+// let a: text = n
+
+// let num1: int = 5
+// let num2: int = num1
+// let num3: int = 0
+
+// set num3 = num2 + 5
+#include "utils.lib"
+let n: int = 5
+let a: int[5] = 1,8,4,2,10
+
+let max: int = a[0]
+
+set a[0] = 10
+set a[0] = a[1]
+
+if a[0] == a[1]{
+    set n = 1
+}
+otherwise {
+    set n = 2
+}
+
+utils.lib.PRINT(n)
+

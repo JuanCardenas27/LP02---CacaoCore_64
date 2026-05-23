@@ -1,0 +1,7 @@
+let matrix: int[3][3]
+
+show matrix[0][1]
+
+let nums: int[3]
+
+show nums[0][1]

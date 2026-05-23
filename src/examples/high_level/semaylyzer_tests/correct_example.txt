@@ -1,0 +1,37 @@
+mold Person {
+    let name: text
+    let age: int
+
+    func greet() {
+        show ohmy.name
+        deliver
+    }
+
+    func isAdult() {
+        if ohmy.age >= 18 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+}
+
+func sum(a: int, b: int) {
+    deliver a + b
+}
+
+func avg(a: int, b: int) {
+    deliver (a + b) / 2.0
+}
+
+let x: int = 10
+let y: float = 20.5
+
+let nums: int[3] = 1, 2, 3
+
+set x = sum(1, 21)
+
+let p: Person = summon Person("Cocoa", x)
+
+show p.name
+show p.isAdult()

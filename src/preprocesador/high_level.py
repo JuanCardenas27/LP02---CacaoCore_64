@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .errors import CondicionalError, IncludeError, MacroError, PreprocesadorError
 from .lexer_high_level import build_lexer
-from .models import Macro, PreprocessResult, SourceLine
+from .models import Macro, PreprocessResult, SourceLine, PreprocessMetadata
 
 
 class Preprocesador:
@@ -365,7 +365,7 @@ class Preprocesador:
 
     def _procesar_tokens(
         self, texto: str, fuente: str
-    ) -> Tuple[List[str], List[SourceLine]]:
+    ) -> Tuple[List[str], List[SourceLine], Tuple]:
         """FUNCIÓN CENTRAL DE PREPROCESAMIENTO: Implementa el algoritmo de dos pasadas con PLY Lex.
         
         ARQUITECTURA DE DOS PASADAS:
@@ -551,18 +551,20 @@ class Preprocesador:
         # Procesar líneas para insertar .extern después de su .import
         lineas_salida_organizada = []
         mapa_salida_organizada = []
+
+        lineas_imports = []
+        mapa_imports = []
         
         i = 0
         while i < len(lineas_salida):
             linea_actual = lineas_salida[i]
-            lineas_salida_organizada.append(linea_actual)
-            mapa_salida_organizada.append(mapa_salida[i])
             
             # Si es un .import, insertar los .extern de esa librería
             if linea_actual.startswith('.import "'):
+                lineas_imports.append(linea_actual)
+                mapa_imports.append(mapa_salida[i])
                 # Extraer nombre de la librería: .import "math.lib" → math.lib
-                nombre_lib_with_quotes = linea_actual[9:]  # Skip '.import "'
-                nombre_lib = nombre_lib_with_quotes.rstrip('"')
+                nombre_lib = linea_actual[9:].rstrip('"')  # Skip '.import "'
                 
                 # Insertar .extern para esta librería si existen
                 if nombre_lib in self._funciones_por_libreria:
@@ -571,14 +573,18 @@ class Preprocesador:
                     for nombre_funcion, numero_linea in sorted(self._funciones_por_libreria[nombre_lib], key=lambda x: x[0]):
                         nombre_normalizado = nombre_funcion.lower()
                         if nombre_normalizado not in self._externs_explicit and nombre_normalizado not in funciones_vistas:
-                            lineas_salida_organizada.append(f".extern {nombre_funcion}")
-                            mapa_salida_organizada.append(SourceLine(path=fuente, line=numero_linea))
+                            lineas_imports.append(f".extern {nombre_funcion}")
+                            mapa_imports.append(SourceLine(path=fuente, line=numero_linea))
                             self._externs_explicit.add(nombre_normalizado)
                             funciones_vistas.add(nombre_normalizado)
+                i += 1
+                continue
             
+            lineas_salida_organizada.append(linea_actual)
+            mapa_salida_organizada.append(mapa_salida[i])
             i += 1
         
-        return lineas_salida_organizada, mapa_salida_organizada
+        return lineas_salida_organizada, mapa_salida_organizada, (lineas_imports, mapa_imports)
 
     def _reset_state(self) -> None:
         """Reinicia estado para procesar próximo archivo."""
@@ -590,23 +596,16 @@ class Preprocesador:
         self._librerias_importadas = {}
         self._funciones_por_libreria = {}
 
-    def _preprocess(self, codigo: str, nombre_fuente: str) -> str:
-        """Flujo privado de preprocesamiento."""
-        self._reset_state()
-        lineas_salida, _ = self._procesar_tokens(codigo, nombre_fuente)
-        self._reset_state()
-        return "\n".join(lineas_salida)
-
-    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> PreprocessResult:
+    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> Tuple[PreprocessResult, PreprocessMetadata] :
         """Preprocesa código y retorna resultado con mapa de líneas."""
         self._reset_state()
-        lineas_salida, mapa_salida = self._procesar_tokens(codigo, nombre_fuente)
+        lineas_salida, mapa_salida, imports_metadata = self._procesar_tokens(codigo, nombre_fuente)
         texto_salida = "\n".join(lineas_salida)
         if texto_salida:
             texto_salida += "\n"
-        return PreprocessResult(text=texto_salida, line_map=mapa_salida)
+        return PreprocessResult(text=texto_salida, line_map=mapa_salida), PreprocessMetadata(*imports_metadata)
 
-    def preprocess_archivo(self, ruta: str) -> PreprocessResult:
+    def preprocess_archivo(self, ruta: str) -> Tuple[PreprocessResult, PreprocessMetadata]:
         """Preprocesa un archivo completo."""
         ruta_absoluta = os.path.abspath(ruta)
         if not os.path.isfile(ruta_absoluta):
