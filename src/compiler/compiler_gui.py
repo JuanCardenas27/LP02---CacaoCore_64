@@ -775,7 +775,7 @@ class CompilerGui:
         self.pc_out.delete("1.0", tk.END)
         self.pc_out.insert("1.0", salida)
         self.pc_out.configure(state="disabled")
-        self.imports = metadata
+        self.imports = metadata 
 
     def _do_lexical(self):
         resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
