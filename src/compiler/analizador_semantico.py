@@ -2326,9 +2326,7 @@ class AnalizadorSemantico:
         return self._ast_annotator.annotate(node, _visited)
 
     def _validate_extern_function(self, name):
-        print('entro')
         for instruction in self.import_metadata:
-            print(instruction)
             if name in instruction:
                 return True
         return False
