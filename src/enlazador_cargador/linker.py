@@ -61,7 +61,7 @@ class Linker:
     # Punto de entrada principal
     # ------------------------------------------------------------------
 
-    def link_and_load(self, reloc_text: str, base_address: int) -> str:
+    def link_and_load(self, reloc_text: str, base_address: int, metadata:list) -> str:
         """
         Procesa el código relocalizable, escribe en la RAM global y retorna
         el listado de código cargado.
@@ -80,7 +80,7 @@ class Linker:
         LinkerError  Si hay errores de formato, índices fuera de rango, etc.
         """
         self._base_addr = base_address
-        self._parse(reloc_text)
+        self._parse(reloc_text, metadata)
         self._compute_addresses()
         resolved_data, resolved_text = self._resolve()
         self._load_into_ram(resolved_data, resolved_text)
@@ -282,7 +282,7 @@ class Linker:
     # Paso 1: Parseo
     # ------------------------------------------------------------------
 
-    def _parse(self, text: str) -> None:
+    def _parse(self, text: str, import_metadata: list) -> None:
         """
         Divide el texto en secciones .data y .text y extrae las palabras hex.
         Antes de parsear las secciones, procesa las directivas .import y .extern
@@ -296,7 +296,7 @@ class Linker:
         import_files: list[str] = []
         extern_names: list[str] = []
 
-        for raw_line in text.splitlines():
+        for raw_line in import_metadata:
             line = raw_line.strip()
             if not line or line.startswith('#'):
                 continue
@@ -314,10 +314,6 @@ class Linker:
             line = raw_line.strip()
 
             if not line or line.startswith('#'):
-                continue
-
-            # Saltar directivas ya procesadas
-            if self._RE_IMPORT.match(line) or self._RE_EXTERN.match(line):
                 continue
 
             lower = line.lower()
@@ -343,7 +339,9 @@ class Linker:
 
         # ── Cargar funciones de librería al final del .text ─────────────
         if import_files and extern_names:
+            print("entro al if")
             for lib_file in import_files:
+                print(lib_file)
                 self._load_library(self._lib_files.get(lib_file), extern_names)
 
     @staticmethod
@@ -407,9 +405,7 @@ class Linker:
 
             if func_name not in self._func_index:
                 raise LinkerError(
-                    f"Función externa no resuelta: '{func_name}'. "
-                    f"¿Falta .import o .extern?"
-                )
+                    f"Función externa no resuelta: '{func_name}'. ")
 
             func_instr_idx = self._func_index[func_name]
             target_addr = self._text_addrs[func_instr_idx]

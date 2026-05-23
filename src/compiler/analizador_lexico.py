@@ -70,10 +70,6 @@ class AnalizadorLexico:
         'MOLD',       # class           - definición de TDA
         'OHMY',       # self            - referencia al objeto actual
         'SUMMON',     # new             - creación explícita
-
-        # Referencias de Preprocesador
-        'PREPRO_IMPORT',    # Referencia formateada de nombre de librería incluida que debe llegar al enlazador
-        'PREPRO_EXTERN'     # Referencia formateada de nombre de símbolo incluido que debe llegar al enlazador
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
@@ -103,15 +99,6 @@ class AnalizadorLexico:
         'ohmy':      'OHMY',
         'summon':    'SUMMON',
     }
-
-    # Expresiones de preprocesador antes que DOT
-    def t_PREPRO_IMPORT(self, t):
-        r'\.import[^\n]*'
-        return t
-
-    def t_PREPRO_EXTERN(self, t):
-        r'\.extern[^\n]*'
-        return t
 
     t_EQ       = r'=='
     t_NEQ      = r'!='

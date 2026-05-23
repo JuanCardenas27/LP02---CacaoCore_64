@@ -29,6 +29,7 @@ class CompilerGui:
         self._carry_loader   = ""   # texto que viaja de assembler     → link&load
         self._zoom_manager   = None
         self._palette_name    = "current"
+        self.imports = []
 
         # Incializa estilos 
         setup_styles()
@@ -692,7 +693,7 @@ class CompilerGui:
             # ── Ejecutar el enlazador/cargador ───────────────────────────────
             linker = Linker()
             try:
-                output_text = linker.link_and_load(reloc_text, base_address)
+                output_text = linker.link_and_load(reloc_text, base_address, self.imports)
             except LinkerError as exc:
                 self._ll_show_error(f"Error de enlazado:\n{exc}")
                 return
@@ -764,8 +765,9 @@ class CompilerGui:
         pre = Preprocesador()
 
         try:
-            resultado = pre.preprocess(codigo, nombre_fuente="<gui>")
+            resultado, imports_metadata = pre.preprocess(codigo, nombre_fuente="<gui>")
             salida = resultado.text
+            metadata = imports_metadata.lista
         except PreprocesadorError as exc:
             salida = str(exc)
 
@@ -773,6 +775,7 @@ class CompilerGui:
         self.pc_out.delete("1.0", tk.END)
         self.pc_out.insert("1.0", salida)
         self.pc_out.configure(state="disabled")
+        self.imports = metadata
 
     def _do_lexical(self):
         resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
