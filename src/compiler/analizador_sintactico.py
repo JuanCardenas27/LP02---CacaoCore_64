@@ -504,7 +504,7 @@ class AnalizadorSintactico:
 
     def p_empty(self, p):
         """empty :"""
-        p[0] = []
+        p[0] = None
 
     # ══════════════════════════════════════════════════════════════════════
     # MANEJO DE ERRORES
@@ -515,8 +515,6 @@ class AnalizadorSintactico:
             msg = (f"Error sintáctico en línea {p.lineno}: "
                    f"token inesperado '{p.value}' (tipo: {p.type})")
             self.errors.append(msg)
-            # Recuperación: descarta el token problemático y continúa
-            self.parser.errok()
         else:
             self.errors.append("Error sintáctico: fin de archivo inesperado.")
 

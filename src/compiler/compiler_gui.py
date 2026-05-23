@@ -906,6 +906,10 @@ class CompilerGui:
     
     def _do_syntactic(self):
         error, resultado = compiler.compile_syntactic(self.program2compile)
+        try:
+            self.ast_tree.delete("1.0", tk.END)
+        except Exception:
+            pass
         self.ast_tree.insert(tk.END, f"{resultado}")
 
         for row in self.lex_symbol.get_children():
@@ -918,8 +922,10 @@ class CompilerGui:
         for val in self.num_table_c.values():
             self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
 
+        self.sint_error.config(state="normal")
+        self.sint_error.delete("1.0", tk.END)
         for err in error:
-            self.sint_error.insert(tk.END, err+"\n-------------\n")
+            self.sint_error.insert(tk.END, err + "\n-------------\n")
         self.sint_error.config(state="disabled")
         
 
