@@ -128,33 +128,105 @@ class GeneradorCodigo:
                 "sect": '.data'
             }
 
+
+    def _handle_by_type(self, name, tipo, arg):
+
+        n_code = []
+        init_value = arg['result']
+        if tipo == 'text':
+
+            self.sim_table[arg['result']]['len'] = len(arg['result'])
+
+            for i, ch in enumerate(arg['result']):
+                if i == 0:
+                    self.data.append(f"{name} : '{ch}'")
+                else:
+                    self.data.append(f"{name}{i} : '{ch}'")
+        
+        elif 'temp' in arg:
+            decl = f'{name} : 0'
+            self.data.append(decl)
+            n_code.extend[f'MOVD [{name}], {init_value}']
+            self._gestor.liberar(init_value)
+
+        elif arg["type"] == 'id':
+            if self.sim_table[arg["result"][1:-1]]['type'] == 'text':
+                for i, ch in enumerate(self.sim_table[arg["result"][1:-1]]['value']):
+                    if i == 0:
+                        self.data.append(f"{name} : '{ch}'")
+                    else:
+                        self.data.append(f"{name}{i} : '{ch}'")
+            else:
+                self.data.append(f"{name} : 0")
+                r1 = self._gestor.ocupar()
+                n_code.extend[
+                    f'MOVD {r1}, {arg["result"]}',
+                    f'MOVD [{name}], {r1}'
+                ]
+                self._gestor.liberar(r1)
+
+        else:
+
+            decl = f'{name} : {init_value}'
+            self.data.append(decl)
+        
+        return n_code
+
+            
+
     def p_let_with_val(self, p):
         """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
 
         value = p[6]
         n_code = []
+
+        
+        if p[4] in self.sim_table.keys() and self.sim_table[p[4]]['kind'] == 'mold':
+            #{ PErsonas : {attr: [nom1, nom2, nom3] } }
+            for i, atr in enumerate(self.sim_table[p[4]]['attr']): 
+                tipo = self.sim_table[atr]['type']
+                name = p[2] + '@' + atr
+                n_code.extend(self._handle_by_type(name, tipo, p[6][i]))
+
+            p[0] = {
+            "code": code + n_code,
+            "result": p[2],
+            "sect": '.data'
+            }
+            return 
     
+
+
         if isinstance(value, dict):
             init_value = value["result"]
             code = value["code"]
         else:
             init_value = value
             code = []
+
         # string -> convertir a arreglo de chars
         if value["type"] == 'str' and p[4] == "text":
             self.sim_table[p[2]]['len'] = len(init_value)
+
             for i, ch in enumerate(init_value):
-                self.data.append(f"{p[2]}{i} : '{ch}'")
+                if i == 0:
+                    self.data.append(f"{p[2]} : '{ch}'")
+                else:
+                    self.data.append(f"{p[2]}{i} : '{ch}'")
 
         elif 'temp' in value:
             decl = f'{p[2]} : 0'
             self.data.append(decl)
             n_code = [f'MOVD [{p[2]}], {init_value}']
+            self._gestor.liberar(init_value)
 
         elif value["type"] == 'id':
             if self.sim_table[value["result"][1:-1]]['type'] == 'text':
                 for i, ch in enumerate(self.sim_table[value["result"][1:-1]]['value']):
-                    self.data.append(f"{p[2]}{i} : '{ch}'")
+                    if i == 0:
+                        self.data.append(f"{p[2]} : '{ch}'")
+                    else:
+                        self.data.append(f"{p[2]}{i} : '{ch}'")
             else:
                 self.data.append(f"{p[2]} : 0")
                 r1 = self._gestor.ocupar()
@@ -164,11 +236,11 @@ class GeneradorCodigo:
                 ]
                 self._gestor.liberar(r1)
 
-            
         else:
 
             decl = f'{p[2]} : {init_value}'
             self.data.append(decl)
+
         p[0] = {
             "code": code + n_code,
             "result": p[2],
@@ -529,20 +601,27 @@ class GeneradorCodigo:
 
     def p_mold_def(self, p):
         """mold_def : MOLD ID LBRACE mold_body RBRACE"""
-        p[0] = None
+        p[0] = {
+            'code' : []
+        }
 
     def p_mold_body_multi(self, p):
         """mold_body : mold_body mold_member"""
-        p[0] = p[1] + [p[2]]
+        p[0] = {
+            'code' : []
+        }
 
     def p_mold_body_empty(self, p):
         """mold_body : empty"""
-        p[0] = []
-
+        p[0] = {
+            'code' : []
+        }
     def p_mold_member(self, p):
         """mold_member : let_stmt
                        | func_def"""
-        p[0] = p[1]
+        p[0] = {
+            'code' : []
+        }
 
     # ─────────────────────────────────────────────────────────────
     # IF
@@ -1265,11 +1344,12 @@ class GeneradorCodigo:
     # summon
     def p_expr_summon_args(self, p):
         """expr : SUMMON ID LPAREN arg_list RPAREN"""
-        p[0] = None
+
+        p[0] = p[4]
 
     def p_expr_summon_noargs(self, p):
         """expr : SUMMON ID LPAREN RPAREN"""
-        p[0] = None
+        p[0] = []
 
     # ohmy
     def p_expr_ohmy_member(self, p):
