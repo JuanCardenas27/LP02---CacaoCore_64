@@ -69,7 +69,7 @@ class AnalizadorLexico:
         # Paradigma Orientado a Objetos
         'MOLD',       # class           - definición de TDA
         'OHMY',       # self            - referencia al objeto actual
-        'SUMMON'      # new             - creación explícita
+        'SUMMON',     # new             - creación explícita
     )
 
     # Palabras reservadas para evitar que los ID las utlicen
