@@ -30,6 +30,7 @@ class CompilerGui:
         self._zoom_manager   = None
         self._palette_name    = "current"
         self.imports = []
+        self.asm_carry = ''
 
         # Incializa estilos 
         setup_styles()
@@ -267,16 +268,23 @@ class CompilerGui:
         frame.grid_rowconfigure(0, weight=1)
         frame.grid_columnconfigure(0, weight=1)
 
-        sb = tk.Scrollbar(frame, orient="vertical", bg=BG_MID,
-                          troughcolor=BG_DARK, activebackground=ACCENT2)
-        sb.grid(row=0, column=1, sticky="ns")
+        # Scrollbar vertical
+        vsb = tk.Scrollbar(frame, orient="vertical", bg=BG_MID,
+                           troughcolor=BG_DARK, activebackground=ACCENT2)
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        # Scrollbar horizontal
+        hsb = tk.Scrollbar(frame, orient="horizontal", bg=BG_MID,
+                           troughcolor=BG_DARK, activebackground=ACCENT2)
+        hsb.grid(row=1, column=0, sticky="ew")
 
         txt = tk.Text(frame, bg=BG_INPUT, fg=fg,
                       insertbackground=ACCENT2, font=font,
-                      wrap="word", padx=8, pady=8, bd=0,
-                      yscrollcommand=sb.set, state=state)
+                      wrap="none", padx=8, pady=8, bd=0,
+                      yscrollcommand=vsb.set, xscrollcommand=hsb.set, state=state)
         txt.grid(row=0, column=0, sticky="nsew")
-        sb.config(command=txt.yview)
+        vsb.config(command=txt.yview)
+        hsb.config(command=txt.xview)
 
         return frame, txt
 
@@ -506,16 +514,104 @@ class CompilerGui:
     # ── Paso 1: Sintáctico ────────────────────────────────────────────────
 
     def _build_syntactic(self, area):
-        tk.Label(area, text="[ Syntactic Analysis — coming soon ]",
-                 bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=3, pady=40)
+             # Izquierda: ARBOL AST
+        left = tk.Frame(area, bg=BG_PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
 
+        self._section_label(left, "◈  AST Created", ACCENT2
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_l, self.ast_tree = self._scrollable_text(left)
+        tf_l.grid(row=1, column=0, sticky="nsew")
+
+        # Derecha: tabla de símbolos + errores
+        right = tk.Frame(area, bg=BG_PANEL)
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_rowconfigure(3, weight=1)
+        right.grid_rowconfigure(5, weight=2)
+        right.grid_columnconfigure(0, weight=1)
+
+        self._section_label(right, "◈  Symbol Table", ACCENT4
+                            ).grid(row=0, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
+        tf_r, self.lex_symbol = self._scrollable_table(right, columns)
+        tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Numeric Symbol Table", ACCENT3
+                            ).grid(row=2, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Type', 'Value', 'Line']
+        tf_n, self.num_symbol = self._scrollable_table(right, columns)
+        tf_n.grid(row=3, column=0, sticky="nsew")
+
+        self._section_label(right, "◈  Errores", ACCENT5
+                            ).grid(row=4, column=0, sticky="ew", pady=(3, 1))
+        tf_e, self.sint_error = self._scrollable_text(right, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=5, column=0, sticky="nsew")
+
+        # Botón
+        btn_bar = tk.Frame(self.content, bg=BG_PANEL)
+        btn_bar.grid(row=2, column=0, pady=(0, 10))
+        self._action_btn(btn_bar, "⚙  Start Sintactic Analysis", ACCENT2,
+                         self._do_syntactic).pack()
     # ── Paso 2: Semántico ─────────────────────────────────────────────────
 
     def _build_semantic(self, area):
-        tk.Label(area, text="[ Semantic Analysis — coming soon ]",
-                 bg=BG_PANEL, fg=TEXT_DIM, font=FM_LG
-                 ).grid(row=0, column=0, columnspan=3, pady=40)
+                     # Izquierda: ARBOL ANNOTATED AST
+        left = tk.Frame(area, bg=BG_PANEL)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_columnconfigure(0, weight=1)
+
+        self._section_label(left, "◈  ANNOTATED AST", ACCENT2
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_l, self.ann_ast_tree = self._scrollable_text(left)
+        tf_l.grid(row=1, column=0, sticky="nsew")
+
+        # Centro: tabla de símbolos + errores
+        center = tk.Frame(area, bg=BG_PANEL)
+        center.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        center.grid_rowconfigure(1, weight=1)
+        center.grid_rowconfigure(3, weight=1)
+        center.grid_rowconfigure(5, weight=2)
+        center.grid_columnconfigure(0, weight=1)
+
+        self._section_label(center, "◈  Symbol Table", ACCENT4
+                            ).grid(row=0, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Length', 'Lines', 'Kind', 'Type', 'Value', 'Scope']
+        tf_r, self.lex_symbol = self._scrollable_table(center, columns)
+        tf_r.grid(row=1, column=0, sticky="nsew")
+
+        self._section_label(center, "◈  Numeric Symbol Table", ACCENT3
+                            ).grid(row=2, column=0, sticky="ew", pady=(3, 1))
+        columns = ['Lexeme', 'Type', 'Value', 'Line']
+        tf_n, self.num_symbol = self._scrollable_table(center, columns)
+        tf_n.grid(row=3, column=0, sticky="nsew")
+
+        self._section_label(center, "◈  Errores", ACCENT5
+                            ).grid(row=4, column=0, sticky="ew", pady=(3, 1))
+        tf_e, self.sem_error = self._scrollable_text(center, fg=ACCENT5, state="disabled", font=FM_SM)
+        tf_e.grid(row=5, column=0, sticky="nsew")
+
+        # Derecha: cod generado
+        right = tk.Frame(area, bg=BG_PANEL)
+        right.grid(row=0, column=2, sticky="nsew", padx=(0, 5))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        self._section_label(right, "◈  Generated code", ACCENT3
+                            ).grid(row=0, column=0, sticky="ew", pady=(4, 2))
+        tf_c, self.gen_code = self._scrollable_text(right,state="disabled")
+        tf_c.grid(row=1, column=0, sticky="nsew")
+
+        # Botón
+        btn_bar = tk.Frame(self.content, bg=BG_PANEL)
+        btn_bar.grid(row=2, column=0, pady=(0, 10))
+        self._action_btn(btn_bar, "⚙  Start Semantic Analysis", ACCENT2,
+                         self._do_semantic).grid(row=0, column=0, sticky='nsw', padx=10)
+        self._action_btn(btn_bar, "⚙ Generate code", ACCENT3,
+                         self._do_generation).grid(row=0, column=1, sticky='nse', padx=10)
 
     def _compiler_prev(self):
         if self.compiler_step > 0:
@@ -580,6 +676,7 @@ class CompilerGui:
                          self._asm_erase).pack(side="left", padx=10)
 
         self._refresh_zoom_dynamic()
+        self.asm_src.insert("1.0", self.asm_carry)
 
     def _asm_load(self):
         path = filedialog.askopenfilename(filetypes=[("ASM_FILES", "*.asm"), ("All", "*.*")])
@@ -778,11 +875,14 @@ class CompilerGui:
         self.imports = metadata 
 
     def _do_lexical(self):
-        resultado    = compiler.compile(self.lex_input.get("1.0", "end"))
+        resultado = compiler.compile_lexer(self.lex_input.get("1.0", "end"))
+        self.program2compile = self.lex_input.get("1.0", "end")
         lex_errors = resultado[0]
         symbol_table = resultado[1]
+        self.symbol_table_c = resultado[1]
         tokens = resultado[2]
         number_table = resultado[3]
+        self.num_table_c = resultado[3]
 
         self.lex_tokens.config(state="normal")
         self.lex_tokens.delete("1.0", tk.END)
@@ -794,7 +894,7 @@ class CompilerGui:
             self.lex_symbol.delete(row)
         for val in symbol_table.values():
             self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
-            
+        
         for row in self.num_symbol.get_children():
             self.num_symbol.delete(row)
         for val in number_table.values():
@@ -806,6 +906,83 @@ class CompilerGui:
         for err in lex_errors:
             self.lex_error.insert(tk.END, err+"\n-------------\n")
         self.lex_error.config(state="disabled")
+    
+    def _do_syntactic(self):
+        error, resultado = compiler.compile_syntactic(self.program2compile)
+        self.ast_tree.insert(tk.END, f"{resultado}")
+
+        for row in self.lex_symbol.get_children():
+            self.lex_symbol.delete(row)
+        for val in self.symbol_table_c.values():
+            self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+        
+        for row in self.num_symbol.get_children():
+            self.num_symbol.delete(row)
+        for val in self.num_table_c.values():
+            self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        for err in error:
+            self.sint_error.insert(tk.END, err+"\n-------------\n")
+        self.sint_error.config(state="disabled")
+        
+
+
+    def _do_semantic(self):
+        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile)
+        # Mostrar AST anotado
+        try:
+            self.ann_ast_tree.delete("1.0", tk.END)
+        except Exception:
+            pass
+        self.ann_ast_tree.insert(tk.END, f"{resultado}")
+
+        # Usar tabla semántica real generada por yacc
+        for row in self.lex_symbol.get_children():
+            self.lex_symbol.delete(row)
+        sem_table = symbol_table_sem
+        for val in sem_table.values():
+            self.lex_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        # Tabla numérica
+        for row in self.num_symbol.get_children():
+            self.num_symbol.delete(row)
+        for val in self.num_table_c.values():
+            self.num_symbol.insert("", "end", values=tuple(i for i in val.values()))
+
+        # Mostrar errores semánticos
+        self.sem_error.config(state="normal")
+        self.sem_error.delete("1.0", tk.END)
+        for err in error:
+            self.sem_error.insert(tk.END, err + "\n-------------\n")
+        self.sem_error.config(state="disabled")
+
+    def _do_generation(self):
+            
+        self.gen_code.config(state="normal")
+
+        file_content = self.program2compile
+
+        self.gen_code.delete("1.0", tk.END)
+
+        result = compiler.compile_generator(file_content)
+
+        lines = result[1]
+        errors = result[0]
+        self.asm_carry = ''
+        for val in lines:
+            self.gen_code.insert(tk.END, val + "\n")
+            self.asm_carry = "".join([self.asm_carry, val + "\n"])
+        self.gen_code.config(state="disabled")
+
+        self.sem_error.config(state="normal")
+
+        self.sem_error.delete("1.0", tk.END)
+
+        for error in errors:
+            self.sem_error.insert(tk.END, error + "\n")
+
+        self.sem_error.config(state="disabled")
+
 
     def _translate_asm(self):
         asm_mod = ASM()

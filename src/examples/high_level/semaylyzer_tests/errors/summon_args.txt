@@ -1,0 +1,5 @@
+mold Person {
+    let age: int
+}
+
+let p: Person = summon Person("hola")

@@ -19,7 +19,6 @@ statement       ::= let_stmt
                   | show_stmt
                   | oops_stmt
                   | expr_stmt
-                  | prepro_stmt
 
 let_stmt        ::= 'let' ID ':' type_annot [ dims ] [ '=' initializer ]
 dims            ::= '[' expr ']' [ '[' expr ']' ]
@@ -42,20 +41,19 @@ mold_member     ::= let_stmt | func_def
 if_stmt         ::= 'if' expr block [ 'otherwise' block ]
 while_stmt      ::= 'asLongAs' expr block
 for_stmt        ::= 'for' '(' for_init ',' expr ',' for_update ')' block
-for_init        ::= let_stmt_simple | expr | ε
-for_update      ::= set_stmt_simple | expr | ε
+for_init        ::= let_stmt_simple
+for_update      ::= set_stmt_simple | expr
 
 deliver_stmt    ::= 'deliver' [ expr ]
 show_stmt       ::= 'show' expr
 oops_stmt       ::= 'oops' expr
 expr_stmt       ::= expr
-prepro_stmt     ::= PREPRO_IMPORT | PREPRO_EXTERN
 
 block           ::= '{' { statement } '}'
 
 expr            ::= expr ( '+' | '-' | '*' | '/' | '%' ) expr
                   | expr ( '==' | '!=' | '<' | '>' | '<=' | '>=' ) expr
-                  | expr ( 'and' | 'or' ) expr
+                  | expr ( 'and' | 'or' | 'xor' ) expr
                   | 'not' expr
                   | '-' expr
                   | expr '[' expr ']'
@@ -77,10 +75,10 @@ from .analizador_lexico import AnalizadorLexico
 from .ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
-    NodoPreprocesador, NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
+    NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
     NodoAccesoMiembro, NodoAccesoArreglo, NodoSummon, NodoListaValores,
-    NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
-    NodoOhmy,
+    NodoParametro, NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
+    NodoOhmy, NodoTerminal,
 )
 
 
@@ -94,31 +92,7 @@ class AnalizadorSintactico:
     """
 
     # ── Tokens (lista completa del lenguaje) ───────────────────────────────
-    tokens = (
-        'LET', 'SET', 'FUNC', 'IF', 'OTHERWISE', 'ASLONGAS', 'FOR', 'IN',
-        'DELIVER', 'SHOW', 'OOPS',
-        # lógicos
-        'AND', 'OR', 'NOT',
-        # tipos
-        'INT_TYPE', 'FLOAT_TYPE', 'TEXT_TYPE', 'BOOL_TYPE',
-        # literales
-        'INT_LIT', 'FLOAT_LIT', 'STRING', 'INDEED', 'NOPE', 'NOTHING',
-        # identificador
-        'ID',
-        # aritmética
-        'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MOD',
-        # comparación
-        'EQ', 'NEQ', 'LT', 'GT', 'LEQ', 'GEQ',
-        # asignación
-        'ASSIGN', 'SWEET_PLUS',
-        # delimitadores
-        'LPAREN', 'RPAREN', 'LBRACE', 'RBRACE', 'LBRACKET', 'RBRACKET',
-        'COLON', 'COMMA', 'DOT',
-        # OOP
-        'MOLD', 'OHMY', 'SUMMON',
-        # preprocesador
-        'PREPRO_IMPORT', 'PREPRO_EXTERN',
-    )
+    tokens = AnalizadorLexico.tokens
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
     precedence = (
@@ -165,19 +139,8 @@ class AnalizadorSintactico:
                      | deliver_stmt
                      | show_stmt
                      | oops_stmt
-                     | expr_stmt
-                     | prepro_stmt"""
+                     | expr_stmt"""
         p[0] = p[1]
-
-    # ── Preprocesador ─────────────────────────────────────────────────────
-
-    def p_prepro_import(self, p):
-        """prepro_stmt : PREPRO_IMPORT"""
-        p[0] = NodoPreprocesador('import', p[1], p.lineno(1))
-
-    def p_prepro_extern(self, p):
-        """prepro_stmt : PREPRO_EXTERN"""
-        p[0] = NodoPreprocesador('extern', p[1], p.lineno(1))
 
     # ── Declaración let ───────────────────────────────────────────────────
 
@@ -221,30 +184,32 @@ class AnalizadorSintactico:
 
     def p_value_list_grow(self, p):
         """value_list : value_list COMMA expr"""
-        p[1].valores.append(p[3])
+        # Agregar a lista interleaved: ... , expr
+        p[1].items.append(NodoTerminal(',', p.lineno(2)))
+        p[1].items.append(p[3])
         p[0] = p[1]
 
     # ── Tipo anotación ────────────────────────────────────────────────────
 
     def p_type_int(self, p):
         """type_annot : INT_TYPE"""
-        p[0] = 'int'
+        p[0] = NodoTerminal('int', p.lineno(1))
 
     def p_type_float(self, p):
         """type_annot : FLOAT_TYPE"""
-        p[0] = 'float'
+        p[0] = NodoTerminal('float', p.lineno(1))
 
     def p_type_text(self, p):
         """type_annot : TEXT_TYPE"""
-        p[0] = 'text'
+        p[0] = NodoTerminal('text', p.lineno(1))
 
     def p_type_bool(self, p):
         """type_annot : BOOL_TYPE"""
-        p[0] = 'bool'
+        p[0] = NodoTerminal('bool', p.lineno(1))
 
     def p_type_id(self, p):
         """type_annot : ID"""
-        p[0] = p[1]
+        p[0] = NodoTerminal(p[1], p.lineno(1))
 
     # ── Reasignación set ──────────────────────────────────────────────────
 
@@ -269,7 +234,10 @@ class AnalizadorSintactico:
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
         if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
+            # Agregar a la lista interleaved: [ expr ]
+            p[1].brackets_indices.append(NodoTerminal('[', p.lineno(2)))
+            p[1].brackets_indices.append(p[3])
+            p[1].brackets_indices.append(NodoTerminal(']', p.lineno(2)))
             p[0] = p[1]
         else:
             p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
@@ -294,11 +262,13 @@ class AnalizadorSintactico:
 
     def p_param_list_many(self, p):
         """param_list : param_list COMMA param"""
-        p[0] = p[1] + [p[3]]
+        p[1].append(NodoTerminal(',', p.lineno(2)))
+        p[1].append(p[3])
+        p[0] = p[1]
 
     def p_param(self, p):
         """param : ID COLON type_annot"""
-        p[0] = (p[1], p[3])
+        p[0] = NodoParametro(p[1], p[3], linea=p.lineno(1))
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
 
@@ -346,14 +316,6 @@ class AnalizadorSintactico:
         """for_init : LET ID COLON type_annot ASSIGN expr"""
         p[0] = NodoDeclaracion(p[2], p[4], valor=p[6], linea=p.lineno(1))
 
-    def p_for_init_expr(self, p):
-        """for_init : expr"""
-        p[0] = p[1]
-
-    def p_for_init_empty(self, p):
-        """for_init : empty"""
-        p[0] = None
-
     # for_update: set simple, expresión, o vacío
     def p_for_update_set_assign(self, p):
         """for_update : SET lvalue ASSIGN expr"""
@@ -366,10 +328,6 @@ class AnalizadorSintactico:
     def p_for_update_expr(self, p):
         """for_update : expr"""
         p[0] = p[1]
-
-    def p_for_update_empty(self, p):
-        """for_update : empty"""
-        p[0] = None
 
     # ── Sentencias simples ────────────────────────────────────────────────
 
@@ -431,6 +389,10 @@ class AnalizadorSintactico:
         """expr : expr OR expr"""
         p[0] = NodoBinario('or', p[1], p[3], linea=p.lineno(2))
 
+    def p_expr_xor(self, p):
+        """expr : expr XOR expr"""
+        p[0] = NodoBinario('xor', p[1], p[3], linea=p.lineno(2))
+
     def p_expr_not(self, p):
         """expr : NOT expr"""
         p[0] = NodoUnario('not', p[2], linea=p.lineno(1))
@@ -444,7 +406,10 @@ class AnalizadorSintactico:
     def p_expr_index(self, p):
         """expr : expr LBRACKET expr RBRACKET"""
         if isinstance(p[1], NodoAccesoArreglo):
-            p[1].indices.append(p[3])
+            # Agregar a la lista interleaved: [ expr ]
+            p[1].brackets_indices.append(NodoTerminal('[', p.lineno(2)))
+            p[1].brackets_indices.append(p[3])
+            p[1].brackets_indices.append(NodoTerminal(']', p.lineno(2)))
             p[0] = p[1]
         else:
             p[0] = NodoAccesoArreglo(p[1], [p[3]], linea=p.lineno(2))
@@ -531,13 +496,15 @@ class AnalizadorSintactico:
 
     def p_arg_list_many(self, p):
         """arg_list : arg_list COMMA expr"""
-        p[0] = p[1] + [p[3]]
+        p[1].append(NodoTerminal(',', p.lineno(2)))
+        p[1].append(p[3])
+        p[0] = p[1]
 
     # ── Vacío ─────────────────────────────────────────────────────────────
 
     def p_empty(self, p):
         """empty :"""
-        p[0] = None
+        p[0] = []
 
     # ══════════════════════════════════════════════════════════════════════
     # MANEJO DE ERRORES
@@ -578,8 +545,6 @@ class AnalizadorSintactico:
             ast     -- NodoPrograma raíz del árbol, o None si no se pudo parsear.
         """
         self.errors = []
-        # Reset + análisis léxico
-        lex_errors, _, _ = self._lex.analize(codigo)
 
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
@@ -590,4 +555,27 @@ class AnalizadorSintactico:
             tracking=True,
         )
 
-        return lex_errors + self.errors, ast
+        return self.errors, ast
+
+
+# Programa de prueba
+if __name__ == '__main__':
+
+    a_s = AnalizadorSintactico()
+ 
+    sample_code = '''
+let n: int = 5
+let a: int[n] = 1,8,4,2,10
+
+let max: int = a[0]
+
+for (let i: int = 1, i < f, set i += 1){
+    if (max < a[i]){
+        set max = a[i]
+    }
+}
+'''
+
+    errors, ast = a_s.parse(sample_code)
+    print(errors)
+    print(ast)

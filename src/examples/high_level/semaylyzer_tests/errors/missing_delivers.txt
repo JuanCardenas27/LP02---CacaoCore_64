@@ -1,0 +1,5 @@
+func test(a: int) {
+    if a > 0 {
+        deliver 1
+    }
+}

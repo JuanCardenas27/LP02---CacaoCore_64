@@ -1,0 +1,10 @@
+
+func a (b : int, c : int){
+    let banana : int
+    set banana = b + c
+    deliver banana
+}
+
+
+let res : int
+set res = a(2, 3)
