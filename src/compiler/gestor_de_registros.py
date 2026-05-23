@@ -6,7 +6,7 @@ class GestorRegistros:
 
     def ocupar(self):
         for reg, ocupado in self.registros.items():
-            if not ocupado and reg != 'R1':
+            if not ocupado:
                 self.registros[reg] = True
                 return reg
         raise Exception("¡Derrame de registros! (Register Spill): No hay registros libres.")
