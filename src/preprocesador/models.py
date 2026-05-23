@@ -19,6 +19,13 @@ class PreprocessResult:
     text: str
     line_map: List[SourceLine]
 
+@dataclass
+class PreprocessMetadata:
+    """Resultado completo del preprocesado."""
+
+    lista: List[str]
+    line_map: List[SourceLine]
+
 
 @dataclass
 class Macro:
