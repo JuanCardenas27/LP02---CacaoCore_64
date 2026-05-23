@@ -1,0 +1,4 @@
+func test() {
+    deliver 1
+    show 5
+}

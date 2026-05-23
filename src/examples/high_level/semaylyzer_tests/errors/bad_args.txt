@@ -1,0 +1,5 @@
+func sum(a: int, b: int) {
+    deliver a + b
+}
+
+show sum("hola", 2)

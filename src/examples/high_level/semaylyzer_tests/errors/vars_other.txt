@@ -1,0 +1,8 @@
+show w
+
+let x: int
+let x: float
+
+let y: float = 5
+
+let z: int = 5.2

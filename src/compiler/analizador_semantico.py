@@ -74,7 +74,38 @@ arg_list        ::= expr { ',' expr }
 import ply.yacc as yacc
 from .analizador_lexico import AnalizadorLexico
 from .analizador_sintactico import AnalizadorSintactico
-from .ast_nodos import Nodo, NodoID, NodoDeclaracion, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoParametro
+from .semantic_ast_annotator import ASTSemanticAnnotator
+from .ast_nodos import (
+    Nodo,
+    NodoAccesoArreglo,
+    NodoAccesoMiembro,
+    NodoBinario,
+    NodoBloque,
+    NodoBooleano,
+    NodoCadena,
+    NodoDeclaracion,
+    NodoEntregar,
+    NodoEntero,
+    NodoFlotante,
+    NodoFuncion,
+    NodoID,
+    NodoListaValores,
+    NodoLlamada,
+    NodoMold,
+    NodoNada,
+    NodoOhmy,
+    NodoOops,
+    NodoParametro,
+    NodoPrograma,
+    NodoReasignacion,
+    NodoSi,
+    NodoMostrar,
+    NodoSummon,
+    NodoTerminal,
+    NodoUnario,
+    NodoMientras,
+    NodoPara,
+)
 
 
 class AnalizadorSemantico:
@@ -106,6 +137,18 @@ class AnalizadorSemantico:
         ('left',  'DOT'),
     )
 
+    _SEMANTIC_META_KEYS = {
+        'tipo',
+        'tipo_semantico',
+        'dims',
+        'kind',
+        'return_type',
+        'params_info',
+        'scope_id',
+        'tipo_decl',
+        'semantic_info',
+    }
+
     # ══════════════════════════════════════════════════════════════════════
     # GRAMÁTICA CON LÓGICA SEMÁNTICA (SIN CONSTRUCCIÓN DE NODOS)
     # ══════════════════════════════════════════════════════════════════════
@@ -118,26 +161,51 @@ class AnalizadorSemantico:
 
     def p_stmt_list_multi(self, p):
         """stmt_list : stmt_list statement"""
-        pass
+
+        previous_returns = p[1]['always_returns']
+
+        if previous_returns:
+
+            self._emit_error(
+                p.lineno(2),
+                "código inalcanzable"
+            )
+
+        current_returns = p[2].get(
+            'always_returns',
+            False
+        )
+
+        p[0] = {
+            'always_returns': (
+                previous_returns
+                or
+                current_returns
+            )
+        }
 
     def p_stmt_list_empty(self, p):
         """stmt_list : empty"""
-        pass
+
+        p[0] = {
+            'always_returns': False
+        }
 
     # SENTENCIAS
     def p_statement(self, p):
         """statement : let_stmt
-                     | set_stmt
-                     | func_def
-                     | mold_def
-                     | if_stmt
-                     | while_stmt
-                     | for_stmt
-                     | deliver_stmt
-                     | show_stmt
-                     | oops_stmt
-                     | expr_stmt"""
-        pass
+                    | set_stmt
+                    | func_def
+                    | mold_def
+                    | if_stmt
+                    | while_stmt
+                    | for_stmt
+                    | deliver_stmt
+                    | show_stmt
+                    | oops_stmt
+                    | expr_stmt"""
+
+        p[0] = p[1]
 
     # ── Declaración let
     def p_let_simple(self, p):
@@ -157,6 +225,9 @@ class AnalizadorSemantico:
             p.lineno(1),
             value=None
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_let_with_val(self, p):
         """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
@@ -171,6 +242,26 @@ class AnalizadorSemantico:
 
         init_data = p[6]
 
+        expr_type = self._extract_type(init_data)
+
+        compatible = (
+            type_name == expr_type
+            or
+            (
+                type_name == 'float'
+                and expr_type == 'int'
+            )
+        )
+
+        if not compatible:
+
+            self._emit_error(
+                p.lineno(5),
+                f"asignación incompatible: "
+                f"no se puede asignar "
+                f"'{expr_type}' a '{type_name}'"
+            )
+
         self._define_symbol(
             name,
             'variable',
@@ -178,6 +269,9 @@ class AnalizadorSemantico:
             p.lineno(1),
             value=self._extract_value(init_data)
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_let_array_1d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
@@ -196,11 +290,45 @@ class AnalizadorSemantico:
             dims=1,
             value=None
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_let_array_1d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+
+        init_data = p[9]
+
+        expr_type = self._extract_type(init_data)
+        expr_dims = self._extract_dims(init_data)
+
+        compatible = (
+            type_name == expr_type
+            or
+            (
+                type_name == 'float'
+                and expr_type == 'int'
+            )
+        )
+
+        if expr_dims != 1:
+
+            self._emit_error(
+                p.lineno(8),
+                "dimensiones incompatibles: se esperaba 1D"
+            )
+
+        elif not compatible:
+
+            self._emit_error(
+                p.lineno(8),
+                f"asignación incompatible: "
+                f"no se puede asignar "
+                f"'{expr_type}' a '{type_name}'"
+            )
+
         if not self._type_exists(type_name):
             self._emit_error(
                 p.lineno(3),
@@ -214,6 +342,9 @@ class AnalizadorSemantico:
             dims=1,
             value=self._extract_value(p[9])
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_let_array_2d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
@@ -225,12 +356,46 @@ class AnalizadorSemantico:
                 f"tipo '{type_name}' no existe"
             )
         self._define_symbol(name, 'array', type_name, p.lineno(1), dims=2)
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_let_array_2d_val(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
 
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+
+        init_data = p[12]
+
+        expr_type = self._extract_type(init_data)
+        expr_dims = self._extract_dims(init_data)
+
+        compatible = (
+            type_name == expr_type
+            or
+            (
+                type_name == 'float'
+                and expr_type == 'int'
+            )
+        )
+
+        if expr_dims != 2:
+
+            self._emit_error(
+                p.lineno(11),
+                "dimensiones incompatibles: se esperaba 2D"
+            )
+
+        elif not compatible:
+
+            self._emit_error(
+                p.lineno(11),
+                f"asignación incompatible: "
+                f"no se puede asignar "
+                f"'{expr_type}' a '{type_name}'"
+            )
+
         if not self._type_exists(type_name):
             self._emit_error(
                 p.lineno(3),
@@ -245,6 +410,9 @@ class AnalizadorSemantico:
             dims=2,
             value=self._extract_value(p[12])
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_initializer_expr(self, p):
         """initializer : expr"""
@@ -341,6 +509,10 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = self._extract_value(expr_data)
+        
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_set_pluseq(self, p):
         """set_stmt : SET lvalue SWEET_PLUS expr"""
@@ -363,6 +535,10 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = None
+        
+        p[0] = {
+            'always_returns': False
+        }
 
     # ── Lvalue
     def p_lvalue_id(self, p):
@@ -371,7 +547,20 @@ class AnalizadorSemantico:
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
-        pass
+
+        mold = self._resolve_ohmy(
+            p.lineno(1)
+        )
+
+        if mold is None:
+
+            p[0] = '__invalid_ohmy__'
+            return
+
+        p[0] = {
+            'kind': 'ohmy',
+            'type': self.current_method_mold
+        }
 
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
@@ -416,10 +605,63 @@ class AnalizadorSemantico:
 
         if sym is not None:
             sym['params'] = params
-            sym['return_type'] = 'void'
+            inferred_return = 'void'
+
+            if self.current_function is not None:
+                inferred_return = (
+                    self.current_function['return_type']
+                    or 'void'
+                )
+
+            sym['return_type'] = inferred_return
+            if self.current_method_mold is not None:
+
+                mold = self.molds.get(
+                    self.current_method_mold
+                )
+
+                if mold is not None:
+
+                    method = mold['methods'].get(name)
+
+                    if method is not None:
+
+                        method['params'] = params
+                        method['return_type'] = inferred_return
+
+            body_returns = p[7]['always_returns']
+
+            if (
+                inferred_return != 'void'
+                and
+                not body_returns
+            ):
+
+                self._emit_error(
+                    p.lineno(1),
+                    f"la función '{name}' no retorna en todos los caminos"
+                )
+                
+            self.current_function = None
+            self.current_method_mold = None
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_enter_function_scope(self, p):
         """enter_function_scope :"""
+
+        function_name = p[-2]
+
+        self.current_function = {
+            'name': function_name,
+            'return_type': None,
+            'mold': self.current_mold,
+            'has_deliver': False
+        }
+
+        self.current_method_mold = self.current_mold
+
         self._enter_scope('function')
 
     def p_func_def_no_params(self, p):
@@ -439,7 +681,49 @@ class AnalizadorSemantico:
 
         if sym is not None:
             sym['params'] = []
-            sym['return_type'] = 'void'
+            inferred_return = 'void'
+
+            if self.current_function is not None:
+                inferred_return = (
+                    self.current_function['return_type']
+                    or 'void'
+                )
+
+            sym['return_type'] = inferred_return
+            if self.current_method_mold is not None:
+
+                mold = self.molds.get(
+                    self.current_method_mold
+                )
+
+                if mold is not None:
+
+                    method = mold['methods'].get(name)
+
+                    if method is not None:
+
+                        method['params'] = []
+                        method['return_type'] = inferred_return
+            
+            body_returns = p[6]['always_returns']
+
+            if (
+                inferred_return != 'void'
+                and
+                not body_returns
+            ):
+
+                self._emit_error(
+                    p.lineno(1),
+                    f"la función '{name}' no retorna en todos los caminos"
+                )
+
+            self.current_function = None
+            self.current_method_mold = None
+        
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_param_list_one(self, p):
         """param_list : param"""
@@ -486,6 +770,9 @@ class AnalizadorSemantico:
         )
 
         self.current_mold = None
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_enter_mold_scope(self, p):
         """enter_mold_scope :"""
@@ -503,20 +790,25 @@ class AnalizadorSemantico:
 
     def p_mold_body_multi(self, p):
         """mold_body : mold_body mold_member"""
-        pass
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_mold_body_empty(self, p):
         """mold_body : empty"""
-        pass
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_mold_member(self, p):
         """mold_member : let_stmt
                        | func_def"""
-        pass
+        p[0] = p[1]
 
     # ── if / otherwise
     def p_if_simple(self, p):
         """if_stmt : IF expr enter_if_scope block"""
+
         cond_type = self._extract_type(p[2])
 
         if cond_type != 'bool':
@@ -525,6 +817,10 @@ class AnalizadorSemantico:
                 p.lineno(1),
                 "la condición del if debe ser bool"
             )
+
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_enter_if_scope(self, p):
         """enter_if_scope :"""
@@ -532,6 +828,7 @@ class AnalizadorSemantico:
 
     def p_if_otherwise(self, p):
         """if_stmt : IF expr enter_if_scope block OTHERWISE enter_else_scope block"""
+
         cond_type = self._extract_type(p[2])
 
         if cond_type != 'bool':
@@ -540,6 +837,17 @@ class AnalizadorSemantico:
                 p.lineno(1),
                 "la condición del if debe ser bool"
             )
+
+        then_returns = p[4]['always_returns']
+        else_returns = p[7]['always_returns']
+
+        p[0] = {
+            'always_returns': (
+                then_returns
+                and
+                else_returns
+            )
+        }
 
     def p_enter_else_scope(self, p):
         """enter_else_scope :"""
@@ -556,6 +864,10 @@ class AnalizadorSemantico:
                 p.lineno(1),
                 "la condición del while debe ser bool"
             )
+
+        p[0] = {
+            'always_returns': False
+        }
     
     def p_enter_while_scope(self, p):
         """enter_while_scope :"""
@@ -573,6 +885,10 @@ class AnalizadorSemantico:
                 "la condición del for debe ser bool"
             )
 
+        p[0] = {
+            'always_returns': False
+        }
+
     def p_enter_for_scope(self, p):
         """enter_for_scope :"""
         self._enter_scope('for')
@@ -581,6 +897,29 @@ class AnalizadorSemantico:
         """for_init : LET ID COLON type_annot ASSIGN expr"""
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+
+        expr_data = p[6]
+
+        expr_type = self._extract_type(expr_data)
+
+        compatible = (
+            type_name == expr_type
+            or
+            (
+                type_name == 'float'
+                and expr_type == 'int'
+            )
+        )
+
+        if not compatible:
+
+            self._emit_error(
+                p.lineno(5),
+                f"asignación incompatible: "
+                f"no se puede asignar "
+                f"'{expr_type}' a '{type_name}'"
+            )
+
         if not self._type_exists(type_name):
             self._emit_error(
                 p.lineno(3),
@@ -593,44 +932,146 @@ class AnalizadorSemantico:
             p.lineno(1),
             value=self._extract_value(p[6])
         )
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_for_update_set_assign(self, p):
         """for_update : SET lvalue ASSIGN expr"""
-        pass
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_for_update_set_pluseq(self, p):
         """for_update : SET lvalue SWEET_PLUS expr"""
-        pass
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_for_update_expr(self, p):
         """for_update : expr"""
-        pass
+        p[0] = {
+            'always_returns': False
+        }
 
     # ── Sentencias simples
     def p_deliver_val(self, p):
         """deliver_stmt : DELIVER expr"""
-        pass
+
+        if self.current_function is None:
+
+            self._emit_error(
+                p.lineno(1),
+                "deliver solo puede usarse dentro de una función"
+            )
+
+            return
+
+        expr_type = self._extract_type(p[2])
+
+        current_return = self.current_function['return_type']
+
+        # Primer deliver → inferir tipo
+        if current_return is None:
+
+            self.current_function['return_type'] = expr_type
+            self.current_function['has_deliver'] = True
+
+            p[0] = {
+                'always_returns': True
+            }
+
+            return
+
+        compatible = (
+            current_return == expr_type or
+            (
+                current_return == 'float' and
+                expr_type == 'int'
+            )
+        )
+
+        if not compatible:
+
+            self._emit_error(
+                p.lineno(1),
+                f"la función '{self.current_function['name']}' "
+                f"retorna tipos incompatibles "
+                f"('{current_return}' y '{expr_type}')"
+            )
+
+        p[0] = {
+            'always_returns': True
+        }
+        self.current_function['has_deliver'] = True
 
     def p_deliver_nothing(self, p):
         """deliver_stmt : DELIVER"""
-        pass
+
+        if self.current_function is None:
+
+            self._emit_error(
+                p.lineno(1),
+                "deliver solo puede usarse dentro de una función"
+            )
+
+            return
+
+        current_return = self.current_function['return_type']
+
+        if current_return is None:
+
+            self.current_function['return_type'] = 'void'
+            self.current_function['has_deliver'] = True
+
+            p[0] = {
+                'always_returns': True
+            }
+
+            return
+
+        if current_return != 'void':
+
+            self._emit_error(
+                p.lineno(1),
+                f"la función '{self.current_function['name']}' "
+                f"retorna tipos incompatibles "
+                f"('{current_return}' y 'void')"
+            )
+        
+        p[0] = {
+            'always_returns': True
+        }
+        self.current_function['has_deliver'] = True
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        pass
+
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_oops(self, p):
         """oops_stmt : OOPS expr"""
-        pass
+
+        p[0] = {
+            'always_returns': False
+        }
 
     def p_expr_stmt(self, p):
         """expr_stmt : expr"""
-        pass
+
+        p[0] = {
+            'always_returns': False
+        }
 
     # ── Bloque
     def p_block(self, p):
         """block : LBRACE stmt_list RBRACE"""
+
         self._leave_scope()
+
+        p[0] = p[2]
 
     # EXPRESIONES
     def p_expr_binop(self, p):
@@ -814,9 +1255,68 @@ class AnalizadorSemantico:
     def p_expr_method_call(self, p):
         """expr : expr DOT ID LPAREN arg_list RPAREN
                 | expr DOT ID LPAREN RPAREN"""
+
+        target = p[1]
+        method_name = p[3]
+
+        if len(p) == 7:
+            received_args = p[5]
+        else:
+            received_args = []
+
+        target_type = self._extract_type(target)
+
+        mold = self.molds.get(target_type)
+
+        if mold is None:
+
+            self._emit_error(
+                p.lineno(2),
+                f"'{target_type}' no es un mold"
+            )
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
+        method = mold['methods'].get(method_name)
+
+        if method is None:
+
+            self._emit_error(
+                p.lineno(2),
+                f"el mold '{target_type}' "
+                f"no tiene método '{method_name}'"
+            )
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
+        expected_params = method.get(
+            'params',
+            []
+        )
+
+        self._validate_call_arguments(
+            p.lineno(2),
+            expected_params,
+            received_args
+        )
+
         p[0] = self._make_expr_data(
-            'unknown',
-            None
+            method.get(
+                'return_type',
+                'void'
+            ),
+            None,
+            method.get('dims', 0)
         )
 
     def p_expr_member(self, p):
@@ -931,56 +1431,139 @@ class AnalizadorSemantico:
             )
         
         p[0] = self._make_expr_data(
-            sym.get('type', 'unknown'),
+            sym.get('return_type', 'unknown'),
             sym.get('value'),
             sym.get('dims', 0)
         )
 
     def p_expr_summon_args(self, p):
         """expr : SUMMON ID LPAREN arg_list RPAREN"""
+
         mold_name = p[2]
 
         sym = self._resolve_symbol(mold_name)
 
         if sym is None or sym.get('kind') != 'mold':
+
             self._emit_error(
                 p.lineno(1),
                 f"mold '{mold_name}' no declarado"
             )
 
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
+        self._validate_summon_arguments(
+            p.lineno(1),
+            mold_name,
+            p[4]
+        )
+
         p[0] = self._make_expr_data(
-            p[2],
+            mold_name,
             None
         )
 
     def p_expr_summon_noargs(self, p):
         """expr : SUMMON ID LPAREN RPAREN"""
+
         mold_name = p[2]
 
         sym = self._resolve_symbol(mold_name)
 
         if sym is None or sym.get('kind') != 'mold':
+
             self._emit_error(
                 p.lineno(1),
                 f"mold '{mold_name}' no declarado"
             )
-            
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
+        mold = self.molds.get(mold_name)
+
+        expected_fields = mold.get('field_order', [])
+
+        if len(expected_fields) != 0:
+
+            self._emit_error(
+                p.lineno(1),
+                f"el mold '{mold_name}' requiere argumentos"
+            )
+
         p[0] = self._make_expr_data(
-            p[2],
+            mold_name,
             None
         )
 
     def p_expr_ohmy_member(self, p):
         """expr : OHMY DOT ID"""
+
+        mold = self._resolve_ohmy(
+            p.lineno(1)
+        )
+
+        if mold is None:
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
+        member = p[3]
+
+        field = mold['fields'].get(member)
+
+        if field is None:
+
+            self._emit_error(
+                p.lineno(3),
+                f"el mold '{self.current_method_mold}' "
+                f"no tiene miembro '{member}'"
+            )
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
         p[0] = self._make_expr_data(
-            'unknown',
-            None
+            field['type'],
+            None,
+            field.get('dims', 0)
         )
 
     def p_expr_ohmy(self, p):
         """expr : OHMY"""
+
+        mold = self._resolve_ohmy(
+            p.lineno(1)
+        )
+
+        if mold is None:
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
+
         p[0] = self._make_expr_data(
-            'unknown',
+            self.current_method_mold,
             None
         )
 
@@ -1100,6 +1683,7 @@ class AnalizadorSemantico:
         self.semantic_symbol_table: dict[str, dict] = {}
         self.molds = {}
         self.current_mold = None
+        self.current_method_mold = None
         self.parser = yacc.yacc(
             module=self,
             debug=False,
@@ -1107,6 +1691,7 @@ class AnalizadorSemantico:
         )
         self.current_function = None
         self.pending_params = []
+        self._ast_annotator = ASTSemanticAnnotator(self)
 
     def parse(self, codigo: str) -> tuple[list[str], object, dict]:
         """
@@ -1134,6 +1719,7 @@ class AnalizadorSemantico:
                 'type': row.get('type'),
                 'value': row.get('value'),
                 'scope': row.get('scope'),
+                'scope_id': row.get('scope_id'),
             }
             for lexeme, row in self._lex.symbol_table.items()
         }
@@ -1164,19 +1750,163 @@ class AnalizadorSemantico:
             'dims': dims
         }
 
+    def _compact_params_info(self, params):
+        if not isinstance(params, list):
+            return None
+        compact = []
+        for param in params:
+            if not isinstance(param, dict):
+                continue
+            data = {}
+            if param.get('name') is not None:
+                data['name'] = param.get('name')
+            if param.get('type') is not None:
+                data['type'] = param.get('type')
+            if param.get('dims', 0):
+                data['dims'] = param.get('dims', 0)
+            if data:
+                compact.append(data)
+        return compact
+
+    def _make_semantic_info(self, type_name='unknown', dims=0, symbol=None, scope_id=None, value=None):
+        """Construir el paquete semántico normalizado para un subárbol."""
+        info = {
+            'type': type_name,
+            'dims': dims,
+        }
+        if isinstance(symbol, dict):
+            kind = symbol.get('kind')
+            if kind is not None:
+                info['kind'] = kind
+            if scope_id is None:
+                scope_id = symbol.get('scope_id')
+            if symbol.get('return_type') is not None:
+                info['return_type'] = symbol.get('return_type')
+            compact_params = self._compact_params_info(symbol.get('params'))
+            if compact_params is not None:
+                info['params_info'] = compact_params
+        if scope_id is not None:
+            info['scope_id'] = scope_id
+        if value is not None:
+            info['value'] = value
+        return info
+
+    def _is_numeric_type(self, type_name) -> bool:
+        return type_name in {'int', 'float'}
+
+    def _promote_numeric_types(self, left_type, right_type):
+        if left_type == 'float' or right_type == 'float':
+            return 'float'
+        if left_type == 'int' and right_type == 'int':
+            return 'int'
+        return 'unknown'
+
+    def _make_scope_id(self, scope_name: str | None, line: int | None = None):
+        if scope_name is None:
+            scope_name = 'unknown'
+        if line is None:
+            return scope_name
+        return f'{scope_name}@{line}'
+
+    def _set_node_semantics(self, node, *, type_name='unknown', dims=0, symbol=None, scope_id=None, value=None):
+        """Anotar un nodo sin alterar los campos estructurales existentes."""
+        if node is None or not isinstance(node, Nodo):
+            return self._make_semantic_info(type_name, dims, symbol=symbol, scope_id=scope_id, value=value)
+
+        if not isinstance(node, NodoTerminal):
+            node.set_type(type_name, dims)
+            if symbol is not None:
+                node.merge_symbol_metadata(symbol)
+            if hasattr(node, 'symbol'):
+                delattr(node, 'symbol')
+            if scope_id is not None:
+                node.scope_id = scope_id
+            elif symbol is not None and isinstance(symbol, dict):
+                node.scope_id = symbol.get('scope_id')
+
+        effective_symbol = symbol if getattr(node, '_allows_symbol', False) else None
+        info = self._make_semantic_info(type_name, dims, symbol=effective_symbol, scope_id=scope_id, value=value)
+        node.semantic_info = info
+        return info
+
+    def _node_line(self, node) -> int:
+        if node is None:
+            return 0
+        return getattr(node, 'linea', 0) or 0
+
+    def _node_symbol_info(self, symbol: dict | None):
+        if symbol is None:
+            return None
+        return self._make_semantic_info(
+            symbol.get('type', 'unknown'),
+            symbol.get('dims', 0),
+            symbol=symbol,
+            scope_id=symbol.get('scope_id'),
+            value=symbol.get('value')
+        )
+
+    def _semantic_children(self, node):
+        """Iterar solo por hijos del AST, ignorando metadatos semánticos."""
+        if not isinstance(node, Nodo):
+            return
+        for name, child in list(node.__dict__.items()):
+            if name.startswith('_'):
+                continue
+            if name in self._SEMANTIC_META_KEYS:
+                continue
+            if child is None:
+                continue
+            if isinstance(child, (Nodo, list, tuple)):
+                yield name, child
+
+    def _resolve_field_from_mold(self, mold_name: str, member_name: str):
+        mold = self.molds.get(mold_name)
+        if mold is None:
+            return None
+        return mold.get('fields', {}).get(member_name)
+
+    def _resolve_method_from_mold(self, mold_name: str, method_name: str):
+        mold = self.molds.get(mold_name)
+        if mold is None:
+            return None
+        return mold.get('methods', {}).get(method_name)
+
+    def _node_name(self, node):
+        if node is None:
+            return None
+        if isinstance(node, str):
+            return node
+        if isinstance(node, NodoTerminal):
+            return node.valor
+        if isinstance(node, NodoID):
+            return node.nombre
+        if isinstance(node, NodoDeclaracion):
+            return self._node_name(node.nombre)
+        if isinstance(node, NodoParametro):
+            return self._node_name(node.nombre)
+        if isinstance(node, (NodoFuncion, NodoMold)):
+            return self._node_name(node.nombre)
+        return getattr(node, 'nombre', None)
+
     def _extract_type(self, expr_data):
         if isinstance(expr_data, dict):
             return expr_data.get('type')
+        if isinstance(expr_data, Nodo):
+            return getattr(expr_data, 'tipo', None)
         return expr_data
 
     def _extract_value(self, expr_data):
         if isinstance(expr_data, dict):
             return expr_data.get('value')
+        if isinstance(expr_data, Nodo):
+            return getattr(expr_data, 'valor', None)
         return None
     
     def _extract_dims(self, expr_data):
         if isinstance(expr_data, dict):
             return expr_data.get('dims', 0)
+        if isinstance(expr_data, Nodo):
+            return getattr(expr_data, 'dims', 0) or 0
         return 0
     
     def _type_exists(self, type_name):
@@ -1237,6 +1967,58 @@ class AnalizadorSemantico:
 
         return True
     
+    def _validate_summon_arguments(
+        self,
+        line,
+        mold_name,
+        received_args
+    ):
+
+        mold = self.molds.get(mold_name)
+
+        if mold is None:
+            return False
+
+        expected_fields = mold.get('field_order', [])
+
+        if len(expected_fields) != len(received_args):
+
+            self._emit_error(
+                line,
+                f"el mold '{mold_name}' espera "
+                f"{len(expected_fields)} argumentos "
+                f"y recibió {len(received_args)}"
+            )
+
+            return False
+
+        for expected, received in zip(expected_fields, received_args):
+
+            expected_type = expected['type']
+            received_type = self._extract_type(received)
+
+            compatible = (
+                expected_type == received_type or
+                (
+                    expected_type == 'float' and
+                    received_type == 'int'
+                )
+            )
+
+            if not compatible:
+
+                self._emit_error(
+                    line,
+                    f"argumento incompatible para "
+                    f"'{expected['name']}': "
+                    f"se esperaba '{expected_type}' "
+                    f"y se recibió '{received_type}'"
+                )
+
+                return False
+
+        return True
+    
     def _resolve_lvalue_type(self, lvalue, line):
 
         if isinstance(lvalue, str):
@@ -1248,7 +2030,9 @@ class AnalizadorSemantico:
 
             return {
                 'type': sym.get('type'),
-                'dims': sym.get('dims', 0)
+                'dims': sym.get('dims', 0),
+                'symbol': sym,
+                'scope_id': sym.get('scope_id')
             }
 
         if isinstance(lvalue, dict):
@@ -1283,7 +2067,12 @@ class AnalizadorSemantico:
 
                     return None
 
-                return field
+                return {
+                    'type': field.get('type'),
+                    'dims': field.get('dims', 0),
+                    'symbol': field,
+                    'scope_id': target_info.get('scope_id')
+                }
 
             elif kind == 'array_access':
 
@@ -1299,10 +2088,36 @@ class AnalizadorSemantico:
 
                 return {
                     'type': target_info['type'],
-                    'dims': max(dims - 1, 0)
+                    'dims': max(dims - 1, 0),
+                    'symbol': target_info.get('symbol'),
+                    'scope_id': target_info.get('scope_id')
                 }
 
         return None
+    
+    def _resolve_ohmy(self, line):
+
+        if self.current_method_mold is None:
+
+            self._emit_error(
+                line,
+                "ohmy solo puede usarse dentro de métodos de mold"
+            )
+
+            return None
+
+        mold = self.molds.get(self.current_method_mold)
+
+        if mold is None:
+
+            self._emit_error(
+                line,
+                "mold actual inválido"
+            )
+
+            return None
+
+        return mold
 
     def _reset_semantic_state(self):
         """Reinicializar estado semántico."""
@@ -1314,6 +2129,7 @@ class AnalizadorSemantico:
         self.pending_params = []
         self.molds = {}
         self.current_mold = None
+        self.current_method_mold = None
 
     def _emit_error(self, line: int, message: str):
         """Emitir error semántico."""
@@ -1351,17 +2167,25 @@ class AnalizadorSemantico:
             scope_name = self.scope_names[-1] if self.scope_names else 'unknown'
             self._emit_error(line, f"símbolo '{name}' ya fue definido en '{scope_name}'")
             return False
+        symbol_kind = kind
         entry = {
             'name': name,
-            'kind': kind,
-            'type': type_name,
-            'value': value,
+            'kind': symbol_kind,
             'line': line,
             'dims': dims,
             'scope': self.scope_names[-1] if self.scope_names else 'unknown',
+            'scope_id': self._make_scope_id(self.scope_names[-1] if self.scope_names else 'unknown', line),
         }
+        if symbol_kind in ('variable', 'array', 'parameter', 'field'):
+            entry['type'] = type_name
+            entry['value'] = value
+        elif symbol_kind in ('function', 'method'):
+            entry['return_type'] = None
+            entry['params'] = []
+        elif symbol_kind == 'mold':
+            entry['type'] = type_name
         current_scope[name] = entry
-        self.defined_symbols.append(entry.copy())
+        self.defined_symbols.append(entry)
         self._enrich_lexer_symbol_entry(name, entry)
         if self.current_mold is not None:
 
@@ -1369,16 +2193,17 @@ class AnalizadorSemantico:
 
             if kind in ('variable', 'array'):
 
-                mold_data['fields'][name] = {
-                    'type': type_name,
-                    'dims': dims
-                }
+                entry['kind'] = 'field'
+                mold_data['fields'][name] = entry
+
+                mold_data.setdefault('field_order', []).append(entry)
 
             elif kind == 'function':
 
-                mold_data['methods'][name] = {
-                    'type': type_name
-                }
+                entry['kind'] = 'method'
+                entry.setdefault('params', [])
+                entry.setdefault('return_type', None)
+                mold_data['methods'][name] = entry
         return True
 
     def _enrich_lexer_symbol_entry(self, name: str, sem_entry: dict):
@@ -1394,6 +2219,7 @@ class AnalizadorSemantico:
                 'type': None,
                 'value': None,
                 'scope': None,
+                'scope_id': None,
             }
             self.semantic_symbol_table[name] = row
 
@@ -1401,6 +2227,7 @@ class AnalizadorSemantico:
         row['type'] = sem_entry.get('type')
         row['value'] = sem_entry.get('value')
         row['scope'] = sem_entry.get('scope')
+        row['scope_id'] = sem_entry.get('scope_id')
         line = sem_entry.get('line')
         if line is not None and line not in row.get('lines', []):
             row.setdefault('lines', []).append(line)
@@ -1477,64 +2304,5 @@ class AnalizadorSemantico:
 
         return True
 
-    def _annotate_ast(self, node):
-        """Recorrido del AST para agregar metadatos semánticos básicos.
-        Añade `symbol` y `tipo` en nodos relevantes.
-        """
-
-        if node is None:
-            return
-        if isinstance(node, (list, tuple)):
-            for n in node:
-                self._annotate_ast(n)
-            return
-        if not isinstance(node, Nodo):
-            return
-
-        # Declaración: buscar símbolo definido exactamente en la línea
-        if isinstance(node, NodoDeclaracion):
-            try:
-                name = node.nombre if isinstance(node.nombre, str) else getattr(node.nombre, 'nombre', None)
-            except Exception:
-                name = None
-            if name:
-                sym = next((s for s in self.defined_symbols if s.get('name') == name and s.get('line') == node.linea), None)
-                if sym:
-                    node.symbol = sym
-                    node.tipo_decl = sym.get('type')
-
-        # Parámetro
-        if isinstance(node, NodoParametro):
-            name = node.nombre if isinstance(node.nombre, str) else getattr(node.nombre, 'nombre', None)
-            if name:
-                sym = next((s for s in self.defined_symbols if s.get('name') == name and s.get('line') == node.linea), None)
-                if sym:
-                    node.symbol = sym
-                    node.tipo_decl = sym.get('type')
-
-        # ID: resolver por línea
-        if isinstance(node, NodoID):
-            name = node.nombre
-            use_line = getattr(node, 'linea', 0) or 0
-            sym = self._find_symbol_for_name(name, use_line)
-            if sym:
-                node.symbol = sym
-                node.tipo = sym.get('type')
-
-        # Literales
-        if isinstance(node, NodoEntero):
-            node.tipo = 'int'
-        if isinstance(node, NodoFlotante):
-            node.tipo = 'float'
-        if isinstance(node, NodoCadena):
-            node.tipo = 'text'
-        if isinstance(node, NodoBooleano):
-            node.tipo = 'bool'
-
-        # Recorrer campos
-        for name, child in list(node.__dict__.items()):
-            if name.startswith('_'):
-                continue
-            if child is None:
-                continue
-            self._annotate_ast(child)
+    def _annotate_ast(self, node, _visited=None):
+        return self._ast_annotator.annotate(node, _visited)
