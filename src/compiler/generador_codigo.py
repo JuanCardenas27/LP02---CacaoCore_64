@@ -159,7 +159,7 @@ class GeneradorCodigo:
                 self.data.append(f"{p[2]} : 0")
                 r1 = self._gestor.ocupar()
                 n_code = [
-                    f'MOVD {r1}, {value['result']}',
+                    f'MOVD {r1}, {value["result"]}',
                     f'MOVD [{p[2]}], {r1}'
                 ]
                 self._gestor.liberar(r1)
@@ -214,11 +214,11 @@ class GeneradorCodigo:
             except KeyError:
                 length = length["result"]
         values = p[9]
-        self.data.append(f'{p[2]} : {values[0]['result']}')
+        self.data.append(f'{p[2]} : {values[0]["result"]}')
         
         for i in range(1,length):
                 try:
-                    self.data.append(f'{p[2]}{i} : {values[i]['result']}')
+                    self.data.append(f'{p[2]}{i} : {values[i]["result"]}')
                 except:
                     self.data.append(f'{p[2]}{i} : 0')
 
@@ -1199,7 +1199,7 @@ class GeneradorCodigo:
             'code': instrs,
             'result': f'{r2}',
             'temp': True,
-            'type' : f'{self.sim_table[arr_name]['type']}'
+            'type' : f'{self.sim_table[arr_name]["type"]}'
         }
 
 

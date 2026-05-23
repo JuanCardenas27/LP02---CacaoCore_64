@@ -1108,7 +1108,7 @@ class AnalizadorSemantico:
         self.current_function = None
         self.pending_params = []
 
-    def parse(self, codigo: str) -> tuple[list[str], object]:
+    def parse(self, codigo: str) -> tuple[list[str], object, dict]:
         """
         Analiza y valida semánticamente el código.
         
