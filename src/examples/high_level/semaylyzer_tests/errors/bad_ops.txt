@@ -1,0 +1,2 @@
+show 5 == "hola"
+show 5 and indeed

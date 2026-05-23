@@ -1,0 +1,3 @@
+let nums: int[3]
+
+show nums["hola"]

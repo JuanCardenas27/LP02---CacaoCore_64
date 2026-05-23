@@ -217,7 +217,8 @@ class CacaoRAMEditor(tk.Tk):
             settings_button=self._settings_btn,
             status_label=None,
             reg_labels={},
-            flag_widgets={},
+            flag_widgets_alu={},
+            flag_widgets_fau={},
             format_rbs=[],
         )
         self._zoom_manager.initialize()

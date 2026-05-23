@@ -1,0 +1,7 @@
+func weird(a: int) {
+    if a > 0 {
+        deliver 1
+    } otherwise {
+        deliver "hola"
+    }
+}
