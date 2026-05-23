@@ -13,11 +13,15 @@ class Preprocesador:
         max_macro_expansion: int = 50,
         macros_iniciales: Optional[Dict[str, str]] = None,
         verbose: bool = False,
+        fs=None,  # Optional filesystem provider (SimpleFS)
     ):
         # Inicializa el preprocesador con estado vacío y configuración
         self.max_macro_expansion = max_macro_expansion
         self.verbose = verbose
         self.advertencias: List[str] = []
+
+        # Optional filesystem provider used to resolve #include from disk
+        self.fs = fs
 
         self._defines: Dict[str, Macro] = {}
         self._pila_cond: List[bool] = []
@@ -200,7 +204,45 @@ class Preprocesador:
         return lower.endswith(".lib") or lower.endswith(".reloc") or lower.endswith(".obj")
 
     def _resolver_ruta_include(self, nombre: str, fuente: str) -> str:
-        """Resuelve ruta de include relativa a la fuente actual."""
+        """Resuelve ruta de include. Si se proporcionó un proveedor de FS, resuelve
+        exclusivamente en el disco simulado y devuelve una ruta normalizada que
+        comienza con '/' (ej. '/libs/math.lib'). Si no hay FS, mantiene el
+        comportamiento original basado en el host.
+        """
+        if self.fs:
+            # Buscar como ruta absoluta en FS
+            if nombre.startswith('/'):
+                key = nombre.lstrip('/')
+                try:
+                    self.fs.read_file(key)
+                    return '/' + key
+                except Exception:
+                    pass
+
+            # Si la fuente es un archivo del disco (ruta que comienza con '/'),
+            # resolver ruta relativa dentro del disco
+            if fuente and fuente.startswith('/'):
+                base = os.path.dirname(fuente.lstrip('/'))
+                candidate = (base + '/' + nombre).lstrip('/') if base else nombre.lstrip('/')
+                try:
+                    self.fs.read_file(candidate)
+                    return '/' + candidate
+                except Exception:
+                    pass
+
+            # Buscar en ubicaciones comunes dentro del disco
+            common_prefixes = ["system", "libs", "examples", "src/examples"]
+            for prefix in common_prefixes:
+                candidate = f"{prefix}/{nombre}".lstrip('/')
+                try:
+                    self.fs.read_file(candidate)
+                    return '/' + candidate
+                except Exception:
+                    pass
+
+            raise IncludeError(f"Archivo no encontrado en disco: '{nombre}'", fuente, None)
+
+        # Fallback: comportamiento anterior (host filesystem)
         if os.path.isabs(nombre):
             return os.path.abspath(nombre)
         if fuente and os.path.isfile(fuente):
@@ -564,8 +606,20 @@ class Preprocesador:
         fuente_origen: str,
         numero_linea: int,
     ) -> Tuple[List[str], List[SourceLine]]:
-        """Procesa un archivo fuente incluido, con deteccion de ciclos."""
-        ruta_absoluta = os.path.abspath(ruta)
+        """Procesa un archivo fuente incluido, con deteccion de ciclos.
+
+        Si se proporcionó self.fs, lee el contenido desde el disco simulado en lugar
+        del filesystem del host. Las rutas devueltas por _resolver_ruta_include
+        se normalizan para comenzar con '/'.
+        """
+        # Normalizar ruta absoluta en el contexto del FS o host
+        if self.fs and ruta.startswith('/'):
+            ruta_absoluta = ruta
+        elif self.fs and not ruta.startswith('/'):
+            ruta_absoluta = '/' + ruta.lstrip('/')
+        else:
+            ruta_absoluta = os.path.abspath(ruta)
+
         if ruta_absoluta in self._include_stack:
             ruta_ciclo = " -> ".join(self._include_stack + [ruta_absoluta])
             raise IncludeError(f"Import circular detectado: {ruta_ciclo}", fuente_origen, numero_linea)
@@ -574,16 +628,28 @@ class Preprocesador:
             self._registrar_imports(ruta_absoluta, funciones, fuente_origen, numero_linea)
             return [], []
 
-        if not os.path.isfile(ruta_absoluta):
-            raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'", fuente_origen, numero_linea)
-
+        # Leer desde disco simulado si está disponible
         self._include_stack.append(ruta_absoluta)
         prev_pila = self._pila_cond
         self._pila_cond = []
         try:
-            with open(ruta_absoluta, "r", encoding="utf-8-sig") as f:
-                contenido = f.read()
-            lineas_salida, mapa_salida = self._procesar_texto(contenido, ruta_absoluta)
+            if self.fs:
+                key = ruta_absoluta.lstrip('/')
+                try:
+                    raw = self.fs.read_file(key)
+                except Exception:
+                    raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'", fuente_origen, numero_linea)
+                try:
+                    contenido = raw.decode('utf-8-sig')
+                except Exception:
+                    contenido = raw.decode('utf-8', errors='replace')
+                lineas_salida, mapa_salida = self._procesar_texto(contenido, ruta_absoluta)
+            else:
+                if not os.path.isfile(ruta_absoluta):
+                    raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'", fuente_origen, numero_linea)
+                with open(ruta_absoluta, "r", encoding="utf-8-sig") as f:
+                    contenido = f.read()
+                lineas_salida, mapa_salida = self._procesar_texto(contenido, ruta_absoluta)
         finally:
             self._pila_cond = prev_pila
             self._include_stack.pop()

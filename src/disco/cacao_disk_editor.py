@@ -8,6 +8,9 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
+# Permitir import desde el PC solo en modo desarrollo (setear CACAO_DEV_MODE=1)
+DEV_MODE = os.environ.get('CACAO_DEV_MODE', '0') == '1'
+
 import gui.styles_cacao as styles_cacao_module
 from gui.styles_cacao import *
 from gui.theme_manager import apply_palette_namespace, recolor_widget_tree
@@ -345,6 +348,13 @@ class CacaoDiskEditor:
         self._set_status(f"Archivo cargado: {name}")
 
     def _import_external(self):
+        if not DEV_MODE:
+            messagebox.showinfo(
+                "Disco",
+                "Import desde el filesystem deshabilitado en modo de producción."
+            )
+            return
+
         path = filedialog.askopenfilename(
             parent=self,
             title="Importar archivo",
