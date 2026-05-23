@@ -27,6 +27,7 @@ class Compiler:
     
     def compile_generator(self, file_content:str):
         # 4. Paso del analisis: Generación de código
+        self._generator.funcs = []
         errors, asmc = self._generator.parse(file_content)
         return errors, asmc
     

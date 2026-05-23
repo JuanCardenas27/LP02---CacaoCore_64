@@ -954,7 +954,7 @@ class CompilerGui:
         self.sem_error.config(state="disabled")
 
     def _do_generation(self):
-
+            
         self.gen_code.config(state="normal")
 
         file_content = self.program2compile

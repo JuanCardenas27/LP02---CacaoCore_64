@@ -453,7 +453,33 @@ class GeneradorCodigo:
 
     def p_func_def(self, p):
         """func_def : FUNC ID LPAREN param_list RPAREN block"""
-        p[0] = None
+        #stack pointer in R13
+        
+        instrs = []
+        label = p[2].upper() + ':'
+
+
+        # Pasar a las globales place holder 
+        write_stmts = []
+        reg1 = self._gestor.ocupar()
+        reg2 = self._gestor.ocupar()
+        write_stmts.append(f'POP {reg2}') #guardamos dir ret
+        for param in p[4][::-1]:
+            write_stmts.append(f'POP {reg1}')
+            write_stmts.append(f'MOVD {param['result']}, {reg1}')
+        write_stmts.append(f'PUSH {reg2}')
+        self._gestor.liberar(reg1)
+        self._gestor.liberar(reg2)
+
+
+        b_code = p[6]['code']
+        
+        ret = 'RET'
+        instrs.append(label)
+        instrs.extend(write_stmts)
+        instrs.extend(b_code)
+        instrs.append(ret)
+        self.funcs.extend(instrs)
 
     def p_func_def_no_params(self, p):
         """func_def : FUNC ID LPAREN RPAREN block"""
@@ -476,7 +502,13 @@ class GeneradorCodigo:
 
     def p_param(self, p):
         """param : ID COLON type_annot"""
-        p[0] = (p[1], p[3])
+        
+        decl = f'{p[1]} : 0'
+        self.data.append(decl)
+
+        p[0] = {
+            'result': f"[{p[1]}]"
+        }
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
 
@@ -740,11 +772,15 @@ class GeneradorCodigo:
 
     def p_deliver_val(self, p):
         """deliver_stmt : DELIVER expr"""
-        p[0] = None
+        p[0] = {
+            'code': [f'MOVD R1, {p[2]['result']}','RET']
+        }
 
     def p_deliver_nothing(self, p):
         """deliver_stmt : DELIVER"""
-        p[0] = None
+        p[0] = {
+            'code': ['RET']
+        }
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
@@ -1183,11 +1219,23 @@ class GeneradorCodigo:
     # Llamada a función
     def p_expr_call_args(self, p):
         """expr : ID LPAREN arg_list RPAREN"""
-        p[0] = None
+        instrs = []
+        r = self._gestor.ocupar()
+        for param in p[3]:
+            ins0 = f'MOVD {r}, {param['result']}'
+            ins1 = f'PUSH {r}'
+            instrs.append(ins0)
+            instrs.append(ins1)
+        r = self._gestor.liberar(r)
+        instrs.append(f'CALL {p[1].upper()}')
+        
+        p[0] = {'code': instrs,
+                'result':'R1'}
 
     def p_expr_call_noargs(self, p):
         """expr : ID LPAREN RPAREN"""
-        p[0] = {'code': [f'CALL {p[1].upper()}']}
+        p[0] = {'code': [f'CALL {p[1].upper()}'],
+                'result': 'R1' }
 
     # summon
     def p_expr_summon_args(self, p):
@@ -1333,7 +1381,7 @@ class GeneradorCodigo:
         self.funcs = []
         self.label_count = 0
         self.scope_count = 0
-
+        self.params_id = {} #func: {param:id} 
     def parse(self, codigo: str) -> tuple[list[str], object]:
         """
         Analiza el código fuente y devuelve (errores, ast).

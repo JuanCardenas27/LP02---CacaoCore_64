@@ -1,5 +1,8 @@
-let banana : int = 0
-func a (){
-    set banana = 10
+
+func a (b : int, c : int){
+    let banana : int
+    set banana = b + c
+    deliver banana
 }
-a()
+let res : int
+set res = a(2, 3)
