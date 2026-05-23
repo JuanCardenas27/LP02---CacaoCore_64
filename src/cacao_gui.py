@@ -125,6 +125,7 @@ class CacaoCoreGUI(tk.Tk):
         self._build_header()
         self._build_body()
         self._build_statusbar()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._zoom_manager = ZoomManager(
             self,
@@ -163,6 +164,15 @@ class CacaoCoreGUI(tk.Tk):
         self.after(100, self._refresh_registers)
         
         self._core.processor.io_controller.console = self.console
+
+    def _on_close(self):
+        try:
+            if hasattr(self._core, "fs"):
+                self._core.fs.flush()
+            if hasattr(self._core, "disk"):
+                self._core.disk.close()
+        finally:
+            self.destroy()
 
     # ─────────────────────────────────────────────────────────────────────
     #  HEADER
@@ -538,6 +548,10 @@ class CacaoCoreGUI(tk.Tk):
                           self._open_ram_editor)
         btn.pack(anchor="w", ipadx=8, ipady=4)
 
+        btn_disk = make_button(pf, "  ◈  ABRIR DISCO PERSISTENTE  ", ACCENT2,
+                       self._open_disk_editor)
+        btn_disk.pack(anchor="w", ipadx=8, ipady=4, pady=(8, 0))
+
     # ─────────────────────────────────────────────────────────────────────
     #  COLUMNA C — row 3: CONSOLA
     # ─────────────────────────────────────────────────────────────────────
@@ -751,6 +765,9 @@ class CacaoCoreGUI(tk.Tk):
                 self.resizable(True, True)
                 self._zoom_manager = None
                 self.loaded_file_path = None
+                self.loaded_file_name = None
+                self.loaded_file_lines = None
+                self.fs = parent_self._core.fs
                 self.addr_var      = tk.StringVar(self, value="00001000")
                 self.data_mode     = tk.StringVar(self, value="hex")
                 self.read_addr_var = tk.StringVar(self, value="00001000")
@@ -772,6 +789,75 @@ class CacaoCoreGUI(tk.Tk):
         self._ram_win = win
         msg = "RAM Editor abierto en proceso compartido — cambios inmediatos."
         self._set_status(msg, mod.ACCENT)
+        if self.console:
+            self.console.write_ok(msg)
+
+    # ─────────────────────────────────────────────────────────────────────
+    #  DISK EDITOR (ventana independiente)
+    # ─────────────────────────────────────────────────────────────────────
+    def _open_disk_editor(self):
+        if hasattr(self, "_disk_win") and self._disk_win and \
+                self._disk_win.winfo_exists():
+            self._disk_win.lift()
+            self._disk_win.focus_force()
+            return
+
+        base = os.path.dirname(os.path.abspath(__file__))
+        editor_path = None
+        for candidate in [
+            os.path.join(base, "disco", "cacao_disk_editor.py"),
+            os.path.join(base, "cacao_disk_editor.py"),
+        ]:
+            if os.path.exists(candidate):
+                editor_path = candidate
+                break
+
+        if editor_path is None:
+            msg = "No se encontro cacao_disk_editor.py"
+            messagebox.showinfo(
+                "Disk Editor",
+                f"{msg}\nRuta esperada: src/disco/cacao_disk_editor.py",
+            )
+            if self.console:
+                self.console.write_warn(msg)
+            return
+
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cacao_disk_editor", editor_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        EditorClass = mod.CacaoDiskEditor
+
+        parent_self = self
+
+        class DiskEditorWindow(tk.Toplevel):
+            def __init__(self):
+                super().__init__(parent_self)
+                self.title("CACAO_Core-64  ·  Disk Editor")
+                self.geometry("1200x780")
+                self.minsize(1000, 650)
+                self.configure(bg=mod.BG_DARK)
+                self.resizable(True, True)
+                self._zoom_manager = None
+                self._palette_name = "current"
+                self.fs = parent_self._core.fs
+                self.disk = parent_self._core.disk
+                self.filename_var = tk.StringVar(self, value="")
+                import types
+                for name in dir(EditorClass):
+                    if name.startswith("__"):
+                        continue
+                    val = getattr(EditorClass, name)
+                    if callable(val) and isinstance(val, types.FunctionType):
+                        setattr(self, name, types.MethodType(val, self))
+                self._build_ui()
+                self._refresh_file_list()
+                self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        win = DiskEditorWindow()
+        self._disk_win = win
+        msg = "Disk Editor abierto en proceso compartido."
+        self._set_status(msg, mod.ACCENT2)
         if self.console:
             self.console.write_ok(msg)
     

@@ -1,6 +1,8 @@
+import os
+import time
 import tkinter as tk
 import tkinter.ttk as ttk
-from tkinter import filedialog
+from tkinter import messagebox
 import gui.styles_cacao as styles_cacao_module
 import gui.styles_spl as styles_spl_module
 from gui.styles_spl import *
@@ -30,6 +32,8 @@ class CompilerGui:
         self._zoom_manager   = None
         self._palette_name    = "current"
         self._pc_source_path = None
+        self._core = getattr(master, "_core", None)
+        self.fs = self._core.fs if self._core else None
 
         # Incializa estilos 
         setup_styles()
@@ -365,14 +369,16 @@ class CompilerGui:
         self._refresh_zoom_dynamic()
 
     def _pc_load_file(self):
-        path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
-        self.window.lift()
-        if path:
-            with open(path, "r", encoding="utf-8") as f:
-                data = f.read()
+        def apply_load(name: str, data: str) -> None:
             self.pc_hl.delete("1.0", tk.END)
             self.pc_hl.insert("1.0", data)
-            self._pc_source_path = path
+            self._pc_source_path = f"<disk:{name}>"
+
+        self._load_file_with_preview(
+            [".choco", ".chocolate", ".txt"],
+            "Previsualizar archivo",
+            apply_load,
+        )
 
     def _pc_erase(self):
         self.pc_hl.delete("1.0", tk.END)
@@ -584,13 +590,15 @@ class CompilerGui:
         self._refresh_zoom_dynamic()
 
     def _asm_load(self):
-        path = filedialog.askopenfilename(filetypes=[("ASM_FILES", "*.asm"), ("All", "*.*")])
-        self.window.lift()
-        if path:
-            with open(path, "r", encoding="utf-8") as f:
-                data = f.read()
+        def apply_load(_name: str, data: str) -> None:
             self.asm_src.delete("1.0", tk.END)
             self.asm_src.insert("1.0", data)
+
+        self._load_file_with_preview(
+            [".cacao", ".asm"],
+            "Previsualizar ASM",
+            apply_load,
+        )
 
     def _asm_erase(self):
         self.asm_src.delete("1.0", tk.END)
@@ -717,13 +725,325 @@ class CompilerGui:
         self.ll_loaded.configure(state="disabled")
 
     def _ll_load(self):
-        path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All", "*.*")])
-        self.window.lift()
-        if path:
-            with open(path, "r", encoding="utf-8") as f:
-                data = f.read()
+        def apply_load(_name: str, data: str) -> None:
             self.ll_reloc.delete("1.0", tk.END)
             self.ll_reloc.insert("1.0", data)
+
+        self._load_file_with_preview(
+            [".reloc", ".txt"],
+            "Previsualizar reloc",
+            apply_load,
+        )
+
+    def _load_file_with_preview(self, allowed_exts, title, on_accept) -> None:
+        if not self.fs:
+            messagebox.showerror(
+                "Disco",
+                "No hay sistema de archivos disponible.",
+            )
+            return
+        self._show_disk_picker(title, allowed_exts, on_accept)
+
+    def _show_disk_picker(self, title, allowed_exts, on_accept) -> None:
+        dialog = tk.Toplevel(self.window)
+        dialog.title(title)
+        dialog.configure(bg=BG_DARK)
+        dialog.geometry("1200x720")
+        dialog.minsize(1000, 600)
+        dialog.transient(self.window)
+
+        hdr = tk.Frame(dialog, bg=BG_DARK, pady=8)
+        hdr.pack(fill="x", padx=16)
+
+        tk.Label(hdr, text="Disco local", font=FM_LG, fg=ACCENT2, bg=BG_DARK).pack(side="left")
+
+        def apply_tree_style():
+            style = ttk.Style(dialog)
+            try:
+                style.theme_use("clam")
+            except tk.TclError:
+                pass
+            style.configure(
+                "Disk.Treeview",
+                background=BG_MID,
+                fieldbackground=BG_MID,
+                foreground=TEXT_MAIN,
+                rowheight=24,
+                bordercolor=BORDER,
+                relief="flat",
+            )
+            style.configure(
+                "Disk.Treeview.Heading",
+                background=BG_PANEL,
+                foreground=ACCENT,
+                relief="flat",
+                font=FM_BTN,
+            )
+            style.map(
+                "Disk.Treeview",
+                background=[("selected", ACCENT2)],
+                foreground=[("selected", BG_DARK)],
+            )
+
+        body = tk.Frame(dialog, bg=BG_DARK)
+        body.pack(fill="both", expand=True, padx=16, pady=8)
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=1, uniform="disk_cols")
+        body.grid_columnconfigure(1, weight=2, uniform="disk_cols")
+
+        left = tk.Frame(body, bg=BG_DARK)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        right = tk.Frame(body, bg=BG_DARK)
+        right.grid(row=0, column=1, sticky="nsew")
+
+        list_outer = tk.Frame(left, bg=BORDER, pady=1)
+        list_outer.pack(fill="both", expand=True)
+        list_inner = tk.Frame(list_outer, bg=BG_PANEL, padx=10, pady=8)
+        list_inner.pack(fill="both", expand=True)
+
+        tk.Label(
+            list_inner,
+            text="◈  ARCHIVOS EN DISCO",
+            font=FM_BTN,
+            fg=ACCENT2,
+            bg=BG_PANEL,
+            anchor="w",
+        ).pack(fill="x", pady=(0, 6))
+
+        search_row = tk.Frame(list_inner, bg=BG_PANEL)
+        search_row.pack(fill="x", pady=(0, 8))
+        tk.Label(
+            search_row,
+            text="Buscar:",
+            font=FM_SM,
+            fg=TEXT_DIM,
+            bg=BG_PANEL,
+        ).pack(side="left")
+        search_var = tk.StringVar(value="")
+        search_entry = tk.Entry(
+            search_row,
+            textvariable=search_var,
+            font=FM,
+            bg=BG_INPUT,
+            fg=TEXT_MAIN,
+            insertbackground=ACCENT,
+            relief="flat",
+            bd=4,
+        )
+        search_entry.pack(side="left", fill="x", expand=True, padx=6)
+
+        apply_tree_style()
+
+        columns = ("name", "size", "mtime")
+        files_list = ttk.Treeview(
+            list_inner,
+            columns=columns,
+            show="headings",
+            selectmode="browse",
+            height=16,
+            style="Disk.Treeview",
+        )
+        files_list.heading("name", text="Archivo")
+        files_list.heading("size", text="Tam")
+        files_list.heading("mtime", text="Modificado")
+        files_list.column("name", width=220, anchor="w")
+        files_list.column("size", width=80, anchor="e")
+        files_list.column("mtime", width=140, anchor="center")
+        files_list.pack(fill="both", expand=True)
+
+        btn_row = tk.Frame(list_inner, bg=BG_PANEL)
+        btn_row.pack(fill="x", pady=(8, 0))
+        tk.Button(
+            btn_row,
+            text="⟳  REFRESCAR",
+            font=FM_BTN,
+            bg=BG_MID,
+            fg=ACCENT,
+            relief="flat",
+            cursor="hand2",
+            command=lambda: refresh_list(clear_selection=True),
+        ).pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        tk.Button(
+            search_row,
+            text="✕",
+            font=FM_BTN,
+            bg=BG_MID,
+            fg=ACCENT4,
+            relief="flat",
+            cursor="hand2",
+            command=lambda: clear_search(),
+        ).pack(side="left")
+
+        preview_outer = tk.Frame(right, bg=BORDER, pady=1)
+        preview_outer.pack(fill="both", expand=True)
+        preview_inner = tk.Frame(preview_outer, bg=BG_PANEL, padx=10, pady=8)
+        preview_inner.pack(fill="both", expand=True)
+
+        tk.Label(
+            preview_inner,
+            text="◈  PREVISUALIZAR",
+            font=FM_BTN,
+            fg=ACCENT,
+            bg=BG_PANEL,
+            anchor="w",
+        ).pack(fill="x", pady=(0, 6))
+
+        name_row = tk.Frame(preview_inner, bg=BG_PANEL)
+        name_row.pack(fill="x", pady=(0, 6))
+        tk.Label(
+            name_row,
+            text="Nombre:",
+            font=FM_SM,
+            fg=TEXT_DIM,
+            bg=BG_PANEL,
+        ).pack(side="left")
+        name_var = tk.StringVar(value="")
+        name_entry = tk.Entry(
+            name_row,
+            textvariable=name_var,
+            font=FM,
+            bg=BG_INPUT,
+            fg=TEXT_MAIN,
+            insertbackground=ACCENT,
+            relief="flat",
+            bd=4,
+            state="readonly",
+        )
+        name_entry.pack(side="left", fill="x", expand=True, padx=6)
+
+        action_row = tk.Frame(preview_inner, bg=BG_PANEL)
+        action_row.pack(fill="x", pady=(0, 6))
+
+        preview = tk.Text(
+            preview_inner,
+            font=FM,
+            bg=BG_INPUT,
+            fg=TEXT_MAIN,
+            insertbackground=ACCENT,
+            relief="flat",
+            wrap="none",
+            bd=8,
+        )
+        preview.configure(state="disabled")
+        sb = ttk.Scrollbar(preview_inner, orient="vertical", command=preview.yview)
+        preview.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        preview.pack(fill="both", expand=True)
+
+        selection = {"name": None, "data": None}
+        load_visible = {"shown": False}
+
+        def fmt_size(size_bytes: int) -> str:
+            if size_bytes < 1024:
+                return f"{size_bytes} B"
+            size_kb = size_bytes / 1024.0
+            if size_kb < 1024:
+                return f"{size_kb:.1f} KB"
+            size_mb = size_kb / 1024.0
+            if size_mb < 1024:
+                return f"{size_mb:.1f} MB"
+            size_gb = size_mb / 1024.0
+            return f"{size_gb:.2f} GB"
+
+        def set_load_visible(visible: bool) -> None:
+            if visible and not load_visible["shown"]:
+                load_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
+                load_visible["shown"] = True
+            elif not visible and load_visible["shown"]:
+                load_btn.pack_forget()
+                load_visible["shown"] = False
+
+        def clear_preview():
+            selection["name"] = None
+            selection["data"] = None
+            name_var.set("")
+            preview.configure(state="normal")
+            preview.delete("1.0", "end")
+            preview.configure(state="disabled")
+            set_load_visible(False)
+
+        def refresh_list(clear_selection: bool = False) -> None:
+            files_list.delete(*files_list.get_children())
+            query = search_var.get().strip().lower()
+            entries = self.fs.list_files()
+            if allowed_exts:
+                allowed = set(ext.lower() for ext in allowed_exts)
+                entries = [
+                    entry
+                    for entry in entries
+                    if os.path.splitext(entry.get("name", ""))[1].lower() in allowed
+                ]
+            entries.sort(key=lambda e: e.get("name", ""))
+            for entry in entries:
+                name = entry.get("name", "")
+                if query and query not in name.lower():
+                    continue
+                size_txt = fmt_size(entry.get("size", 0))
+                mtime = entry.get("mtime", 0)
+                mtime_txt = time.strftime("%Y-%m-%d %H:%M", time.localtime(mtime)) if mtime else "-"
+                files_list.insert("", "end", values=(name, size_txt, mtime_txt))
+            if clear_selection:
+                clear_preview()
+
+        def clear_search() -> None:
+            search_var.set("")
+            refresh_list(clear_selection=True)
+
+        def load_preview(_evt=None) -> None:
+            clear_preview()
+            if not files_list.selection():
+                return
+            name = files_list.item(files_list.selection()[0], "values")[0]
+            try:
+                data = self.fs.read_file(name)
+            except Exception as exc:
+                messagebox.showerror("Disco", f"No se pudo leer '{name}':\n{exc}")
+                return
+            text = data.decode("utf-8", errors="replace")
+            preview.configure(state="normal")
+            preview.insert("1.0", text)
+            preview.configure(state="disabled")
+            selection["name"] = name
+            selection["data"] = text
+            name_var.set(name)
+            set_load_visible(True)
+
+        def accept() -> None:
+            if not selection["name"]:
+                messagebox.showinfo("Disco", "Selecciona un archivo")
+                return
+            on_accept(selection["name"], selection["data"] or "")
+            dialog.destroy()
+
+        load_btn = tk.Button(
+            action_row,
+            text="📂  CARGAR",
+            font=FM_BTN,
+            bg=BG_MID,
+            fg=ACCENT2,
+            relief="flat",
+            cursor="hand2",
+            command=accept,
+        )
+        set_load_visible(False)
+
+        tk.Button(
+            action_row,
+            text="✕  CANCELAR",
+            font=FM_BTN,
+            bg=BG_MID,
+            fg=ACCENT4,
+            relief="flat",
+            cursor="hand2",
+            command=dialog.destroy,
+        ).pack(side="right", fill="x", expand=True)
+
+        refresh_list(clear_selection=True)
+        files_list.bind("<<TreeviewSelect>>", load_preview)
+        files_list.bind("<Double-1>", lambda _e: (load_preview(), accept()))
+        search_entry.bind("<KeyRelease>", lambda _e: refresh_list(clear_selection=True))
 
     def _ll_erase(self):
         self.ll_reloc.delete("1.0", tk.END)
