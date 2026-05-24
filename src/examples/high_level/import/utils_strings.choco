@@ -1,0 +1,8 @@
+#export { printstr }
+func printstr (n : int, str : text){
+	let caracterTemporal : text
+	for (let indiceDeImpresion: int = 0, indiceDeImpresion < n, set indiceDeImpresion += 1){
+    		set caracterTemporal = str[indiceDeImpresion]
+    		show caracterTemporal
+	}
+}
