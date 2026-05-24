@@ -1311,14 +1311,44 @@ class GeneradorCodigo:
     def p_expr_method_call(self, p):
         """expr : expr DOT ID LPAREN arg_list RPAREN
                 | expr DOT ID LPAREN RPAREN"""
+        #Llenamos los place-holders con el valor de quien llama
+        place_instr = []
+        clase = self.sim_table[p[1]['result']]['type']
+
+        r1 = self._gestor.ocupar()
+
+        for atr in self.sim_table[clase]['attr']:
+            place_instr.append(f'MOVD {r1}, [{p[1]['result']}@{atr}]')
+            place_instr.append(f'MOVD [{atr}], {r1}')
+
+        self._gestor.liberar()
+
         if len(p) == 7:
-            p[0] = None
+            instrs = []
+            r = self._gestor.ocupar()
+            for param in p[3]:
+                ins0 = f'MOVD {r}, {param["result"]}'
+                ins1 = f'PUSH {r}'
+                instrs.append(ins0)
+                instrs.append(ins1)
+            r = self._gestor.liberar(r)
+            instrs.append(f'CALL {p[1].upper()}')
+            
+            p[0] = {'code': instrs,
+                    "result":'R1'}
         else:
-            p[0] =None
+            p[0] = {'code': [f'CALL {p[1].upper()}'],
+                "result": 'R1' }
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
-        p[0] = None
+        name_atr = p[1]['result'][1:-1] + '@' + p[3]
+        
+        p[0] = {
+        'code': [],
+        'result':f'[{name_atr}]',
+        'type': self.sim_table[p[1]['result'][1:-1]]['type'],
+        }
 
     # Llamada a función
     def p_expr_call_args(self, p):
@@ -1354,7 +1384,10 @@ class GeneradorCodigo:
     # ohmy
     def p_expr_ohmy_member(self, p):
         """expr : OHMY DOT ID"""
-        p[0] = None
+        p[0] = {
+            'code' : [],
+            'result' : f'[{p[3]}]',
+        }
 
     def p_expr_ohmy(self, p):
         """expr : OHMY"""
