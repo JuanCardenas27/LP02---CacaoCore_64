@@ -1,0 +1,20 @@
+mold Person {
+    let name: text
+    let age: int
+
+    func isAdult() {
+        if ohmy.age >= 18 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+}
+
+let p: Person = summon Person("Cocoa", 23)
+
+show p.name
+
+let res : bool
+set res = p.isAdult()
+show res

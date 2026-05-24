@@ -15,10 +15,10 @@
 8B 33 F0 FF FF FF FF FF
 -- movd_nr A 8
 A8 3C F0 FF FF FF FF FF
--- inc_r B
-0B 22 FF FF FF FF FF FF
--- inc_r A
-0A 22 FF FF FF FF FF FF
+-- add_ri B 8
+08 00 1B 09 F0 FF FF FF
+-- add_ri A 8
+08 00 1A 09 F0 FF FF FF
 -- inc_r 9
 09 22 FF FF FF FF FF FF
 -- jmp_m {WHILE}            (0x00000120)

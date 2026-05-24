@@ -96,7 +96,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = "'a'"
+            defecto = "' '"
         elif p[4] == "bool":
             defecto = 0
 
@@ -200,7 +200,7 @@ class GeneradorCodigo:
             code = []
 
         # string -> convertir a arreglo de chars
-        if value["type"] == "text":
+        if p[4] == "text":
             self.sim_table[p[2]]['len'] = len(init_value)
 
             for i, ch in enumerate(init_value):
@@ -214,7 +214,7 @@ class GeneradorCodigo:
             self.data.append(decl)
             n_code = [f'MOVD [{p[2]}], {init_value}']
             self._gestor.liberar(init_value)
-
+        
         elif value["type"] == 'id':
             if self.sim_table[value["result"][1:-1]]['type'] == 'text':
                 for i, ch in enumerate(self.sim_table[value["result"][1:-1]]['value']):
@@ -252,7 +252,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = "'a'"
+            defecto = "' '"
         elif p[4] == "bool":
             defecto = 0
 
@@ -305,7 +305,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = "'a'"
+            defecto = "' '"
         elif p[4] == "bool":
             defecto = 0
 
@@ -889,9 +889,7 @@ class GeneradorCodigo:
         
         instrs = [
             f'MOVD R10, {tipo}',
-            f'MOVD R10, {tipo}',
             f'LEA R11, {p[2]["result"]}',
-            f'MOVD R12, {size}',
             f'MOVD R12, {size}',
             f'INTR 0',
         ]

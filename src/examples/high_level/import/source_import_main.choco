@@ -1,0 +1,10 @@
+#include "source_import_utils.choco" { max_of_three, total }
+
+let a: int = 3
+let b: int = 9
+let c: int = 7
+
+let m: int 
+set m = max_of_three(a, b, c)
+show m
+show total

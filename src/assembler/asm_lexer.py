@@ -66,7 +66,7 @@ class AsmLexer:
         return t
 
     def t_STR(self, t):
-        "\'[a-zA-Z0-9_][a-zA-Z0-9_]*\'"
+        r"'[^'\n]'"
         return t    
     
     def t_VAR(self, t):
