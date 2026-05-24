@@ -888,7 +888,9 @@ class GeneradorCodigo:
         
         instrs = [
             f'MOVD R10, {tipo}',
+            f'MOVD R10, {tipo}',
             f'LEA R11, {p[2]["result"]}',
+            f'MOVD R12, {size}',
             f'MOVD R12, {size}',
             f'INTR 0',
         ]
@@ -964,6 +966,8 @@ class GeneradorCodigo:
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
         )
+        print(is_float)
+        print(p[1]['type'])
         print(is_float)
         print(p[1]['type'])
         op2 = p[3]["result"]
