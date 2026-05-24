@@ -8,6 +8,7 @@ CONSOLE_PRINT = 0x0
 INT = 0x0
 FLOAT = 0x1
 STRING = 0x2
+BOOL = 0x3
 
 
 class IOController:
@@ -15,7 +16,8 @@ class IOController:
     _FORMAT_FUNCS = {
         INT: lambda x: int.from_bytes(x, byteorder="little", signed=True),
         FLOAT: lambda x: struct.unpack('<d', x)[0],
-        STRING: lambda x: x.decode("utf-8", errors="surrogateescape")
+        STRING: lambda x: x.decode("utf-8", errors="surrogateescape"),
+        BOOL: lambda x: bool(int.from_bytes(x, byteorder="little", signed=True))
     }
 
     def __init__(self):

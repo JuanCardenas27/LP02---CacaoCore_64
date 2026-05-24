@@ -30,12 +30,6 @@ class GeneradorCodigo:
         ('left',  'DOT'),
     )
 
-
-
-    # ══════════════════════════════════════════════════════════════════════
-    # PROGRAMA
-    # ══════════════════════════════════════════════════════════════════════
-
     
 
     # ─────────────────────────────────────────────────────────────
@@ -134,8 +128,8 @@ class GeneradorCodigo:
         n_code = []
         init_value = arg['result']
         if tipo == 'text':
-            self.sim_table[init_value] = {}
-            self.sim_table[init_value]['len'] = len(init_value)
+            self.sim_table[name] = {}
+            self.sim_table[name]['len'] = len(init_value)
 
             for i, ch in enumerate(init_value):
                 if i == 0:
@@ -146,7 +140,7 @@ class GeneradorCodigo:
         elif 'temp' in arg:
             decl = f'{name} : 0'
             self.data.append(decl)
-            n_code.extend[f'MOVD [{name}], {init_value}']
+            n_code.extend([f'MOVD [{name}], {init_value}'])
             self._gestor.liberar(init_value)
 
         elif arg["type"] == 'id':
@@ -159,10 +153,10 @@ class GeneradorCodigo:
             else:
                 self.data.append(f"{name} : 0")
                 r1 = self._gestor.ocupar()
-                n_code.extend[
+                n_code.extend([
                     f'MOVD {r1}, {arg["result"]}',
                     f'MOVD [{name}], {r1}'
-                ]
+                ])
                 self._gestor.liberar(r1)
 
         else:
@@ -205,7 +199,7 @@ class GeneradorCodigo:
             code = []
 
         # string -> convertir a arreglo de chars
-        if value["type"] == 'str' and p[4] == "text":
+        if value["type"] == "text":
             self.sim_table[p[2]]['len'] = len(init_value)
 
             for i, ch in enumerate(init_value):
@@ -878,10 +872,26 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
+        print(p[2])
+        print(self.sim_table)
+        tipo_expr = self.sim_table[p[2]["result"][1:-1]]["type"]
+        if tipo_expr == "int":
+            tipo = 0
+            size = 1
+        elif tipo_expr == "float":
+            tipo = 1
+            size = 1
+        elif tipo_expr == "text":
+            tipo = 2
+            size = self.sim_table[f"p@{p[2]['result'][1:-1]}"]['len']
+        elif tipo_expr == "bool":
+            tipo = 3
+            size = 1
+        
         instrs = [
-            f'MOVH R10, 0',
+            f'MOVH R10, {tipo}',
             f'LEA R11, {p[2]["result"]}',
-            f'MOVW R12, 1',
+            f'MOVW R12, {size}',
             f'INTR 0',
         ]
         
@@ -1066,6 +1076,7 @@ class GeneradorCodigo:
 
         p[0] = {'code': instrs, 
                 "result": f'{r1}',
+                'type': "bool",
                 'temp': True
                 }
 
@@ -1110,6 +1121,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': instrs,
             "result": f'{r1}',
+            'type': "bool",
             'temp': True
         }
 
@@ -1150,6 +1162,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': instrs,
             "result": f'{r1}',
+            'type': "bool",
             'temp': True
         }
 
@@ -1190,6 +1203,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': instrs,
             "result": f'{r1}',
+            'type': "bool",
             'temp': True
         }
 
@@ -1221,6 +1235,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': instrs,
             "result": f'{r1}',
+            'type': "bool",
             'temp': True
         }
 
@@ -1260,6 +1275,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': instrs,
             "result": f'{r1}',
+            'type': p[2]['type'],
             'temp' : True
         }
 
@@ -1313,15 +1329,15 @@ class GeneradorCodigo:
                 | expr DOT ID LPAREN RPAREN"""
         #Llenamos los place-holders con el valor de quien llama
         place_instr = []
-        clase = self.sim_table[p[1]['result']]['type']
+        clase = self.sim_table[p[1]['result'][1:-1]]['type']
 
         r1 = self._gestor.ocupar()
 
         for atr in self.sim_table[clase]['attr']:
-            place_instr.append(f'MOVD {r1}, [{p[1]['result']}@{atr}]')
+            place_instr.append(f'MOVD {r1}, [{p[1]["result"]}@{atr}]')
             place_instr.append(f'MOVD [{atr}], {r1}')
 
-        self._gestor.liberar()
+        self._gestor.liberar(r1)
 
         if len(p) == 7:
             instrs = []
@@ -1332,13 +1348,14 @@ class GeneradorCodigo:
                 instrs.append(ins0)
                 instrs.append(ins1)
             r = self._gestor.liberar(r)
-            instrs.append(f'CALL {p[1].upper()}')
+            instrs.append(f'CALL {p[3].upper()}')
             
             p[0] = {'code': instrs,
                     "result":'R1'}
         else:
-            p[0] = {'code': [f'CALL {p[1].upper()}'],
+            p[0] = {'code': [f'CALL {p[3].upper()}'],
                 "result": 'R1' }
+            # TODO:
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
@@ -1386,7 +1403,8 @@ class GeneradorCodigo:
         """expr : OHMY DOT ID"""
         p[0] = {
             'code' : [],
-            'result' : f'[{p[3]}]',
+            'type' : self.sim_table[p[3]]["type"],
+            'result' : f'[{p[3]}]'
         }
 
     def p_expr_ohmy(self, p):
@@ -1440,7 +1458,7 @@ class GeneradorCodigo:
         p[0] = {
             'code': [],
             "result": str(p[1]),
-            'type': 'str'
+            'type': 'text'
         }
 
 
@@ -1534,8 +1552,9 @@ class GeneradorCodigo:
         self.text = []
         self.data = []
         self.errors = []
-        _, self.sim_table, _, self.num_table = self._lex.analize(codigo)
+        _, _, _, self.num_table = self._lex.analize(codigo)
         _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
+        print(self.sim_table)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1

@@ -2261,6 +2261,7 @@ class AnalizadorSemantico:
         row['scope_id'] = sem_entry.get('scope_id')
         row['attr'] = sem_entry.get('attr')
         row['fields'] = sem_entry.get('fields')
+        ###
         line = sem_entry.get('line')
         if line is not None and line not in row.get('lines', []):
             row.setdefault('lines', []).append(line)
