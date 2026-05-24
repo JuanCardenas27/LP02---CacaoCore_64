@@ -1056,7 +1056,7 @@ class GeneradorCodigo:
         instrs.append(f'CMP {r1}, {op2}')
 
         if p[2] == '==':   instrs.append(f'JZ {true_label}')
-        elif p[2] == '!=': instrs.append(f'JNE {true_label}')
+        elif p[2] == '!=': instrs.append(f'JNZ {true_label}')
         elif p[2] == '<':  instrs.append(f'JL {true_label}')
         elif p[2] == '>':  instrs.append(f'JG {true_label}')
         elif p[2] == '<=': instrs.append(f'JLE {true_label}')
