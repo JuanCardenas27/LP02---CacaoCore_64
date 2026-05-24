@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple, Set
 
 from .errors import CondicionalError, IncludeError, MacroError, PreprocesadorError
 from .lexer_high_level import build_lexer
-from .models import Macro, PreprocessResult, SourceLine, PreprocessMetadata
+from .models import Macro, PreprocessResult, SourceLine
 
 
 class Preprocesador:
@@ -24,7 +24,8 @@ class Preprocesador:
         self._imports_set: set = set()
         self._externs_explicit: set = set()
         self._librerias_importadas: Dict[str, str] = {}  # calificador (e.g. "math.lib") -> nombre_archivo
-        self._funciones_por_libreria: Dict[str, List[Tuple[str, SourceLine]]] = {}  # libreria -> [(nombre, linea)]
+        self._funciones_por_libreria: Dict[str, List[Tuple[str, SourceLine]]] = {}
+
         # Seguimiento de imports desde codigo fuente
         self._include_stack: List[str] = []
         self._included_sources: Set[str] = set()
@@ -562,7 +563,7 @@ class Preprocesador:
         funciones: Optional[List[str]],
         fuente_origen: str,
         numero_linea: int,
-    ) -> Tuple[List[str], List[SourceLine], PreprocessMetadata]:
+    ) -> Tuple[List[str], List[SourceLine]]:
         """Procesa un archivo fuente incluido, con deteccion de ciclos."""
         ruta_absoluta = os.path.abspath(ruta)
         if ruta_absoluta in self._include_stack:
@@ -571,7 +572,7 @@ class Preprocesador:
 
         if ruta_absoluta in self._included_sources:
             self._registrar_imports(ruta_absoluta, funciones, fuente_origen, numero_linea)
-            return [], [], ()
+            return [], []
 
         if not os.path.isfile(ruta_absoluta):
             raise IncludeError(f"Archivo no encontrado: '{ruta_absoluta}'", fuente_origen, numero_linea)
@@ -582,18 +583,18 @@ class Preprocesador:
         try:
             with open(ruta_absoluta, "r", encoding="utf-8-sig") as f:
                 contenido = f.read()
-            lineas_salida, mapa_salida, metadata = self._procesar_texto(contenido, ruta_absoluta)
+            lineas_salida, mapa_salida = self._procesar_texto(contenido, ruta_absoluta)
         finally:
             self._pila_cond = prev_pila
             self._include_stack.pop()
 
         self._included_sources.add(ruta_absoluta)
         self._registrar_imports(ruta_absoluta, funciones, fuente_origen, numero_linea)
-        return lineas_salida, mapa_salida, metadata
+        return lineas_salida, mapa_salida
 
     def _procesar_texto(
         self, texto: str, fuente: str
-    ) -> Tuple[List[str], List[SourceLine], PreprocessMetadata]:
+    ) -> Tuple[List[str], List[SourceLine]]:
         """Primera pasada: procesa directivas y codigo, con soporte de includes."""
         lineas_salida: List[str] = []
         mapa_salida: List[SourceLine] = []
@@ -618,8 +619,7 @@ class Preprocesador:
             lineas_logicas.append((numero_linea_buffer, "".join(buffer_linea)))
 
         nivel_bloque = 0
-        # Primera pasada: procesar directivas, acumular funciones calificadas, procesar código
-        
+
         for numero_linea, linea_original in lineas_logicas:
             linea_recortada = linea_original.strip()
             if not linea_recortada:
@@ -644,7 +644,7 @@ class Preprocesador:
                             fuente,
                             numero_linea,
                         )
-                        # Registrar librería para detección de llamadas calificadas
+                        # Registrar libreria para deteccion de llamadas calificadas
                         self._librerias_importadas[nombre_archivo] = nombre_archivo
 
                         if funciones:
@@ -663,7 +663,7 @@ class Preprocesador:
                         continue
 
                     ruta_include = self._resolver_ruta_include(nombre_archivo, fuente)
-                    lineas_inc, mapa_inc, import_metadata = self._procesar_archivo_fuente(
+                    lineas_inc, mapa_inc = self._procesar_archivo_fuente(
                         ruta_include,
                         funciones,
                         fuente,
@@ -740,7 +740,7 @@ class Preprocesador:
             if not self._activo():
                 continue
 
-            # Es línea de código
+            # Es linea de codigo
             linea_expandida = self._expandir_macros(linea_original)
 
             if nivel_bloque == 0:
@@ -751,7 +751,6 @@ class Preprocesador:
             # Detectar funciones calificadas (para procesar despues)
             funciones_calificadas = self._extractar_funciones_calificadas(linea_expandida)
             for clave_calificada, nombre_funcion in funciones_calificadas.items():
-                # clave_calificada formato: "math.lib.sqrt" → extraer librería "math.lib"
                 partes = clave_calificada.rsplit(".", 1)
                 if len(partes) == 2:
                     nombre_libreria = partes[0]
@@ -765,7 +764,7 @@ class Preprocesador:
 
             # Reemplazar llamadas calificadas por llamadas simples
             linea_reemplazada = self._reemplazar_funciones_calificadas(linea_expandida)
-            
+
             if linea_reemplazada.strip():
                 lineas_salida.append(linea_reemplazada.rstrip())
                 mapa_salida.append(SourceLine(path=fuente, line=numero_linea))
@@ -779,44 +778,47 @@ class Preprocesador:
                 f"Faltan {len(self._pila_cond)} directiva(s) #endif", fuente
             )
 
-        # Segunda pasada: insertar .extern debajo de su correspondiente .import
-        # Procesar líneas para insertar .extern después de su .import
-        lineas_salida_organizada = []
-        mapa_salida_organizada = []
+        self._finalizar_archivo(fuente)
+        return lineas_salida, mapa_salida
 
-        lineas_imports = []
-        mapa_imports = []
-        
+    def _organizar_externs(
+        self,
+        lineas_salida: List[str],
+        mapa_salida: List[SourceLine],
+    ) -> Tuple[List[str], List[SourceLine]]:
+        """Segunda pasada: inserta .extern debajo de su .import."""
+        lineas_salida_organizada: List[str] = []
+        mapa_salida_organizada: List[SourceLine] = []
+
         i = 0
         while i < len(lineas_salida):
             linea_actual = lineas_salida[i]
-            
-            # Si es un .import, insertar los .extern de esa librería
-            if linea_actual.startswith('.import "'):
-                lineas_imports.append(linea_actual)
-                mapa_imports.append(mapa_salida[i])
-                # Extraer nombre de la librería: .import "math.lib" → math.lib
-                nombre_lib = linea_actual[9:].rstrip('"')  # Skip '.import "'
-                
-                # Insertar .extern para esta librería si existen
-                if nombre_lib in self._funciones_por_libreria:
-                    # Obtener funciones únicas para esta librería (evitar duplicados)
-                    funciones_vistas = set()
-                    for nombre_funcion, numero_linea in sorted(self._funciones_por_libreria[nombre_lib], key=lambda x: x[0]):
-                        nombre_normalizado = nombre_funcion.lower()
-                        if nombre_normalizado not in self._externs_explicit and nombre_normalizado not in funciones_vistas:
-                            lineas_imports.append(f".extern {nombre_funcion}")
-                            mapa_imports.append(SourceLine(path=fuente, line=numero_linea))
-                            self._externs_explicit.add(nombre_normalizado)
-                            funciones_vistas.add(nombre_normalizado)
-                i += 1
-                continue
-            
             lineas_salida_organizada.append(linea_actual)
             mapa_salida_organizada.append(mapa_salida[i])
+
+            if linea_actual.startswith('.import "'):
+                nombre_lib_with_quotes = linea_actual[9:]
+                nombre_lib = nombre_lib_with_quotes.rstrip('"')
+
+                if nombre_lib in self._funciones_por_libreria:
+                    funciones_vistas = set()
+                    for nombre_funcion, source_line in sorted(
+                        self._funciones_por_libreria[nombre_lib],
+                        key=lambda x: x[0],
+                    ):
+                        nombre_normalizado = nombre_funcion.lower()
+                        if (
+                            nombre_normalizado not in self._externs_explicit
+                            and nombre_normalizado not in funciones_vistas
+                        ):
+                            lineas_salida_organizada.append(f".extern {nombre_funcion}")
+                            mapa_salida_organizada.append(source_line)
+                            self._externs_explicit.add(nombre_normalizado)
+                            funciones_vistas.add(nombre_normalizado)
+
             i += 1
-        
-        return lineas_salida_organizada, mapa_salida_organizada, PreprocessMetadata(lineas_imports, mapa_imports)
+
+        return lineas_salida_organizada, mapa_salida_organizada
 
     def _reset_state(self) -> None:
         """Reinicia estado para procesar próximo archivo."""
@@ -837,16 +839,34 @@ class Preprocesador:
         self._public_symbols = {}
         self._export_decl_lines = {}
 
-    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> Tuple[PreprocessResult, PreprocessMetadata] :
+    def _preprocess(self, codigo: str, nombre_fuente: str) -> str:
+        """Flujo privado de preprocesamiento."""
+        self._reset_state()
+        lineas_salida, mapa_salida = self._procesar_texto(codigo, nombre_fuente)
+        lineas_salida, _ = self._organizar_externs(lineas_salida, mapa_salida)
+        self._reset_state()
+        return "\n".join(lineas_salida)
+
+    def preprocess(self, codigo: str, nombre_fuente: str = "<string>") -> PreprocessResult:
         """Preprocesa código y retorna resultado con mapa de líneas."""
         self._reset_state()
-        lineas_salida, mapa_salida, metadata = self._procesar_texto(codigo, nombre_fuente)
+        lineas_salida, mapa_salida = self._procesar_texto(codigo, nombre_fuente)
+        lineas_salida, mapa_salida = self._organizar_externs(lineas_salida, mapa_salida)
         texto_salida = "\n".join(lineas_salida)
         if texto_salida:
             texto_salida += "\n"
-        return PreprocessResult(text=texto_salida, line_map=mapa_salida), metadata
+        exports = {k: set(v) for k, v in self._source_exports.items()}
+        internals = {k: set(v) for k, v in self._source_internals.items()}
+        imports = {k: set(v) for k, v in self._source_imports.items()}
+        return PreprocessResult(
+            text=texto_salida,
+            line_map=mapa_salida,
+            exports=exports,
+            internals=internals,
+            imports=imports,
+        )
 
-    def preprocess_archivo(self, ruta: str) -> Tuple[PreprocessResult, PreprocessMetadata]:
+    def preprocess_archivo(self, ruta: str) -> PreprocessResult:
         """Preprocesa un archivo completo."""
         ruta_absoluta = os.path.abspath(ruta)
         if not os.path.isfile(ruta_absoluta):
