@@ -1,0 +1,2 @@
+let hola_mundo : text = "Hola_mundo 🐐"
+show hola_mundo
