@@ -762,6 +762,19 @@ class AnalizadorSemantico:
 
         name = p[2]
 
+        mold_info = self.molds.get(name, {})
+
+        attrs = list(
+            mold_info.get('fields', {}).keys()
+        )
+
+        fields = mold_info.get('fields', {})
+
+        # IMPORTANTE
+        self._leave_scope()
+
+        self.current_mold = None
+
         self._define_symbol(
             name,
             'mold',
@@ -769,7 +782,18 @@ class AnalizadorSemantico:
             p.lineno(1)
         )
 
-        self.current_mold = None
+        sym = self._resolve_symbol(name)
+
+        if sym is not None:
+
+            sym['attr'] = attrs
+            sym['fields'] = fields
+
+            self._enrich_lexer_symbol_entry(
+                name,
+                sym
+            )
+
         p[0] = {
             'always_returns': False
         }
@@ -783,7 +807,8 @@ class AnalizadorSemantico:
 
         self.molds[mold_name] = {
             'fields': {},
-            'methods': {}
+            'methods': {},
+            'attrs': []
         }
 
         self._enter_scope('mold')
@@ -2194,9 +2219,15 @@ class AnalizadorSemantico:
             if kind in ('variable', 'array'):
 
                 entry['kind'] = 'field'
+
                 mold_data['fields'][name] = entry
 
                 mold_data.setdefault('field_order', []).append(entry)
+
+                attrs = mold_data.setdefault('attrs', [])
+
+                if name not in attrs:
+                    attrs.append(name)
 
             elif kind == 'function':
 
@@ -2228,6 +2259,8 @@ class AnalizadorSemantico:
         row['value'] = sem_entry.get('value')
         row['scope'] = sem_entry.get('scope')
         row['scope_id'] = sem_entry.get('scope_id')
+        row['attr'] = sem_entry.get('attr')
+        row['fields'] = sem_entry.get('fields')
         line = sem_entry.get('line')
         if line is not None and line not in row.get('lines', []):
             row.setdefault('lines', []).append(line)

@@ -102,7 +102,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = ' '
+            defecto = "'a'"
         elif p[4] == "bool":
             defecto = 0
 
@@ -134,10 +134,10 @@ class GeneradorCodigo:
         n_code = []
         init_value = arg['result']
         if tipo == 'text':
+            self.sim_table[init_value] = {}
+            self.sim_table[init_value]['len'] = len(init_value)
 
-            self.sim_table[arg['result']]['len'] = len(arg['result'])
-
-            for i, ch in enumerate(arg['result']):
+            for i, ch in enumerate(init_value):
                 if i == 0:
                     self.data.append(f"{name} : '{ch}'")
                 else:
@@ -182,14 +182,14 @@ class GeneradorCodigo:
 
         
         if p[4] in self.sim_table.keys() and self.sim_table[p[4]]['kind'] == 'mold':
-            #{ PErsonas : {attr: [nom1, nom2, nom3] } }
+            #{ Personas : {attr: [nom1, nom2, nom3] } }
             for i, atr in enumerate(self.sim_table[p[4]]['attr']): 
                 tipo = self.sim_table[atr]['type']
                 name = p[2] + '@' + atr
                 n_code.extend(self._handle_by_type(name, tipo, p[6][i]))
 
             p[0] = {
-            "code": code + n_code,
+            "code": n_code,
             "result": p[2],
             "sect": '.data'
             }
@@ -257,7 +257,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = ' '
+            defecto = "'a'"
         elif p[4] == "bool":
             defecto = 0
 
@@ -310,7 +310,7 @@ class GeneradorCodigo:
         elif p[4] == "float":
             defecto = 0.0
         elif p[4] == "text":
-            defecto = ' '
+            defecto = "'a'"
         elif p[4] == "bool":
             defecto = 0
 
@@ -1509,6 +1509,7 @@ class GeneradorCodigo:
         ast = self.parser.parse(
             lexer=self._lex.lexer,
             tracking=True,
+            debug=False
         )
         return self.errors, ast
 

@@ -70,7 +70,7 @@ class AsmLexer:
         return t    
     
     def t_VAR(self, t):
-        r'[a-z_][a-z0-9_]*'
+        r'[a-z_][a-z0-9_@]*'
         
         value = t.value.lower()
 
