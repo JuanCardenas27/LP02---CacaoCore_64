@@ -1,0 +1,6 @@
+let a: float = 2.2
+let b: float = 1.2
+show a
+show b
+set a = a + b
+show a

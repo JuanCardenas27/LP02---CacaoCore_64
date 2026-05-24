@@ -1,20 +1,33 @@
+let msj : int = 9
 func fib(n : int){
-     let f_n1 : int = 0
-     let f_n2 : int = 0
+     let n1 : int
+     let n2 : int
+     let fn1 : int
+     let fn2 : int
 
      if n == 0 or n == 1{
 	deliver 1
      }
      otherwise {
-	        set f_n1 = fib(n-1)
-            set f_n2 = fib(n-2)
-	        set f_n1 += f_n2
-	deliver f_n1
+        set n1 = n - 1
+	   show n1
+        show msj
+        show msj
+        set n2 = n - 2
+        show n2
+        show msj
+        show msj
+	   set fn1 = fib(n1)
+        set fn2 = fib(n2)
+	   set fn1 = fn1 + fn2
+        show fn1
+        show msj
+        show msj
+	   deliver fn1
      }
 }
 
 let res : int
-for (let i: int = 0, i < 5, set i += 1){
-    set res = fib(i)
-    show res
-}
+set res = fib(4)
+show res
+

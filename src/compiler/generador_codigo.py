@@ -873,7 +873,6 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        
         tipo_expr = self.sim_table[p[2]["result"][1:-1]]["type"]
         if tipo_expr == "int":
             tipo = 0
@@ -889,9 +888,11 @@ class GeneradorCodigo:
             size = 1
         
         instrs = [
-            f'MOVH R10, {tipo}',
+            f'MOVD R10, {tipo}',
+            f'MOVD R10, {tipo}',
             f'LEA R11, {p[2]["result"]}',
-            f'MOVW R12, {size}',
+            f'MOVD R12, {size}',
+            f'MOVD R12, {size}',
             f'INTR 0',
         ]
         
@@ -962,12 +963,12 @@ class GeneradorCodigo:
                 f'MOVD {r1}, {op1}'
             )
 
-
         is_float = (
-            p[1]['type'] == 'float' or
-            p[3]['type'] == 'float'
+            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
+            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
         )
-
+        print(is_float)
+        print(p[1]['type'])
         op2 = p[3]["result"]
 
         if p[2] == '+':
@@ -1056,7 +1057,7 @@ class GeneradorCodigo:
         instrs.append(f'CMP {r1}, {op2}')
 
         if p[2] == '==':   instrs.append(f'JZ {true_label}')
-        elif p[2] == '!=': instrs.append(f'JNE {true_label}')
+        elif p[2] == '!=': instrs.append(f'JNZ {true_label}')
         elif p[2] == '<':  instrs.append(f'JL {true_label}')
         elif p[2] == '>':  instrs.append(f'JG {true_label}')
         elif p[2] == '<=': instrs.append(f'JLE {true_label}')
@@ -1538,7 +1539,7 @@ class GeneradorCodigo:
         self.label_count = 0
         self.scope_count = 0
         self.params_id = {} #func: {param:id} 
-    def parse(self, codigo: str) -> tuple[list[str], object]:
+    def parse(self, codigo: str, metadata) -> tuple[list[str], object]:
         """
         Analiza el código fuente y devuelve (errores, ast).
 
@@ -1553,7 +1554,7 @@ class GeneradorCodigo:
         self.data = []
         self.errors = []
         _, _, _, self.num_table = self._lex.analize(codigo)
-        _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
+        _, _, self.sim_table = AnalizadorSemantico().parse(codigo, metadata)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1

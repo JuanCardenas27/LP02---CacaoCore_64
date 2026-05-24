@@ -1390,12 +1390,20 @@ class AnalizadorSemantico:
 
         if sym is None:
 
-            self._emit_error(
-                p.lineno(1),
-                f"función '{name}' no declarada"
-            )
+            isExtern = self._validate_extern_function(name, self.metadata)
 
-            p[0] = self._make_expr_data('unknown')
+            if not isExtern:
+                self._emit_error(
+                    p.lineno(1),
+                    f"función '{name}' no declarada"
+                )
+
+                p[0] = self._make_expr_data('unknown')
+                return
+            p[0] = self._make_expr_data(
+                'void',
+                None
+            )
             return
 
         if sym.get('kind') != 'function':
@@ -1717,8 +1725,9 @@ class AnalizadorSemantico:
         self.current_function = None
         self.pending_params = []
         self._ast_annotator = ASTSemanticAnnotator(self)
+        self.metadata = []
 
-    def parse(self, codigo: str) -> tuple[list[str], object, dict]:
+    def parse(self, codigo: str, metadata:list) -> tuple[list[str], object, dict]:
         """
         Analiza y valida semánticamente el código.
         
@@ -1731,6 +1740,7 @@ class AnalizadorSemantico:
         """
         self.errors = []
         self._reset_semantic_state()
+        self.metadata = metadata
 
         # Paso 0: ejecutar lexer para obtener la tabla base real
         # y usarla como base de la tabla semántica enriquecida.
@@ -2340,3 +2350,9 @@ class AnalizadorSemantico:
 
     def _annotate_ast(self, node, _visited=None):
         return self._ast_annotator.annotate(node, _visited)
+
+    def _validate_extern_function(self, name, import_metadata):
+        for inst in import_metadata:
+            if name in inst:
+                return True
+        return False
