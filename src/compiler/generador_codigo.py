@@ -964,8 +964,6 @@ class GeneradorCodigo:
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
         )
-        print(is_float)
-        print(p[1]['type'])
         op2 = p[3]["result"]
 
         if p[2] == '+':
