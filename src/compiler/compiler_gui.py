@@ -31,6 +31,7 @@ class CompilerGui:
         self._palette_name    = "current"
         self.imports = []
         self.asm_carry = ''
+        self._pc_source_path = None
 
         # Incializa estilos 
         setup_styles()
@@ -380,12 +381,14 @@ class CompilerGui:
                 data = f.read()
             self.pc_hl.delete("1.0", tk.END)
             self.pc_hl.insert("1.0", data)
+            self._pc_source_path = path
 
     def _pc_erase(self):
         self.pc_hl.delete("1.0", tk.END)
         self.pc_out.configure(state="normal")
         self.pc_out.delete("1.0", tk.END)
         self.pc_out.configure(state="disabled")
+        self._pc_source_path = None
 
     # ══════════════════════════════════════════════════════════════════════
     # FASE 1 – COMPILER  (léxico / sintáctico / semántico)
@@ -862,7 +865,8 @@ class CompilerGui:
         pre = Preprocesador()
 
         try:
-            resultado, imports_metadata = pre.preprocess(codigo, nombre_fuente="<gui>")
+            nombre_fuente = self._pc_source_path or "<gui>"
+            resultado, imports_metadata = pre.preprocess(codigo, nombre_fuente=nombre_fuente)
             salida = resultado.text
             metadata = imports_metadata.lista
         except PreprocesadorError as exc:
@@ -934,7 +938,7 @@ class CompilerGui:
 
 
     def _do_semantic(self):
-        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile)
+        error, resultado, symbol_table_sem = compiler.compile_semantic(self.program2compile, self.imports)
         # Mostrar AST anotado
         try:
             self.ann_ast_tree.delete("1.0", tk.END)
@@ -970,7 +974,7 @@ class CompilerGui:
 
         self.gen_code.delete("1.0", tk.END)
 
-        result = compiler.compile_generator(file_content)
+        result = compiler.compile_generator(file_content, self.imports)
 
         lines = result[1]
         errors = result[0]

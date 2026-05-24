@@ -881,14 +881,16 @@ class GeneradorCodigo:
             size = 1
         elif tipo_expr == "text":
             tipo = 2
-            size = self.sim_table[f"p@{p[2]['result'][1:-1]}"]['len']
+            size = self.sim_table[p[2]['result'][1:-1]]['len']
         elif tipo_expr == "bool":
             tipo = 3
             size = 1
         
         instrs = [
             f'MOVD R10, {tipo}',
+            f'MOVD R10, {tipo}',
             f'LEA R11, {p[2]["result"]}',
+            f'MOVD R12, {size}',
             f'MOVD R12, {size}',
             f'INTR 0',
         ]
@@ -964,6 +966,8 @@ class GeneradorCodigo:
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
             self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
         )
+        print(is_float)
+        print(p[1]['type'])
         op2 = p[3]["result"]
 
         if p[2] == '+':
@@ -1534,7 +1538,7 @@ class GeneradorCodigo:
         self.label_count = 0
         self.scope_count = 0
         self.params_id = {} #func: {param:id} 
-    def parse(self, codigo: str) -> tuple[list[str], object]:
+    def parse(self, codigo: str, metadata) -> tuple[list[str], object]:
         """
         Analiza el código fuente y devuelve (errores, ast).
 
@@ -1549,8 +1553,8 @@ class GeneradorCodigo:
         self.data = []
         self.errors = []
         _, _, _, self.num_table = self._lex.analize(codigo)
-        _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
-
+        _, _, self.sim_table = AnalizadorSemantico().parse(codigo, metadata)
+        print(self.sim_table)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1
