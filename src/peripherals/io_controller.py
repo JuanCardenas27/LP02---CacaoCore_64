@@ -71,9 +71,16 @@ class IOController:
             print(f"[Controlador I/O] Formato {format} sin manejador registrado.")
             return
         
-        data = ram.read(addr + 2, length * 8)
+        if format == STRING:
+            msg = []
+            for i in range(length):
+                data = ram.read(addr + 2 + i*8, 1)
+                msg.append(format_func(data))
+            self.console.write_ok("".join(msg))
 
-        self.console.write_ok(format_func(data))
+        else:
+            data = ram.read(addr + 2, length * 8)
+            self.console.write_ok(format_func(data))
 
 
 # ------------------------------------------------------------------

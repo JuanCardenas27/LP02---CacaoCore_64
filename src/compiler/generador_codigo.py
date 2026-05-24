@@ -130,6 +130,7 @@ class GeneradorCodigo:
         if tipo == 'text':
             self.sim_table[name] = {}
             self.sim_table[name]['len'] = len(init_value)
+            self.sim_table[name]['type'] = tipo
 
             for i, ch in enumerate(init_value):
                 if i == 0:
@@ -872,8 +873,7 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        print(p[2])
-        print(self.sim_table)
+        
         tipo_expr = self.sim_table[p[2]["result"][1:-1]]["type"]
         if tipo_expr == "int":
             tipo = 0
@@ -883,7 +883,7 @@ class GeneradorCodigo:
             size = 1
         elif tipo_expr == "text":
             tipo = 2
-            size = self.sim_table[f"p@{p[2]['result'][1:-1]}"]['len']
+            size = self.sim_table[p[2]['result'][1:-1]]['len']
         elif tipo_expr == "bool":
             tipo = 3
             size = 1
@@ -1334,7 +1334,7 @@ class GeneradorCodigo:
         r1 = self._gestor.ocupar()
 
         for atr in self.sim_table[clase]['attr']:
-            place_instr.append(f'MOVD {r1}, [{p[1]["result"]}@{atr}]')
+            place_instr.append(f'MOVD {r1}, [{p[1]["result"][1:-1]}@{atr}]')
             place_instr.append(f'MOVD [{atr}], {r1}')
 
         self._gestor.liberar(r1)
@@ -1364,7 +1364,7 @@ class GeneradorCodigo:
         p[0] = {
         'code': [],
         'result':f'[{name_atr}]',
-        'type': self.sim_table[p[1]['result'][1:-1]]['type'],
+        'type': self.sim_table[p[3]]['type'],
         }
 
     # Llamada a función
@@ -1554,7 +1554,6 @@ class GeneradorCodigo:
         self.errors = []
         _, _, _, self.num_table = self._lex.analize(codigo)
         _, _, self.sim_table = AnalizadorSemantico().parse(codigo)
-        print(self.sim_table)
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1
