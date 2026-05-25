@@ -11,7 +11,7 @@ mold Person {
     }
 }
 
-let p: Person = summon Person("Cocoa", 23)
+let p: Person = summon Person("Cocoa", 2)
 
 show p.name
 
