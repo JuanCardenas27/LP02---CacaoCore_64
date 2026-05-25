@@ -6,7 +6,7 @@ from .gestor_de_registros import GestorRegistros
 
 class GeneradorCodigo:
     """
-    Parser LALR(1) para CacaoScript.
+    Parser LALR(1) para Choco.
 
     Uso:
         parser = AnalizadorSemantico()
@@ -17,19 +17,7 @@ class GeneradorCodigo:
     tokens = AnalizadorLexico.tokens
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
-    precedence = (
-        ('left',  'OR'),
-        ('left',  'AND'),
-        ('right', 'NOT'),
-        ('left',  'EQ', 'NEQ'),
-        ('left',  'LT', 'GT', 'LEQ', 'GEQ'),
-        ('left',  'PLUS', 'MINUS'),
-        ('left',  'TIMES', 'DIVIDE', 'MOD'),
-        ('right', 'UMINUS'),
-        ('left',  'LBRACKET'),
-        ('left',  'DOT'),
-    )
-
+    precedence = AnalizadorSemantico.precedence
     
 
     # ─────────────────────────────────────────────────────────────

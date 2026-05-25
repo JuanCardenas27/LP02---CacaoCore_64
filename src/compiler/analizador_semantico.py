@@ -1,7 +1,7 @@
 """
 analizador_semantico.py
 =======================
-Analizador Semántico para CacaoScript — CACAO_Core-64.
+Analizador Semántico para Choco — CACAO_Core-64.
 Usa yacc para validación semántica sin construir AST.
 Luego anota el AST sintáctico con información semántica.
 
@@ -77,34 +77,12 @@ from .analizador_sintactico import AnalizadorSintactico
 from .semantic_ast_annotator import ASTSemanticAnnotator
 from .ast_nodos import (
     Nodo,
-    NodoAccesoArreglo,
-    NodoAccesoMiembro,
-    NodoBinario,
-    NodoBloque,
-    NodoBooleano,
-    NodoCadena,
     NodoDeclaracion,
-    NodoEntregar,
-    NodoEntero,
-    NodoFlotante,
     NodoFuncion,
     NodoID,
-    NodoListaValores,
-    NodoLlamada,
     NodoMold,
-    NodoNada,
-    NodoOhmy,
-    NodoOops,
     NodoParametro,
-    NodoPrograma,
-    NodoReasignacion,
-    NodoSi,
-    NodoMostrar,
-    NodoSummon,
-    NodoTerminal,
-    NodoUnario,
-    NodoMientras,
-    NodoPara,
+    NodoTerminal
 )
 
 
@@ -124,18 +102,7 @@ class AnalizadorSemantico:
     tokens = AnalizadorLexico.tokens
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
-    precedence = (
-        ('left',  'OR', 'XOR'),
-        ('left',  'AND'),
-        ('right', 'NOT'),
-        ('left',  'EQ', 'NEQ'),
-        ('left',  'LT', 'GT', 'LEQ', 'GEQ'),
-        ('left',  'PLUS', 'MINUS'),
-        ('left',  'TIMES', 'DIVIDE', 'MOD'),
-        ('right', 'UMINUS'),
-        ('left',  'LBRACKET'),
-        ('left',  'DOT'),
-    )
+    precedence = AnalizadorSintactico.precedence
 
     _SEMANTIC_META_KEYS = {
         'tipo',
@@ -753,7 +720,8 @@ class AnalizadorSemantico:
         )
         p[0] = {
             'name': name,
-            'type': type_name
+            'type': type_name,
+            'dims': 0
         }
 
     # ── Mold
@@ -788,7 +756,11 @@ class AnalizadorSemantico:
 
             sym['attr'] = attrs
             sym['fields'] = fields
-
+            sym['size'] = mold_info.get('size',0)
+            sym['field_order'] = mold_info.get(
+                'field_order',
+                []
+            )
             self._enrich_lexer_symbol_entry(
                 name,
                 sym
@@ -1450,9 +1422,7 @@ class AnalizadorSemantico:
 
         if sym is None:
 
-            isExtern = self._validate_extern_function(name, self.metadata)
-
-            if not isExtern:
+            if not self._validate_extern_function(name, self.metadata):
 
                 self._emit_error(
                     p.lineno(1),
@@ -1750,6 +1720,12 @@ class AnalizadorSemantico:
         self.pending_params = []
         self._ast_annotator = ASTSemanticAnnotator(self)
         self.metadata = []
+        self.type_sizes = {
+            'int':4,
+            'float':8,
+            'bool':1,
+            'text':8,
+        }
 
     def parse(self, codigo: str, metadata:list) -> tuple[list[str], object, dict]:
         """
@@ -1796,6 +1772,21 @@ class AnalizadorSemantico:
         _, ast = self._syntactic.parse(codigo)
         self._annotate_ast(ast)
         return self.errors, ast, self.semantic_symbol_table
+    
+    def _sizeof(self, type_name, dims=0):
+
+        if dims > 0:
+            return 8
+
+        if type_name in self.type_sizes:
+            return self.type_sizes[type_name]
+
+        mold = self.molds.get(type_name)
+
+        if mold:
+            return mold.get('size', 0)
+
+        return 0
 
     def _make_expr_data(
         self,
@@ -2003,8 +1994,24 @@ class AnalizadorSemantico:
         for expected, received in zip(expected_params, received_args):
 
             expected_type = expected['type']
-            received_type = self._extract_type(received)
+            expected_dims = expected.get('dims', 0)
 
+            received_type = self._extract_type(received)
+            received_dims = self._extract_dims(received)
+
+            # ── Validar dimensiones
+            if expected_dims != received_dims:
+
+                self._emit_error(
+                    line,
+                    f"dimensiones incompatibles: "
+                    f"se esperaba {expected_dims}D "
+                    f"y se recibió {received_dims}D"
+                )
+
+                return False
+
+            # ── Validar tipos
             compatible = (
                 expected_type == received_type or
                 (
@@ -2054,7 +2061,23 @@ class AnalizadorSemantico:
         for expected, received in zip(expected_fields, received_args):
 
             expected_type = expected['type']
+            expected_dims = expected.get('dims', 0)
+
             received_type = self._extract_type(received)
+            received_dims = self._extract_dims(received)
+
+            # ── Validar dimensiones
+            if expected_dims != received_dims:
+
+                self._emit_error(
+                    line,
+                    f"dimensiones incompatibles para "
+                    f"'{expected['name']}': "
+                    f"se esperaba {expected_dims}D "
+                    f"y se recibió {received_dims}D"
+                )
+
+                return False
 
             compatible = (
                 expected_type == received_type or
@@ -2213,12 +2236,13 @@ class AnalizadorSemantico:
 
     def _define_symbol(
         self,
-        name: str,
-        kind: str,
-        type_name: str | None,
-        line: int,
-        dims: int = 0,
-        value=None
+        name,
+        kind,
+        type_name,
+        line,
+        dims=0,
+        value=None,
+        shape=None
     ):
         """Definir un símbolo en el alcance actual."""
         current_scope = self.scopes[-1]
@@ -2232,39 +2256,60 @@ class AnalizadorSemantico:
             'kind': symbol_kind,
             'line': line,
             'dims': dims,
+            'shape': shape or [],
             'scope': self.scope_names[-1] if self.scope_names else 'unknown',
             'scope_id': self._make_scope_id(self.scope_names[-1] if self.scope_names else 'unknown', line),
+            'storage_class': None,
+            'offset': None,
+            'size': self._sizeof(type_name, dims),
+            'alignment': self._sizeof(type_name, dims),
         }
-        if symbol_kind in ('variable', 'array', 'parameter', 'field'):
-            entry['type'] = type_name
-            entry['value'] = value
-        elif symbol_kind in ('function', 'method'):
-            entry['return_type'] = None
-            entry['params'] = []
-        elif symbol_kind == 'mold':
-            entry['type'] = type_name
+        if symbol_kind in ('variable','array','parameter','field'):
+            entry['type']=type_name
+            entry['value']=value
+            if symbol_kind=='parameter':
+                entry['storage_class']='param'
+                entry['parameter_index']=len([
+                    s for s in current_scope.values()
+                    if s.get('kind')=='parameter'
+                ])
+            else:
+                entry['storage_class']='local'
+        elif symbol_kind in ('function','method'):
+            entry['return_type']=None
+            entry['params']=[]
+            entry['label']=f'FUNC_{name}'
+            entry['frame_size']=None
+            entry['local_count']=0
+        elif symbol_kind=='mold':
+            entry['type']=type_name
+            entry['size']=0
+            entry['field_order']=[]
         current_scope[name] = entry
         self.defined_symbols.append(entry)
         self._enrich_lexer_symbol_entry(name, entry)
         if self.current_mold is not None:
-
             mold_data = self.molds[self.current_mold]
-
             if kind in ('variable', 'array'):
-
                 entry['kind'] = 'field'
-
                 mold_data['fields'][name] = entry
-
                 mold_data.setdefault('field_order', []).append(entry)
-
                 attrs = mold_data.setdefault('attrs', [])
-
                 if name not in attrs:
                     attrs.append(name)
-
+                field_offset = mold_data.get('size',0)
+                entry['offset'] = field_offset
+                entry['storage_class']='field'
+                field_size = self._sizeof(
+                    type_name,
+                    dims
+                )
+                mold_data['size'] = (
+                    field_offset
+                    +
+                    field_size
+                )
             elif kind == 'function':
-
                 entry['kind'] = 'method'
                 entry.setdefault('params', [])
                 entry.setdefault('return_type', None)

@@ -1,7 +1,7 @@
 """
 analizador_sintactico.py
 ========================
-Analizador Sintáctico (Parser) LALR(1) para CacaoScript — CACAO_Core-64.
+Analizador Sintáctico (Parser) LALR(1) para Choco — CACAO_Core-64.
 Construido con PLY (Python Lex-Yacc).
 
 Gramática en E-BNF:
@@ -96,7 +96,7 @@ class AnalizadorSintactico:
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
     precedence = (
-        ('left',  'OR'),
+        ('left',  'OR', 'XOR'),
         ('left',  'AND'),
         ('right', 'NOT'),
         ('left',  'EQ', 'NEQ'),
