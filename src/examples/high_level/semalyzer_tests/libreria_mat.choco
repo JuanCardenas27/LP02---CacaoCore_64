@@ -1,0 +1,45 @@
+func MCD(a_mcd:int, b_mcd:int){
+    asLongAs a_mcd != b_mcd{
+        if a_mcd > b_mcd{
+            set a_mcd = a_mcd - b_mcd
+        }
+        otherwise{
+            set b_mcd = b_mcd - a_mcd
+        }
+    }
+    deliver a_mcd
+}
+
+func ADD_INT(a_add : int, b_add:int){
+    let result : int
+    set result = a_add + b_add
+    deliver result
+}
+
+func SUB_INT(a_sub : int, b_sub:int){
+    let result : int
+    set result = a_sub - b_sub
+    deliver result
+}
+
+func MUL_INT(a_mul : int, b_mul:int){
+    let result : int
+    set result = a_mul * b_mul
+    deliver result
+}
+
+func DIV_INT(a_div : int, b_div:int){
+    let result : int
+    set result = a_div / b_div
+    deliver result
+}
+
+func POW_INT(a_pow : int, b_pow:int){
+    let result : int = 1
+
+    for (let i: int = 1, i < b_pow, set i += 1){
+        set result = result * a_pow
+    }
+    
+    deliver result
+}

@@ -1,0 +1,17 @@
+#include "math.lib"
+let a: int = 20
+let b: int = 30
+let c: int = 2
+
+let result : int
+
+set result = math.lib.ADD_INT(a, b)
+show result
+
+set result = math.lib.MCD(a, b)
+show result
+
+set result = math.lib.POW_INT(a, c)
+show result
+
+
