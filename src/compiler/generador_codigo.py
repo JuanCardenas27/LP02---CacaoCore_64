@@ -1540,7 +1540,8 @@ class GeneradorCodigo:
         self.data = []
         self.errors = []
         _, _, _, self.num_table = self._lex.analize(codigo)
-        _, _, self.sim_table = AnalizadorSemantico().parse(codigo, metadata)
+        dict_s = AnalizadorSemantico().parse(codigo, metadata)
+        self.sim_table = dict_s['symbol_table']
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1

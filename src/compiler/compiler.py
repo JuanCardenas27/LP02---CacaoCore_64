@@ -22,8 +22,8 @@ class Compiler:
     
     def compile_semantic(self, file_content:str, metadata:list):
         # 3. Paso del analisis: Semántico
-        errors, ast, sym_table = self._semantic.parse(file_content, metadata)
-        return errors, ast, sym_table
+        dict_s = self._semantic.parse(file_content, metadata)
+        return dict_s['errors'], dict_s['ast'], dict_s['symbol_table']
     
     def compile_generator(self, file_content:str, metadata):
         # 4. Paso del analisis: Generación de código
@@ -39,8 +39,8 @@ class Compiler:
         errors, _ = self._syntactic.parse(file_content)
         if errors:
             return errors
-        errors, _, _ = self._semantic.parse(file_content, metadata)
-        if errors:
+        dict_s = self._semantic.parse(file_content, metadata)
+        if dict_s['errors']:
             return errors
         errors, asmc = self._generator.parse(file_content, metadata)
         return errors, asmc
