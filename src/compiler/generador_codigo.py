@@ -111,6 +111,11 @@ class GeneradorCodigo:
             }
 
 
+    def _default_for_type(self, tipo):
+        if tipo == 'float': return 0.0
+        if tipo == 'text': return "' '"
+        return 0
+
     def _handle_by_type(self, name, tipo, arg):
 
         n_code = []
@@ -233,24 +238,32 @@ class GeneradorCodigo:
     def p_let_array_1d(self, p):
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
 
-        defecto = 0
-
-        if p[4] == "int":
-            defecto = 0
-        elif p[4] == "float":
-            defecto = 0.0
-        elif p[4] == "text":
-            defecto = "' '"
-        elif p[4] == "bool":
-            defecto = 0
-
         length = p[6]
 
         if isinstance(length, dict):
-            length = self.sim_table[length["result"]]["value"]
+            res = length["result"]
+            length = int(res) if isinstance(res, (int, float)) else self.sim_table[res]["value"]
+
+        # Array de molds: emitir una entrada por (campo × elemento)
+        if p[4] in self.sim_table and self.sim_table[p[4]].get('kind') == 'mold':
+            fields = self.sim_table[p[4]]['attr']
+            for i in range(length):
+                suffix = '' if i == 0 else str(i)
+                for field in fields:
+                    tipo = self.sim_table[field]['type']
+                    defecto = self._default_for_type(tipo)
+                    self.data.append(f'{p[2]}@{field}{suffix} : {defecto}')
+            p[0] = {"code": [], "result": p[2]}
+            return
+
+        defecto = 0
+        if p[4] == "int":    defecto = 0
+        elif p[4] == "float": defecto = 0.0
+        elif p[4] == "text":  defecto = "' '"
+        elif p[4] == "bool":  defecto = 0
 
         self.data.append(f'{p[2]} : {defecto}')
-        for i in range(1,length):
+        for i in range(1, length):
             self.data.append(f'{p[2]}{i} : {defecto}')
 
         p[0] = {
@@ -262,21 +275,39 @@ class GeneradorCodigo:
         """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
 
         length = p[6]
-        
+
         if isinstance(length, dict):
             try:
                 length = self.sim_table[length["result"]]["value"]
             except KeyError:
                 length = length["result"]
+
+        # Array de molds: cada elemento del initializer es la arg_list de un summon
+        if p[4] in self.sim_table and self.sim_table[p[4]].get('kind') == 'mold':
+            fields = self.sim_table[p[4]]['attr']
+            values = p[9]
+            # Un solo summon → values es flat list de args; varios → lista de listas
+            if values and not isinstance(values[0], list):
+                summon_list = [values]
+            else:
+                summon_list = values
+            for i, summon_args in enumerate(summon_list):
+                suffix = '' if i == 0 else str(i)
+                for j, field in enumerate(fields):
+                    arg = summon_args[j]
+                    val = arg['result'] if isinstance(arg, dict) else arg
+                    self.data.append(f'{p[2]}@{field}{suffix} : {val}')
+            p[0] = {"code": [], "result": p[2]}
+            return
+
         values = p[9]
         self.data.append(f'{p[2]} : {values[0]["result"]}')
-        
-        for i in range(1,length):
-                try:
-                    self.data.append(f'{p[2]}{i} : {values[i]["result"]}')
-                except:
-                    self.data.append(f'{p[2]}{i} : 0')
 
+        for i in range(1, length):
+            try:
+                self.data.append(f'{p[2]}{i} : {values[i]["result"]}')
+            except Exception:
+                self.data.append(f'{p[2]}{i} : 0')
 
         p[0] = {
             "code": [],
@@ -464,40 +495,58 @@ class GeneradorCodigo:
 
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
-        
+
         arr = p[1]["result"]
         arr_name = arr[1:-1]
 
         instrs = []
-
         instrs.extend(p[1]['code'])
         instrs.extend(p[3]['code'])
 
         if 'temp' in p[3]:
-            ind = p[3]["result"]
             r1 = p[3]["result"]
         else:
-            ind = p[3]["result"]
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {ind}'
-            )
+            instrs.append(f'MOVD {r1}, {p[3]["result"]}')
+
+        arr_sym = self.sim_table.get(arr_name, {})
+        arr_type = arr_sym.get('type', '')
+        mold_info = self.sim_table.get(arr_type, {})
+        is_mold_array = mold_info.get('kind') == 'mold'
 
         r2 = self._gestor.ocupar()
-        instrs.extend([
-            f'MUL {r1}, 8',
-            f'LEA {r2}, {arr}',
-            f'ADD {r1}, {r2}'
-        ])
 
-        self._gestor.liberar(r2)
-
-        p[0] = {
-            'code': instrs,
-            "result": f'[{r1}]',
-            'temp': True,
-            'reg': f'{r1}'
-        }
+        if is_mold_array:
+            # Stride = número de campos × 8 bytes
+            stride = len(mold_info.get('attr', [])) * 8
+            first_field = mold_info['attr'][0]
+            base_label = f'[{arr_name}@{first_field}]'
+            instrs.extend([
+                f'MUL {r1}, {stride}',
+                f'LEA {r2}, {base_label}',
+                f'ADD {r1}, {r2}',
+            ])
+            self._gestor.liberar(r2)
+            p[0] = {
+                'code': instrs,
+                'result': f'[{r1}]',
+                'temp': True,
+                'reg': r1,
+                'mold_type': arr_type,
+            }
+        else:
+            instrs.extend([
+                f'MUL {r1}, 8',
+                f'LEA {r2}, {arr}',
+                f'ADD {r1}, {r2}',
+            ])
+            self._gestor.liberar(r2)
+            p[0] = {
+                'code': instrs,
+                'result': f'[{r1}]',
+                'temp': True,
+                'reg': r1,
+            }
 
 
     def p_lvalue_member(self, p):
@@ -508,8 +557,24 @@ class GeneradorCodigo:
                 'code': [],
                 'result': f'[{p[3]}]',
             }
+        elif p[1].get('mold_type'):
+            # base dinámica desde arr[i]: sumar offset del campo al puntero
+            mold_type = p[1]['mold_type']
+            fields = self.sim_table[mold_type]['attr']
+            field_idx = fields.index(p[3])
+            field_offset = field_idx * 8
+            r1 = p[1]['reg']
+            instrs = list(p[1]['code'])
+            if field_offset > 0:
+                instrs.append(f'ADD {r1}, {field_offset}')
+            p[0] = {
+                'code': instrs,
+                'result': f'[{r1}]',
+                'temp': True,
+                'reg': r1,
+            }
         else:
-            # instancia.campo → instancia@campo
+            # instancia estática: instancia@campo
             name_atr = p[1]['result'][1:-1] + '@' + p[3]
             p[0] = {
                 'code': p[1].get('code', []),
@@ -905,7 +970,12 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        key = p[2]["result"][1:-1]
+        # Incluir el código de cálculo de la expresión (ej: MUL, LEA, ADD para arrays)
+        instrs = list(p[2].get('code', []))
+
+        result = p[2]["result"]
+        key = result[1:-1] if isinstance(result, str) and result.startswith('[') else str(result)
+
         if key in self.sim_table:
             tipo_expr = self.sim_table[key]["type"]
         else:
@@ -920,21 +990,32 @@ class GeneradorCodigo:
             size = 1
         elif tipo_expr == "text":
             tipo = 2
-            size = self.sim_table[key]['len']
+            size = self.sim_table.get(key, {}).get('len', 1)
         elif tipo_expr == "bool":
             tipo = 3
             size = 1
         else:
             tipo = 0
             size = 1
-        
-        instrs = [
+
+        # Cuando la dirección está en un registro (resultado de acceso dinámico a mold
+        # array), usar MOVD para copiar el registro; para etiquetas, usar LEA normalmente
+        if p[2].get('temp') and p[2].get('reg'):
+            addr_instr = f'MOVD R11, {p[2]["reg"]}'
+        else:
+            addr_instr = f'LEA R11, {result}'
+
+        instrs.extend([
             f'MOVD R10, {tipo}',
-            f'LEA R11, {p[2]["result"]}',
+            addr_instr,
             f'MOVD R12, {size}',
             f'INTR 0',
-        ]
-        
+        ])
+
+        # Liberar el registro temporal una vez usado
+        if p[2].get('temp') and p[2].get('reg'):
+            self._gestor.liberar(p[2]['reg'])
+
         p[0] = {
             'code': instrs,
             "result": 1
@@ -1323,11 +1404,10 @@ class GeneradorCodigo:
     # Acceso a arreglo
     def p_expr_index(self, p):
         """expr : expr LBRACKET expr RBRACKET"""
-        arr_code  = p[1]['code']
-        ind_code  = p[3]['code']
+        arr_code = p[1]['code']
+        ind_code = p[3]['code']
 
         instrs = []
-
         instrs.extend(arr_code)
         instrs.extend(ind_code)
 
@@ -1335,32 +1415,51 @@ class GeneradorCodigo:
         arr_name = arr[1:-1]
 
         if 'temp' in p[3]:
-            ind = p[3]["result"]
             r1 = p[3]["result"]
         else:
-            ind = p[3]["result"]
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {ind}'
-            )
+            instrs.append(f'MOVD {r1}, {p[3]["result"]}')
+
+        arr_sym = self.sim_table.get(arr_name, {})
+        arr_type = arr_sym.get('type', '')
+        mold_info = self.sim_table.get(arr_type, {})
+        is_mold_array = mold_info.get('kind') == 'mold'
 
         r2 = self._gestor.ocupar()
-        instrs.extend([
-            f'MUL {r1}, 8',
-            f'LEA {r2}, {arr}',
-            f'ADD {r1}, {r2}',
-            f'MOVD {r2}, [{r1}]'
-        ])
 
-        self._gestor.liberar(r1)
-    
-
-        p[0] = {
-            'code': instrs,
-            "result": f'{r2}',
-            'temp': True,
-            'type' : f'{self.sim_table[arr_name]["type"]}'
-        }
+        if is_mold_array:
+            # Devuelve puntero al inicio del elemento; .campo añadirá el offset
+            stride = len(mold_info.get('attr', [])) * 8
+            first_field = mold_info['attr'][0]
+            base_label = f'[{arr_name}@{first_field}]'
+            instrs.extend([
+                f'MUL {r1}, {stride}',
+                f'LEA {r2}, {base_label}',
+                f'ADD {r1}, {r2}',
+            ])
+            self._gestor.liberar(r2)
+            p[0] = {
+                'code': instrs,
+                'result': f'[{r1}]',
+                'temp': True,
+                'mold_type': arr_type,
+                'reg': r1,
+                'type': arr_type,
+            }
+        else:
+            instrs.extend([
+                f'MUL {r1}, 8',
+                f'LEA {r2}, {arr}',
+                f'ADD {r1}, {r2}',
+                f'MOVD {r2}, [{r1}]',
+            ])
+            self._gestor.liberar(r1)
+            p[0] = {
+                'code': instrs,
+                'result': f'{r2}',
+                'temp': True,
+                'type': f'{self.sim_table[arr_name]["type"]}',
+            }
 
 
     # Acceso a miembro / llamada a método
@@ -1399,13 +1498,31 @@ class GeneradorCodigo:
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
-        name_atr = p[1]['result'][1:-1] + '@' + p[3]
-        
-        p[0] = {
-        'code': [],
-        'result':f'[{name_atr}]',
-        'type': self.sim_table[p[3]]['type'],
-        }
+        if p[1].get('mold_type'):
+            # base dinámica desde arr[i]: sumar offset del campo al puntero
+            mold_type = p[1]['mold_type']
+            fields = self.sim_table[mold_type]['attr']
+            field_idx = fields.index(p[3])
+            field_offset = field_idx * 8
+            r1 = p[1]['reg']
+            instrs = list(p[1]['code'])
+            if field_offset > 0:
+                instrs.append(f'ADD {r1}, {field_offset}')
+            p[0] = {
+                'code': instrs,
+                'result': f'[{r1}]',
+                'temp': True,
+                'reg': r1,
+                'type': self.sim_table[p[3]]['type'],
+            }
+        else:
+            # instancia estática: instancia@campo
+            name_atr = p[1]['result'][1:-1] + '@' + p[3]
+            p[0] = {
+                'code': [],
+                'result': f'[{name_atr}]',
+                'type': self.sim_table[p[3]]['type'],
+            }
 
     # Llamada a función
     def p_expr_call_args(self, p):
