@@ -256,17 +256,28 @@ class AsmParser:
 
         data = p.lexer.lexdata
 
+        # p puede ser un token (PLY lo pasa automáticamente, lexpos es int)
+        # o un YaccProduction (llamado manualmente desde una regla, lexpos es método)
+        if callable(p.lexpos):
+            lexpos = p.lexpos(1)
+            lineno = p.lineno(1)
+            value  = p[1]
+        else:
+            lexpos = p.lexpos
+            lineno = p.lineno
+            value  = p.value
+
         # encontrar inicio y fin de la línea
-        start = data.rfind('\n', 0, p.lexpos) + 1
-        end = data.find('\n', p.lexpos)
+        start = data.rfind('\n', 0, lexpos) + 1
+        end = data.find('\n', lexpos)
         if end == -1:
             end = len(data)
 
         line = data[start:end]
 
         raise ASMParseError(
-            f"Error de sintaxis en '{p.value}' \n"
-            f"Línea {p.lineno}\n"
+            f"Error de sintaxis en '{value}' \n"
+            f"Línea {lineno}\n"
             f"{line}\n"
         )
     

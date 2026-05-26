@@ -502,7 +502,19 @@ class GeneradorCodigo:
 
     def p_lvalue_member(self, p):
         """lvalue : lvalue DOT ID"""
-        p[0] = None
+        if p[1] is None:
+            # ohmy.campo → slot global del campo (dentro de un método)
+            p[0] = {
+                'code': [],
+                'result': f'[{p[3]}]',
+            }
+        else:
+            # instancia.campo → instancia@campo
+            name_atr = p[1]['result'][1:-1] + '@' + p[3]
+            p[0] = {
+                'code': p[1].get('code', []),
+                'result': f'[{name_atr}]',
+            }
 
     # ── Función ───────────────────────────────────────────────────────────
 
@@ -626,10 +638,18 @@ class GeneradorCodigo:
 
         instr.extend(cond_code)
 
+        r_cond = cond_res
+        _alloc = False
+        if isinstance(cond_res, str) and cond_res.startswith('['):
+            r_cond = self._gestor.ocupar()
+            instr.append(f'MOVD {r_cond}, {cond_res}')
+            _alloc = True
         instr.extend([
-            f'CMP {cond_res}, 0',
+            f'CMPZ {r_cond}',
             f'JZ {end_label}'
         ])
+        if _alloc:
+            self._gestor.liberar(r_cond)
 
         instr.extend(block_code)
 
@@ -662,10 +682,18 @@ class GeneradorCodigo:
 
         instr.extend(cond_code)
 
+        r_cond = cond_res
+        _alloc = False
+        if isinstance(cond_res, str) and cond_res.startswith('['):
+            r_cond = self._gestor.ocupar()
+            instr.append(f'MOVD {r_cond}, {cond_res}')
+            _alloc = True
         instr.extend([
-            f'CMP {cond_res}, 0',
+            f'CMPZ {r_cond}',
             f'JZ {else_label}'
         ])
+        if _alloc:
+            self._gestor.liberar(r_cond)
 
         instr.extend(then_code)
 
@@ -703,8 +731,16 @@ class GeneradorCodigo:
 
         code.extend(cond_code)
 
-        code.append(f"CMP {cond_reg}, 0")
+        r_cond = cond_reg
+        _alloc = False
+        if isinstance(cond_reg, str) and cond_reg.startswith('['):
+            r_cond = self._gestor.ocupar()
+            code.append(f'MOVD {r_cond}, {cond_reg}')
+            _alloc = True
+        code.append(f"CMPZ {r_cond}")
         code.append(f"JZ {end_label}")
+        if _alloc:
+            self._gestor.liberar(r_cond)
 
         code.extend(body_code)
 
@@ -744,8 +780,16 @@ class GeneradorCodigo:
 
         code.extend(cond_code)
 
-        code.append(f"CMP {cond_reg}, 0")
+        r_cond = cond_reg
+        _alloc = False
+        if isinstance(cond_reg, str) and cond_reg.startswith('['):
+            r_cond = self._gestor.ocupar()
+            code.append(f'MOVD {r_cond}, {cond_reg}')
+            _alloc = True
+        code.append(f"CMPZ {r_cond}")
         code.append(f"JZ {end_label}")
+        if _alloc:
+            self._gestor.liberar(r_cond)
 
         code.extend(body_code)
 
@@ -861,7 +905,13 @@ class GeneradorCodigo:
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        tipo_expr = self.sim_table[p[2]["result"][1:-1]]["type"]
+        key = p[2]["result"][1:-1]
+        if key in self.sim_table:
+            tipo_expr = self.sim_table[key]["type"]
+        else:
+            t = p[2].get('type', 'int')
+            tipo_expr = t if t != 'id' else 'int'
+
         if tipo_expr == "int":
             tipo = 0
             size = 1
@@ -870,9 +920,12 @@ class GeneradorCodigo:
             size = 1
         elif tipo_expr == "text":
             tipo = 2
-            size = self.sim_table[p[2]['result'][1:-1]]['len']
+            size = self.sim_table[key]['len']
         elif tipo_expr == "bool":
             tipo = 3
+            size = 1
+        else:
+            tipo = 0
             size = 1
         
         instrs = [
