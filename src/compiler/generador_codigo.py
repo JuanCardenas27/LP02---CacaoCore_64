@@ -13,6 +13,18 @@ class GeneradorCodigo:
         errores, ast = parser.parse(codigo_fuente)
     """
 
+    # ── Constants ────────────────────────────────────────────────────────
+    OP_IMM = 'imm'
+    OP_GLOBAL = 'global'
+    OP_STACK = 'stack'
+    OP_ADDR = 'addr'
+    OP_FIELD = 'field'
+    OP_REG = 'reg'
+    OP_ADDR_LABEL = 'addr_label'
+    # Register used to hold the implicit `this`/`ohmy` pointer during method
+    # generation. Do NOT use the architectural link register (R14).
+    OHMY_REG = 'R9'
+
     # ── Tokens (lista completa del lenguaje) ───────────────────────────────
     tokens = AnalizadorLexico.tokens
 
@@ -26,6 +38,24 @@ class GeneradorCodigo:
 
     def p_program(self, p):
         """program : stmt_list"""
+
+        for entry in self.string_pool.values():
+            if entry.get('label') not in self.used_string_labels:
+                continue
+            # Store string pool as single-character cells plus a null terminator.
+            raw = entry['value']
+            chars = [self._format_text_cell(ch) for ch in raw] + [0]
+            for i, codepoint in enumerate(chars):
+                label = entry['label'] if i == 0 else f"{entry['label']}_{i}"
+                decl = f"{label} : {codepoint}"
+                if decl not in self.data:
+                    self.data.append(decl)
+
+        for label, value in self.float_pool.items():
+            # Store float pool values as-is (each float gets one slot)
+            decl = f"{label} : {value}"
+            if decl not in self.data:
+                self.data.append(decl)
 
         final_code = []
 
@@ -75,270 +105,311 @@ class GeneradorCodigo:
 
     # ── Declaración let ───────────────────────────────────────────────────
 
-    def p_let_simple(self, p):
-        """let_stmt : LET ID COLON type_annot"""
+    def p_let_stmt(self, p):
+        """
+        let_stmt : LET ID COLON type_annot opt_dims opt_initializer
+        """
+        name = p[2]
+        tipo = p[4]
+        dims_info = p[5] or {'dims': 0, 'shape': []}
+        initializer = p[6]
+
         defecto = 0
-
-        if p[4] == "int":
+        if tipo == "int":
             defecto = 0
-        elif p[4] == "float":
+        elif tipo == "float":
             defecto = 0.0
-        elif p[4] == "text":
+        elif tipo == "text":
             defecto = "' '"
-        elif p[4] == "bool":
+        elif tipo == "bool":
             defecto = 0
 
-        if self.sim_table[p[2]]['scope'] == 'global':
-            
-            decl = f'{p[2]} : {defecto}'
+        owner_sym = self._symbol(name)
 
-            self.data.append(decl)
+        # helper to extract integer from dimension spec
+        def _to_int_dim(x):
+            if isinstance(x, dict):
+                r = x.get('result')
+                if isinstance(r, str):
+                    return int(self.sim_table.get(r, {}).get('value', 0))
+                if isinstance(r, dict):
+                    return int(r.get('value', r.get('result', 0)))
+                return int(r or 0)
+            return int(x or 0)
 
-            p[0] = {
-                "code": [],
-                "result": p[2],
-                "sect": '.data'
-            }
-        else:
-            decl = f'{p[2]} : {defecto}'
+        def _scalar_repr(value):
+            if isinstance(value, dict):
+                if 'value' in value:
+                    return value['value']
+                if 'label' in value:
+                    return value['label']
+                if 'result' in value:
+                    return _scalar_repr(value['result'])
+            return value
 
-            self.data.append(decl)
-            instr = f'MOVD [{p[2]}], {defecto}'
-            p[0] = {
-                "code": [instr],
-                "result": p[2],
-                "sect": '.data'
-            }
+        dims = dims_info.get('dims', 0)
+        shape = dims_info.get('shape', [])
+        is_ref_decl = dims > 0 or tipo == 'text' or tipo in self.molds
 
+        # Reference-like declarations (molds/arrays/text) are stored as pointers.
+        if is_ref_decl:
+            target_operand = self._mem_operand(name)
+            if self._is_global(owner_sym):
+                self.data.append(f'{name} : 0')
 
-    def _handle_by_type(self, name, tipo, arg):
+            init_code = []
 
-        n_code = []
-        init_value = arg['result']
-        if tipo == 'text':
-            self.sim_table[name] = {}
-            self.sim_table[name]['len'] = len(init_value)
-            self.sim_table[name]['type'] = tipo
+            if isinstance(initializer, list):
+                # Array literal initializer [1, 2, 3]
+                size = 0
+                lengths = [_to_int_dim(x) for x in shape]
+                total = 1
+                for v in lengths:
+                    total *= v
+                base_size = self._type_size(tipo)
+                size = total * base_size
 
-            for i, ch in enumerate(init_value):
-                if i == 0:
-                    self.data.append(f"{name} : '{ch}'")
-                else:
-                    self.data.append(f"{name}{i} : '{ch}'")
-        
-        elif 'temp' in arg:
-            decl = f'{name} : 0'
-            self.data.append(decl)
-            n_code.extend([f'MOVD [{name}], {init_value}'])
-            self._gestor.liberar(init_value)
+                temp_operand = self._allocate_temp(size)
+                addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
+                init_code.extend(addr_code)
 
-        elif arg["type"] == 'id':
-            if self.sim_table[arg["result"][1:-1]]['type'] == 'text':
-                for i, ch in enumerate(self.sim_table[arg["result"][1:-1]]['value']):
-                    if i == 0:
-                        self.data.append(f"{name} : '{ch}'")
+                for i, val in enumerate(initializer):
+                    if i >= total:
+                        break
+                    val_force = self._force_reg(val)
+                    init_code.extend(val_force['code'])
+                    
+                    elem_addr_reg = self._gestor.ocupar()
+                    init_code.append(f'MOVD {elem_addr_reg}, {addr_reg}')
+                    if i > 0:
+                        init_code.append(f'ADD {elem_addr_reg}, {i * base_size}')
+                    init_code.append(f'MOVD [{elem_addr_reg}], {val_force["reg"]}')
+                    self._gestor.liberar(elem_addr_reg)
+                    if val_force.get('owned'):
+                        self._gestor.liberar(val_force['reg'])
+
+                init_code.extend(self._emit_store(target_operand, addr_reg))
+                if addr_owned:
+                    self._gestor.liberar(addr_reg)
+
+            elif initializer is not None:
+                # Scalar initializer: text values are materialized into their own backing storage.
+                if tipo == 'text':
+                    materialized = self._materialize_text_storage(name, initializer.get('value') if isinstance(initializer, dict) else initializer, owner_sym)
+                    if materialized is not None:
+                        init_code.extend(materialized['code'])
+                        if materialized['result']['kind'] == self.OP_REG:
+                            init_code.extend(self._emit_store(target_operand, materialized['result']['value']))
+                            if materialized.get('owned'):
+                                self._gestor.liberar(materialized['result']['value'])
+                        else:
+                            src_force = self._force_reg(materialized)
+                            init_code.extend(src_force['code'])
+                            init_code.extend(self._emit_store(target_operand, src_force['reg']))
+                            if src_force.get('owned'):
+                                self._gestor.liberar(src_force['reg'])
                     else:
-                        self.data.append(f"{name}{i} : '{ch}'")
+                        src_force = self._force_reg(initializer)
+                        init_code.extend(src_force['code'])
+                        init_code.extend(self._emit_store(target_operand, src_force['reg']))
+                        if src_force.get('owned'):
+                            self._gestor.liberar(src_force['reg'])
+                else:
+                    src_force = self._force_reg(initializer)
+                    init_code.extend(src_force['code'])
+                    init_code.extend(self._emit_store(target_operand, src_force['reg']))
+                    if src_force.get('owned'):
+                        self._gestor.liberar(src_force['reg'])
             else:
-                self.data.append(f"{name} : 0")
+                # No initializer: we must allocate space and point to it
+                if tipo == 'text':
+                    ptr_reg = self._gestor.ocupar()
+                    init_code.append(f'MOVD {ptr_reg}, 0')
+                    init_code.extend(self._emit_store(target_operand, ptr_reg))
+                    self._gestor.liberar(ptr_reg)
+                else:
+                    # Array or Mold
+                    size = 0
+                    if dims > 0:
+                        lengths = [_to_int_dim(x) for x in shape]
+                        total = 1
+                        for v in lengths:
+                            total *= v
+                        base_size = self._type_size(tipo)
+                        size = total * base_size
+                    elif tipo in self.molds:
+                        size = self.molds[tipo].get('size', 0)
+                    
+                    if size > 0:
+                        temp_operand = self._allocate_temp(size)
+                        addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
+                        init_code.extend(addr_code)
+                        init_code.extend(self._emit_store(target_operand, addr_reg))
+                        if addr_owned:
+                            self._gestor.liberar(addr_reg)
+
+            p[0] = {
+                'code': init_code,
+                'result': name,
+                'sect': '.data'
+            }
+            return
+
+        # Scalar without initializer
+        if dims == 0 and initializer is None:
+            if self._is_global(owner_sym):
+                self.data.append(f'{name} : {defecto}')
+            p[0] = {
+                'code': [],
+                'result': name,
+                'sect': '.data'
+            }
+            return
+
+        # Scalar with initializer
+        if dims == 0 and initializer is not None:
+            # reuse existing handler logic
+            value = initializer
+            if isinstance(value, dict):
+                init_value = value.get('result')
+                code = value.get('code', [])
+            else:
+                init_value = value
+                code = []
+
+            if isinstance(value, dict) and value.get('temp'):
+                decl = f'{name} : 0'
+                if self._is_global(owner_sym):
+                    self.data.append(decl)
+                code = code + [f'MOVD [{name}], {init_value}']
+                if isinstance(init_value, str) and init_value.startswith('R'):
+                    self._gestor.liberar(init_value)
+
+            elif isinstance(init_value, dict) and init_value.get('kind') == 'global':
+                if self._is_global(owner_sym):
+                    self.data.append(f"{name} : 0")
                 r1 = self._gestor.ocupar()
-                n_code.extend([
-                    f'MOVD {r1}, {arg["result"]}',
-                    f'MOVD [{name}], {r1}'
-                ])
+                code = code + [f'MOVD {r1}, [{init_value["label"]}]', f'MOVD [{name}], {r1}']
                 self._gestor.liberar(r1)
 
-        else:
+            else:
+                decl = f'{name} : {_scalar_repr(init_value)}'
+                if self._is_global(owner_sym):
+                    self.data.append(decl)
 
-            decl = f'{name} : {init_value}'
-            self.data.append(decl)
-        
+            p[0] = {
+                'code': code,
+                'result': name,
+                'sect': '.data'
+            }
+            return
+
+
+
+    def p_opt_dims(self, p):
+        """opt_dims : dims
+                    | empty"""
+
+        if p[1] is None:
+            p[0] = {
+                'dims': 0,
+                'shape': []
+            }
+            return
+
+        p[0] = p[1]
+
+    def p_dims_one(self, p):
+        """dims : LBRACKET expr RBRACKET"""
+
+        # keep raw exprs; code generation will extract numeric values later
+        p[0] = {
+            'dims': 1,
+            'shape': [p[2]]
+        }
+
+    def p_dims_many(self, p):
+        """dims : dims LBRACKET expr RBRACKET"""
+
+        shape = list(p[1]['shape'])
+        shape.append(p[3])
+        p[0] = {
+            'dims': p[1]['dims'] + 1,
+            'shape': shape
+        }
+
+    def p_opt_initializer_empty(self, p):
+        """
+        opt_initializer : empty
+        """
+
+        p[0] = None
+
+
+    def p_opt_initializer_assign(self, p):
+        """
+        opt_initializer : ASSIGN initializer
+        """
+
+        p[0] = p[2]
+
+    def _handle_by_type(self, name, tipo, arg, owner_sym=None):
+        n_code = []
+        owner_sym = owner_sym or {}
+        init_value = arg.get('result')
+
+        def _scalar_repr(value):
+            if isinstance(value, dict):
+                if 'value' in value:
+                    return value['value']
+                if 'label' in value:
+                    return value['label']
+                if 'result' in value:
+                    return _scalar_repr(value['result'])
+            return value
+
+        if tipo == 'text':
+            self.sim_table.setdefault(name, {})['type'] = tipo
+
+            if self._is_global(owner_sym):
+                self.data.append(f"{name} : 0")
+
+            materialized = self._materialize_text_storage(
+                name,
+                arg.get('value') if isinstance(arg, dict) else arg,
+                owner_sym
+            )
+            if materialized is not None:
+                n_code.extend(materialized['code'])
+                init_value = materialized['result']
+            else:
+                n_code.append(f'MOVD [{name}], {init_value}')
+
+        elif arg.get('temp'):
+            decl = f'{name} : 0'
+            if self._is_global(owner_sym):
+                self.data.append(decl)
+            n_code.append(f'MOVD [{name}], {init_value}')
+
+        elif isinstance(init_value, dict) and init_value.get('kind') == 'global':
+            if self._is_global(owner_sym):
+                self.data.append(f"{name} : 0")
+            r1 = self._gestor.ocupar()
+            n_code.extend([
+                f'MOVD {r1}, [{init_value["label"]}]',
+                f'MOVD [{name}], {r1}'
+            ])
+            self._gestor.liberar(r1)
+
+        else:
+            decl = f'{name} : {_scalar_repr(init_value)}'
+            if self._is_global(owner_sym):
+                self.data.append(decl)
+
         return n_code
 
             
 
-    def p_let_with_val(self, p):
-        """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
-
-        value = p[6]
-        n_code = []
-
-        
-        if p[4] in self.sim_table.keys() and self.sim_table[p[4]]['kind'] == 'mold':
-            #{ Personas : {attr: [nom1, nom2, nom3] } }
-            for i, atr in enumerate(self.sim_table[p[4]]['attr']): 
-                tipo = self.sim_table[atr]['type']
-                name = p[2] + '@' + atr
-                n_code.extend(self._handle_by_type(name, tipo, p[6][i]))
-
-            p[0] = {
-            "code": n_code,
-            "result": p[2],
-            "sect": '.data'
-            }
-            return 
-    
-
-
-        if isinstance(value, dict):
-            init_value = value["result"]
-            code = value["code"]
-        else:
-            init_value = value
-            code = []
-
-        # string -> convertir a arreglo de chars
-        if p[4] == "text":
-            self.sim_table[p[2]]['len'] = len(init_value)
-
-            for i, ch in enumerate(init_value):
-                if i == 0:
-                    self.data.append(f"{p[2]} : '{ch}'")
-                else:
-                    self.data.append(f"{p[2]}{i} : '{ch}'")
-
-        elif 'temp' in value:
-            decl = f'{p[2]} : 0'
-            self.data.append(decl)
-            n_code = [f'MOVD [{p[2]}], {init_value}']
-            self._gestor.liberar(init_value)
-        
-        elif value["type"] == 'id':
-            if self.sim_table[value["result"][1:-1]]['type'] == 'text':
-                for i, ch in enumerate(self.sim_table[value["result"][1:-1]]['value']):
-                    if i == 0:
-                        self.data.append(f"{p[2]} : '{ch}'")
-                    else:
-                        self.data.append(f"{p[2]}{i} : '{ch}'")
-            else:
-                self.data.append(f"{p[2]} : 0")
-                r1 = self._gestor.ocupar()
-                n_code = [
-                    f'MOVD {r1}, {value["result"]}',
-                    f'MOVD [{p[2]}], {r1}'
-                ]
-                self._gestor.liberar(r1)
-
-        else:
-
-            decl = f'{p[2]} : {init_value}'
-            self.data.append(decl)
-
-        p[0] = {
-            "code": code + n_code,
-            "result": p[2],
-            "sect": '.data'
-        }
-
-    def p_let_array_1d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
-
-        defecto = 0
-
-        if p[4] == "int":
-            defecto = 0
-        elif p[4] == "float":
-            defecto = 0.0
-        elif p[4] == "text":
-            defecto = "' '"
-        elif p[4] == "bool":
-            defecto = 0
-
-        length = p[6]
-
-        if isinstance(length, dict):
-            length = self.sim_table[length["result"]]["value"]
-
-        self.data.append(f'{p[2]} : {defecto}')
-        for i in range(1,length):
-            self.data.append(f'{p[2]}{i} : {defecto}')
-
-        p[0] = {
-            "code": [],
-            "result": p[2]
-        }
-
-    def p_let_array_1d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
-
-        length = p[6]
-        
-        if isinstance(length, dict):
-            try:
-                length = self.sim_table[length["result"]]["value"]
-            except KeyError:
-                length = length["result"]
-        values = p[9]
-        self.data.append(f'{p[2]} : {values[0]["result"]}')
-        
-        for i in range(1,length):
-                try:
-                    self.data.append(f'{p[2]}{i} : {values[i]["result"]}')
-                except:
-                    self.data.append(f'{p[2]}{i} : 0')
-
-
-        p[0] = {
-            "code": [],
-            "result": p[2]
-        }
-
-    def p_let_array_2d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
-
-        defecto = 0
-
-        if p[4] == "int":
-            defecto = 0
-        elif p[4] == "float":
-            defecto = 0.0
-        elif p[4] == "text":
-            defecto = "' '"
-        elif p[4] == "bool":
-            defecto = 0
-
-        rows = p[6]
-        cols = p[9]
-
-        if isinstance(rows, dict):
-            rows = self.sim_table[rows["result"]]["value"]
-
-        if isinstance(cols, dict):
-            cols = self.sim_table[cols["result"]]["value"]
-
-        total = rows * cols
-        self.data.append(f'{p[2]} : {defecto}')
-        for i in range(1, total):
-            self.data.append(f'{p[2]}{i} : {defecto}')
-
-        p[0] = {
-            "code": [],
-            "result": p[2]
-        }
-
-    def p_let_array_2d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
-
-        rows = p[6]
-        cols = p[9]
-
-        if isinstance(rows, dict):
-            rows = self.sim_table[rows["result"]]["value"]
-
-        if isinstance(cols, dict):
-            cols = self.sim_table[cols["result"]]["value"]
-
-        values = p[12]
-
-        total = rows * cols
-        self.data.append(f'{p[2]} : {values[i]}')
-        for i in range(total):
-            self.data.append(f'{p[2]}{i} : {values[i]}')
-
-        p[0] = {
-            "code": [],
-            "result": p[2]
-        }
     # Inicializador: expresión simple o lista de valores separada por comas
 
     def p_initializer_expr(self, p):
@@ -389,61 +460,71 @@ class GeneradorCodigo:
     def p_set_assign(self, p):
         """set_stmt : SET lvalue ASSIGN expr"""
         instrs = []
-        instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
+        instrs.extend(p[2]['code'])
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
+        if p[2].get('type') == 'text':
+            dest_symbol = p[2].get('symbol') or self._symbol(
+                p[2]['result'].get('label', '')
             )
-        lvalue = p[2]["result"]
-        instrs.append(f'MOVD {lvalue}, {r1}')
-        
-        self._gestor.liberar(r1)
+            owner_is_global = None
+            if p[2]['result'].get('kind') == self.OP_FIELD:
+                owner_is_global = p[2]['result'].get('owner_kind') == self.OP_GLOBAL
+            materialized = self._materialize_text_storage(
+                dest_symbol.get('name', p[2]['result'].get('label', 'text')),
+                p[4].get('value') if isinstance(p[4], dict) else p[4],
+                dest_symbol,
+                owner_is_global=owner_is_global
+            )
+            if materialized is not None:
+                if materialized['result']['kind'] == self.OP_REG:
+                    src = {
+                        'code': materialized['code'],
+                        'reg': materialized['result']['value'],
+                        'owned': materialized.get('owned', False),
+                    }
+                else:
+                    src = self._force_reg(materialized)
+            else:
+                src = self._force_reg(p[4])
+        else:
+            src = self._force_reg(p[4])
 
-        if 'temp' in p[2]:
+        instrs.extend(src['code'])
+        instrs.extend(self._emit_store(p[2]['result'], src['reg']))
+
+        if src.get('owned'):
+            self._gestor.liberar(src['reg'])
+        if p[2].get('owned'):
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {
+            'code': instrs,
+            'result': p[2]['result']
+        }
 
 
     def p_set_pluseq(self, p):
         """set_stmt : SET lvalue SWEET_PLUS expr"""
+        src = self._force_reg(p[4])
+        dest = self._force_reg(p[2])
+
         instrs = []
-        instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
+        instrs.extend(src['code'])
+        instrs.extend(dest['code'])
+        instrs.append(f'ADD {dest["reg"]}, {src["reg"]}')
+        instrs.extend(self._emit_store(p[2]['result'], dest['reg']))
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
-        lvalue = p[2]["result"]
-        r2 = self._gestor.ocupar()
-        instrs.append(f'MOVD {r2}, {lvalue}')
-        instrs.append(f'ADD {r1}, {r2}')
-        instrs.append(f'MOVD {lvalue}, {r1}')
-        
-        self._gestor.liberar(r1)
-        self._gestor.liberar(r2)
-
-        if 'temp' in p[2]:
+        if src.get('owned'):
+            self._gestor.liberar(src['reg'])
+        if dest.get('owned'):
+            self._gestor.liberar(dest['reg'])
+        if p[2].get('owned'):
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {
+            'code': instrs,
+            'result': p[2]['result']
+        }
 
     # ── Lvalue ────────────────────────────────────────────────────────────
 
@@ -453,114 +534,157 @@ class GeneradorCodigo:
 
     def p_lvalue_id(self, p):
         """lvalue : ID"""
+        sym = self._symbol(p[1])
         p[0] = {
             'code': [],
-            "result": f'[{p[1]}]'
+            'result': self._mem_operand(p[1]),
+            'type': sym.get('type'),
+            'dims': sym.get('dims', 0),
+            'shape': list(sym.get('shape', [])),
+            'size': sym.get('size', 0),
+            'text_size': sym.get('text_size', 0),
+            'symbol': sym,
         }
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
-        p[0] = None
+        # Within methods, `ohmy` refers to the `this` pointer stored in
+        # the generator-designated register `OHMY_REG` (see class constant).
+        p[0] = {
+            'code': [],
+            'result': {
+                'kind': 'reg',
+                'value': self.OHMY_REG,
+                'type': getattr(self, 'current_method_mold', None),
+                'is_ref': True,
+            },
+            'type': getattr(self, 'current_method_mold', None),
+            'dims': 0,
+            'shape': [],
+            'size': 0,
+        }
 
     def p_lvalue_array_1d(self, p):
         """lvalue : lvalue LBRACKET expr RBRACKET"""
-        
-        arr = p[1]["result"]
-        arr_name = arr[1:-1]
-
+        index = self._force_reg(p[3])
         instrs = []
-
         instrs.extend(p[1]['code'])
-        instrs.extend(p[3]['code'])
+        instrs.extend(index['code'])
 
-        if 'temp' in p[3]:
-            ind = p[3]["result"]
-            r1 = p[3]["result"]
-        else:
-            ind = p[3]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {ind}'
-            )
+        base_code, base_reg, base_owned = self._address_of_operand(p[1]['result'])
+        instrs.extend(base_code)
+        stride = self._array_stride(p[1])
+        instrs.append(f'MUL {index["reg"]}, {stride}')
+        instrs.append(f'ADD {base_reg}, {index["reg"]}')
 
-        r2 = self._gestor.ocupar()
-        instrs.extend([
-            f'MUL {r1}, 8',
-            f'LEA {r2}, {arr}',
-            f'ADD {r1}, {r2}'
-        ])
+        if index.get('owned'):
+            self._gestor.liberar(index['reg'])
 
-        self._gestor.liberar(r2)
+        remaining_dims = max(p[1].get('dims', 0) - 1, 0)
+        remaining_shape = list(p[1].get('shape', []))[1:] if p[1].get('shape') else []
+        result_owned = base_owned or p[1].get('owned', False)
 
         p[0] = {
             'code': instrs,
-            "result": f'[{r1}]',
+            'result': {
+                'kind': 'addr',
+                'value': base_reg
+            },
             'temp': True,
-            'reg': f'{r1}'
+            'reg': base_reg,
+            'owned': result_owned,
+            'type': p[1].get('type'),
+            'dims': remaining_dims,
+            'shape': remaining_shape,
+            'size': p[1].get('size', 0),
         }
 
 
     def p_lvalue_member(self, p):
         """lvalue : lvalue DOT ID"""
-        p[0] = None
+        field_operand = self._field_operand(p[1]['result'], p[3])
+        if field_operand is None:
+            field_operand = {
+                'kind': 'global',
+                'label': p[3],
+            }
+        p[0] = {
+            'code': p[1]['code'],
+            'result': field_operand,
+            'type': field_operand.get('type', 'unknown'),
+            'dims': field_operand.get('dims', 0),
+            'shape': list(field_operand.get('shape', [])),
+            'size': field_operand.get('size', 0),
+        }
 
     # ── Función ───────────────────────────────────────────────────────────
 
+    def p_enter_function_scope(self, p):
+        """enter_function_scope :"""
+        # Maintain current method/mold context for 'ohmy' handling
+        self.function_stack.append(p[-2])
+        # Initialize current_method_mold to None by default; will be set
+        # by mold enter production when inside a mold method.
+        if not hasattr(self, 'current_method_mold'):
+            self.current_method_mold = None
+
     def p_func_def(self, p):
-        """func_def : FUNC ID LPAREN param_list RPAREN block"""
-        #stack pointer in R13
-        #for recover 
-        temps = []
-        for param in p[4]:
-            temps.append(f'{param["result"][1:-1]}temp : 0')
-        self.data.extend(temps)
-        instrs = []
-        label = p[2].upper() + ':'
+        """func_def : FUNC ID LPAREN enter_function_scope param_list RPAREN block"""
+        name = p[2].upper()
+        frame_size = self._symbol(p[2]).get('frame_size', 0)
+        total_frame = frame_size + self.function_temp_size
+        label = f'{name}:'
+        exit_label = f'{name}_END:'
+        body_code = p[7]['code']
+        
+        import re
+        resolved_body = []
+        for line in body_code:
+            def replacer(match):
+                base_val = int(match.group(1))
+                return str(base_val + self.function_temp_size)
+            resolved_line = re.sub(r'__STACK_OFFSET_(\d+)__', replacer, line)
+            resolved_body.append(resolved_line)
 
-
-        # Pasar a las globales place holder 
-        write_stmts = []
-        reg1 = self._gestor.ocupar()
-        reg2 = self._gestor.ocupar()
-        write_stmts.append(f'POP {reg2}') #guardamos dir ret
-        for param in p[4][::-1]:
-            
-            write_stmts.append(f'MOVD {reg1} , {param["result"]}')
-            write_stmts.append(f'MOVD [{param["result"][1:-1]}temp], {reg1}')
-            write_stmts.append(f'POP {reg1}')
-            write_stmts.append(f'MOVD {param["result"]}, {reg1}')
-        write_stmts.append(f'PUSH {reg2}')
-        self._gestor.liberar(reg1)
-        self._gestor.liberar(reg2)
-
-        free_stmts = [] #stmts para devolver todo a su lugar luego de la recursion
-        b_code = p[6]['code']
-        reg1 = self._gestor.ocupar()
-        for param in p[4][::-1]:
-            
-            free_stmts.append(f'MOVD {reg1}, [{param["result"][1:-1]}temp]')
-            free_stmts.append(f'MOVD {param["result"]}, {reg1}')
-        self._gestor.liberar(reg1)
-
-        ret = 'RET'
-
-        instrs.append(label)
-        instrs.extend(write_stmts)
-        instrs.extend(b_code)
-        instrs.extend(free_stmts)
-        instrs.append(ret)
+        instrs = [label, f'SUB R13, {total_frame}']
+        instrs.extend(resolved_body)
+        instrs.extend([
+            exit_label,
+            f'ADD R13, {total_frame}',
+            'RET'
+        ])
+        self.function_stack.pop()
         self.funcs.extend(instrs)
+        self.function_temp_size = 0
 
     def p_func_def_no_params(self, p):
-        """func_def : FUNC ID LPAREN RPAREN block"""
-        instrs = []
-        label = p[2].upper() + ':'
-        b_code = p[5]['code']
-        ret = 'RET'
-        instrs.append(label)
-        instrs.extend(b_code)
-        instrs.append(ret)
+        """func_def : FUNC ID LPAREN enter_function_scope RPAREN block"""
+        name = p[2].upper()
+        frame_size = self._symbol(p[2]).get('frame_size', 0)
+        total_frame = frame_size + self.function_temp_size
+        label = f'{name}:'
+        exit_label = f'{name}_END:'
+        body_code = p[6]['code']
+
+        import re
+        resolved_body = []
+        for line in body_code:
+            def replacer(match):
+                base_val = int(match.group(1))
+                return str(base_val + self.function_temp_size)
+            resolved_line = re.sub(r'__STACK_OFFSET_(\d+)__', replacer, line)
+            resolved_body.append(resolved_line)
+
+        instrs = [label, f'SUB R13, {total_frame}']
+        instrs.extend(resolved_body)
+        instrs.extend([
+            exit_label,
+            f'ADD R13, {total_frame}',
+            'RET'
+        ])
+        self.function_stack.pop()
         self.funcs.extend(instrs)
+        self.function_temp_size = 0
 
     def p_param_list_one(self, p):
         """param_list : param"""
@@ -571,22 +695,31 @@ class GeneradorCodigo:
         p[0] = p[1] + [p[3]]
 
     def p_param(self, p):
-        """param : ID COLON type_annot"""
-        
-        decl = f'{p[1]} : 0'
-        self.data.append(decl)
-
+        """param : ID COLON type_annot opt_dims"""
+        dims_info = p[4] or {'dims': 0, 'shape': []}
         p[0] = {
-            "result": f"[{p[1]}]"
+            "name": p[1],
+            "type": p[3],
+            "dims": dims_info.get('dims', 0),
+            "shape": dims_info.get('shape', []),
+            "result": self._mem_operand(p[1])
         }
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
 
     def p_mold_def(self, p):
-        """mold_def : MOLD ID LBRACE mold_body RBRACE"""
+        """mold_def : MOLD ID LBRACE enter_mold_scope mold_body RBRACE"""
+        # The mold type is registered in the semantic table; no global data declaration needed.
+        # The implicit `this` pointer is handled at method call time via a register.
+        self.current_method_mold = None
         p[0] = {
             'code' : []
         }
+
+    def p_enter_mold_scope(self, p):
+        """enter_mold_scope :"""
+        # Set current mold name so `ohmy` and member emissions can reference it
+        self.current_method_mold = p[-2]
 
     def p_mold_body_multi(self, p):
         """mold_body : mold_body mold_member"""
@@ -771,7 +904,10 @@ class GeneradorCodigo:
             init_value = value
             code = []
 
-        self.data.append(f"{p[2]} : 0")
+        sym = self._symbol(p[2])
+
+        if self._is_global(sym):
+            self.data.append(   f"{p[2]} : 0")
 
         code.append(f"MOVD [{p[2]}], {init_value}")
 
@@ -849,19 +985,31 @@ class GeneradorCodigo:
 
     def p_deliver_val(self, p):
         """deliver_stmt : DELIVER expr"""
-        p[0] = {
-            'code': [f'MOVD R1, {p[2]["result"]}','RET']
-        }
+        force = self._force_reg(p[2])
+        code = list(force['code'])
+        code.append(f'MOVD R1, {force["reg"]}')
+        if force.get('owned'):
+            self._gestor.liberar(force['reg'])
+        exit_label = self._current_function_exit_label()
+        if exit_label is not None:
+            code.append(f'JMP {exit_label}')
+        else:
+            code.append('RET')
+        p[0] = {'code': code}
 
     def p_deliver_nothing(self, p):
         """deliver_stmt : DELIVER"""
-        p[0] = {
-            'code': ['RET']
-        }
+        code = []
+        exit_label = self._current_function_exit_label()
+        if exit_label is not None:
+            code.append(f'JMP {exit_label}')
+        else:
+            code.append('RET')
+        p[0] = {'code': code}
 
     def p_show(self, p):
         """show_stmt : SHOW expr"""
-        tipo_expr = self.sim_table[p[2]["result"][1:-1]]["type"]
+        tipo_expr = p[2].get('type')
         if tipo_expr == "int":
             tipo = 0
             size = 1
@@ -870,21 +1018,121 @@ class GeneradorCodigo:
             size = 1
         elif tipo_expr == "text":
             tipo = 2
-            size = self.sim_table[p[2]['result'][1:-1]]['len']
+            raw_size = max(
+                p[2].get('text_size', 0),
+                self._text_value_size(p[2].get('value')),
+            )
+            # INTR expects printable length; semantic/generator text sizes include null terminator.
+            size = max(raw_size - 1, 0)
         elif tipo_expr == "bool":
             tipo = 3
             size = 1
-        
-        instrs = [
-            f'MOVD R10, {tipo}',
-            f'LEA R11, {p[2]["result"]}',
-            f'MOVD R12, {size}',
-            f'INTR 0',
-        ]
+        else:
+            tipo = 0
+            size = 1
+
+        instrs = []
+
+        if tipo_expr == "text":
+            result_op = p[2].get('result', {}) if isinstance(p[2], dict) else {}
+            if isinstance(result_op, dict) and result_op.get('kind') == 'addr_label':
+                addr = self._address_of_operand(result_op)
+                instrs.extend(addr[0])
+                instrs.extend([
+                    f'MOVD R10, {tipo}',
+                    f'MOVD R11, {addr[1]}',
+                    f'MOVD R12, {size}',
+                    'INTR 0',
+                ])
+                if addr[2]:
+                    self._gestor.liberar(addr[1])
+            else:
+                # text variables/fields are references; load pointer value and print it
+                ptr = self._force_reg(p[2])
+                instrs.extend(ptr['code'])
+                # If we don't have a compile-time size, compute it at runtime
+                if size == 0:
+                    # compute length by scanning 8-byte cells until 0
+                    len_reg = self._gestor.ocupar()
+                    cur_reg = self._gestor.ocupar()
+                    loop_label = f'SHOW_TEXT_LEN_{self.label_count}'
+                    end_label = f'SHOW_TEXT_LEN_END_{self.label_count}'
+                    self.label_count += 1
+                    instrs.extend([
+                        f'MOVD {len_reg}, 0',
+                        f'MOVD {cur_reg}, {ptr["reg"]}',
+                        f'{loop_label}:',
+                        f'MOVD R1, [{cur_reg}]',
+                        f'CMP R1, 0',
+                        f'JZ {end_label}',
+                        f'ADD {cur_reg}, 8',
+                        f'ADD {len_reg}, 1',
+                        f'JMP {loop_label}',
+                        f'{end_label}:',
+                        f'MOVD R12, {len_reg}',
+                    ])
+                    # free temp registers but keep ptr reg for INTR
+                    self._gestor.liberar(len_reg)
+                    self._gestor.liberar(cur_reg)
+                    # R12 already set to length
+                    instrs.append(f'MOVD R10, {tipo}')
+                    instrs.append(f'MOVD R11, {ptr["reg"]}')
+                    instrs.append('INTR 0')
+                    if ptr.get('owned'):
+                        self._gestor.liberar(ptr['reg'])
+                    p[0] = {
+                        'code': instrs,
+                        'result': {
+                            'kind': 'imm',
+                            'value': 1,
+                        }
+                    }
+                    return
+                instrs.extend([
+                    f'MOVD R10, {tipo}',
+                    f'MOVD R11, {ptr["reg"]}',
+                    f'MOVD R12, {size}',
+                    'INTR 0',
+                ])
+                if ptr.get('owned'):
+                    self._gestor.liberar(ptr['reg'])
+        else:
+            force = self._force_reg(p[2])
+            instrs.extend(force['code'])
+            # For scalar types (int/float/bool) the ROM expects an address
+            # pointing to an 8-byte cell. Materialize the value into a
+            # temporary location and pass its address in R11.
+            if tipo_expr in ("int", "float", "bool"):
+                temp_addr_op = self._allocate_temp(8)
+                addr_code, addr_reg, addr_owned = self._address_of_operand(temp_addr_op)
+                instrs.extend(addr_code)
+                # Store the scalar value into the temp cell
+                instrs.append(f'MOVD [{addr_reg}], {force["reg"]}')
+                instrs.extend([
+                    f'MOVD R10, {tipo}',
+                    f'MOVD R11, {addr_reg}',
+                    f'MOVD R12, {size}',
+                    'INTR 0',
+                ])
+                if addr_owned:
+                    self._gestor.liberar(addr_reg)
+            else:
+                # Fallback: pass register directly (shouldn't happen for scalars)
+                instrs.extend([
+                    f'MOVD R10, {tipo}',
+                    f'MOVD R11, {force["reg"]}',
+                    f'MOVD R12, {size}',
+                    'INTR 0',
+                ])
+            if force.get('owned'):
+                self._gestor.liberar(force['reg'])
         
         p[0] = {
             'code': instrs,
-            "result": 1
+            'result': {
+                'kind': 'imm',
+                'value': 1,
+            }
         }
 
     def p_oops(self, p):
@@ -930,76 +1178,71 @@ class GeneradorCodigo:
                 | expr TIMES expr
                 | expr DIVIDE expr
                 | expr MOD expr"""
-        left_code  = p[1]['code']
-        right_code = p[3]['code']
+        left = self._force_reg(p[1])
+        right = self._force_reg(p[3])
 
-        
+
+        if p[1].get('type') == 'text' or p[3].get('type') == 'text':
+            instrs = []
+            instrs.extend(left['code'])
+            instrs.extend(right['code'])
+
+            if p[2] in ('==', '!='):
+                instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
+                if right.get('owned'):
+                    self._gestor.liberar(right['reg'])
+                p[0] = {
+                    'code': instrs,
+                    'result': left['reg'],
+                    'type': 'bool',
+                    'temp': True
+                }
+                return
+
+        if p[1].get('type') == 'text' or p[3].get('type') == 'text':
+            instrs = []
+            instrs.extend(left['code'])
+            instrs.extend(right['code'])
+
+            if p[2] in ('==', '!='):
+                instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
+                if right.get('owned'):
+                    self._gestor.liberar(right['reg'])
+                p[0] = {
+                    'code': instrs,
+                    'result': left['reg'],
+                    'type': 'bool',
+                    'temp': True
+                }
+                return
+
         instrs = []
-        instrs.extend(left_code)
-        instrs.extend(right_code)
+        instrs.extend(left['code'])
+        instrs.extend(right['code'])
 
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-        else:
-            op1 = p[1]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-
-        is_float = (
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
-        )
-        print(is_float)
-        print(p[1]['type'])
-        op2 = p[3]["result"]
+        result_reg = left['reg']
+        is_float = p[1].get('type') == 'float' or p[3].get('type') == 'float'
+        op2 = right['reg']
 
         if p[2] == '+':
-
-            if is_float:
-                instrs.append(f'FPADD {r1}, {op2}')
-            else:
-                instrs.append(f'ADD {r1}, {op2}')
-
+            instrs.append(f'FPADD {result_reg}, {op2}' if is_float else f'ADD {result_reg}, {op2}')
         elif p[2] == '-':
-
-            if is_float:
-                instrs.append(f'FPSUB {r1}, {op2}')
-            else:
-                instrs.append(f'SUB {r1}, {op2}')
-
+            instrs.append(f'FPSUB {result_reg}, {op2}' if is_float else f'SUB {result_reg}, {op2}')
         elif p[2] == '*':
-
-            if is_float:
-                instrs.append(f'FPMUL {r1}, {op2}')
-            else:
-                instrs.append(f'MUL {r1}, {op2}')
-
+            instrs.append(f'FPMUL {result_reg}, {op2}' if is_float else f'MUL {result_reg}, {op2}')
         elif p[2] == '/':
-
-            if is_float:
-                instrs.append(f'FPDIV {r1}, {op2}')
-            else:
-                instrs.append(f'DIV {r1}, {op2}')
-
+            instrs.append(f'FPDIV {result_reg}, {op2}' if is_float else f'DIV {result_reg}, {op2}')
         elif p[2] == '%':
+            instrs.append(f'FPMOD {result_reg}, {op2}' if is_float else f'MOD {result_reg}, {op2}')
 
-            if is_float:
-                instrs.append(f'FPMOD {r1}, {op2}')
-            else:
-                instrs.append(f'MOD {r1}, {op2}')
-        
-        if 'temp' in p[3]:
-            self._gestor.liberar(p[3]["result"])
+        if right.get('owned'):
+            self._gestor.liberar(right['reg'])
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
+            'result': result_reg,
             'temp': True,
-            'type': p[1]['type']
+            'type': 'float' if is_float else p[1].get('type', 'int')
         }
 
 
@@ -1015,57 +1258,132 @@ class GeneradorCodigo:
                 | expr GT expr
                 | expr LEQ expr
                 | expr GEQ expr"""
+        left = self._force_reg(p[1])
+        right = self._force_reg(p[3])
 
-        left_code  = p[1]['code']
-        right_code = p[3]['code']
+        if p[1].get('type') == 'text' or p[3].get('type') == 'text':
+            instrs = []
+            instrs.extend(left['code'])
+            instrs.extend(right['code'])
+
+            if p[2] in ('==', '!='):
+                instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
+                if right.get('owned'):
+                    self._gestor.liberar(right['reg'])
+                p[0] = {
+                    'code': instrs,
+                    'result': left['reg'],
+                    'type': 'bool',
+                    'temp': True
+                }
+                return
+
         instrs = []
-        instrs.extend(left_code)
-        instrs.extend(right_code)
+        instrs.extend(left['code'])
+        instrs.extend(right['code'])
 
         true_label = f"LTRUE{self.label_count}"
-        false_label  = f"LFALSE{self.label_count}"
+        false_label = f"LFALSE{self.label_count}"
         self.label_count += 1
 
-        
-         #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-        else:
-            op1 = p[1]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
+        instrs.append(f'CMP {left["reg"]}, {right["reg"]}')
 
-        op2 = p[3]["result"]
-
-        instrs.append(f'CMP {r1}, {op2}')
-
-        if p[2] == '==':   instrs.append(f'JZ {true_label}')
-        elif p[2] == '!=': instrs.append(f'JNZ {true_label}')
-        elif p[2] == '<':  instrs.append(f'JL {true_label}')
-        elif p[2] == '>':  instrs.append(f'JG {true_label}')
-        elif p[2] == '<=': instrs.append(f'JLE {true_label}')
-        elif p[2] == '>=': instrs.append(f'JGE {true_label}')
+        if p[2] == '==':
+            instrs.append(f'JZ {true_label}')
+        elif p[2] == '!=':
+            instrs.append(f'JNZ {true_label}')
+        elif p[2] == '<':
+            instrs.append(f'JL {true_label}')
+        elif p[2] == '>':
+            instrs.append(f'JG {true_label}')
+        elif p[2] == '<=':
+            instrs.append(f'JLE {true_label}')
+        elif p[2] == '>=':
+            instrs.append(f'JGE {true_label}')
 
         instrs.extend([
-            f'MOVD {r1}, 0',
+            f'MOVD {left["reg"]}, 0',
             f'JMP {false_label}',
             f'{true_label}:',
-            f'MOVD {r1}, 1',
+            f'MOVD {left["reg"]}, 1',
             f'{false_label}:'
         ])
 
-        if 'temp' in p[3]:
-            self._gestor.liberar(p[3]["result"])
+        if right.get('owned'):
+            self._gestor.liberar(right['reg'])
 
+        p[0] = {
+            'code': instrs,
+            'result': left['reg'],
+            'type': 'bool',
+            'temp': True
+        }
 
-        p[0] = {'code': instrs, 
-                "result": f'{r1}',
-                'type': "bool",
-                'temp': True
-                }
+    def _emit_text_cmp(self, left, right, operator, left_expr=None, right_expr=None):
+        """Comparar dos textos por contenido y devolver el código generado.
+
+        Los textos se almacenan como punteros a celdas de 8 bytes. Para igualdad
+        y desigualdad se comparan todas las celdas hasta la longitud semántica
+        del texto, incluyendo el terminador nulo.
+        """
+        instrs = []
+        left_size = self._expr_text_size(left_expr)
+        right_size = self._expr_text_size(right_expr)
+
+        if left_size and right_size and left_size != right_size:
+            result_value = 1 if operator == '!=' else 0
+            instrs.append(f'MOVD {left["reg"]}, {result_value}')
+            return instrs
+
+        left_ptr = self._gestor.ocupar()
+        right_ptr = self._gestor.ocupar()
+        index_reg = self._gestor.ocupar()
+        left_cell = self._gestor.ocupar()
+        right_cell = self._gestor.ocupar()
+
+        loop_label = f'LTEXTCMP{self.label_count}'
+        mismatch_label = f'LTEXTCMP_MISMATCH{self.label_count}'
+        equal_label = f'LTEXTCMP_EQUAL{self.label_count}'
+        end_label = f'LTEXTCMP_END{self.label_count}'
+        self.label_count += 1
+
+        instrs.extend([
+            f'MOVD {left_ptr}, {left["reg"]}',
+            f'MOVD {right_ptr}, {right["reg"]}',
+            f'MOVD {index_reg}, 0',
+            f'{loop_label}:'
+        ])
+
+        if left_size or right_size:
+            limit = left_size or right_size
+            instrs.extend([
+                f'CMP {index_reg}, {limit}',
+                f'JGE {equal_label}',
+            ])
+
+        instrs.extend([
+            f'MOVD {left_cell}, [{left_ptr}]',
+            f'MOVD {right_cell}, [{right_ptr}]',
+            f'CMP {left_cell}, {right_cell}',
+            f'JNZ {mismatch_label}',
+            f'ADD {left_ptr}, 8',
+            f'ADD {right_ptr}, 8',
+            f'ADD {index_reg}, 1',
+            f'JMP {loop_label}',
+            f'{equal_label}:',
+            f'MOVD {left["reg"]}, {1 if operator == "==" else 0}',
+            f'JMP {end_label}',
+            f'{mismatch_label}:',
+            f'MOVD {left["reg"]}, {0 if operator == "==" else 1}',
+            f'{end_label}:'
+        ])
+
+        self._gestor.liberar(left_ptr)
+        self._gestor.liberar(right_ptr)
+        self._gestor.liberar(index_reg)
+        self._gestor.liberar(left_cell)
+        self._gestor.liberar(right_cell)
+        return instrs
 
 
     # ─────────────────────────────────────────────────────────────
@@ -1074,155 +1392,75 @@ class GeneradorCodigo:
 
     def p_expr_and(self, p):
         """expr : expr AND expr"""
-
-        left_code  = p[1]['code']
-        right_code = p[3]['code']
-
+        left = self._force_reg(p[1])
+        right = self._force_reg(p[3])
         instrs = []
+        instrs.extend(left['code'])
+        instrs.extend(right['code'])
+        instrs.append(f'AND {left["reg"]}, {right["reg"]}')
 
-        instrs.extend(left_code)
-        instrs.extend(right_code)
-
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-        else:
-            op1 = p[1]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-
-        op2 = (p[3]["result"])
-
-        
-        instrs.extend([
-            f'AND {r1}, {op2}'
-        ])
-
-        #Liberamos el registro del segundo operando
-        if 'temp' in p[3]:
-            self._gestor.liberar(p[3]["result"])
+        if right.get('owned'):
+            self._gestor.liberar(right['reg'])
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
-            'type': "bool",
+            'result': left['reg'],
+            'type': 'bool',
             'temp': True
         }
 
 
     def p_expr_or(self, p):
         """expr : expr OR expr"""
-
-        left_code  = p[1]['code']
-        right_code = p[3]['code']
-
+        left = self._force_reg(p[1])
+        right = self._force_reg(p[3])
         instrs = []
+        instrs.extend(left['code'])
+        instrs.extend(right['code'])
+        instrs.append(f'OR {left["reg"]}, {right["reg"]}')
 
-        instrs.extend(left_code)
-        instrs.extend(right_code)
-
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-        else:
-            op1 = p[1]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-
-        op2 = (p[3]["result"])
-
-        
-        instrs.extend([
-            f'OR {r1}, {op2}'
-        ])
-
-        #Liberamos el registro del segundo operando
-        if 'temp' in p[3]:
-            self._gestor.liberar(p[3]["result"])
+        if right.get('owned'):
+            self._gestor.liberar(right['reg'])
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
-            'type': "bool",
+            'result': left['reg'],
+            'type': 'bool',
             'temp': True
         }
 
 
     def p_expr_xor(self, p):
         """expr : expr XOR expr"""
-
-        left_code  = p[1]['code']
-        right_code = p[3]['code']
-
+        left = self._force_reg(p[1])
+        right = self._force_reg(p[3])
         instrs = []
+        instrs.extend(left['code'])
+        instrs.extend(right['code'])
+        instrs.append(f'XOR {left["reg"]}, {right["reg"]}')
 
-        instrs.extend(left_code)
-        instrs.extend(right_code)
-
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-        else:
-            op1 = p[1]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-
-        op2 = (p[3]["result"])
-
-        
-        instrs.extend([
-            f'XOR {r1}, {op2}'
-        ])
-
-        #Liberamos el registro del segundo operando
-        if 'temp' in p[3]:
-            self._gestor.liberar(p[3]["result"])
+        if right.get('owned'):
+            self._gestor.liberar(right['reg'])
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
-            'type': "bool",
+            'result': left['reg'],
+            'type': 'bool',
             'temp': True
         }
 
 
     def p_expr_not(self, p):
         """expr : NOT expr"""
-
-        prev_code  = p[2]['code']
-
+        operand = self._force_reg(p[2])
         instrs = []
-
-        instrs.extend(prev_code)
-
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[2]:
-            op1 = p[2]["result"]
-            r1 = p[2]["result"]
-        else:
-            op1 = p[2]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-
-        instrs.extend([
-            f'NOT {r1}'
-        ])
+        instrs.extend(operand['code'])
+        instrs.append(f'NOT {operand["reg"]}')
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
-            'type': "bool",
+            'result': operand['reg'],
+            'type': 'bool',
             'temp': True
         }
 
@@ -1235,78 +1473,79 @@ class GeneradorCodigo:
 
     def p_expr_uminus(self, p):
         """expr : MINUS expr %prec UMINUS"""
-
-        prev_code  = p[2]['code']
-
+        operand = self._force_reg(p[2])
         instrs = []
+        instrs.extend(operand['code'])
 
-        instrs.extend(prev_code)
-
-        #Revisamos si ya se hace uso de algun registro temp
-        if 'temp' in p[2]:
-            op1 = p[2]["result"]
-            r1 = p[2]["result"]
+        if p[2].get('type') == 'float':
+            instrs.append(f'FPMUL {operand["reg"]}, -1.0')
         else:
-            op1 = p[2]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-    
-
-        if p[2]['type'] == 'float':
-            instrs.append(f'FPMUL {r1}, -1.0')
-        else:
-            instrs.append(f'MUL {r1}, -1')
+            instrs.append(f'MUL {operand["reg"]}, -1')
 
         p[0] = {
             'code': instrs,
-            "result": f'{r1}',
-            'type': p[2]['type'],
-            'temp' : True
+            'result': operand['reg'],
+            'type': p[2].get('type'),
+            'temp': True
         }
 
 
     # Acceso a arreglo
     def p_expr_index(self, p):
         """expr : expr LBRACKET expr RBRACKET"""
-        arr_code  = p[1]['code']
-        ind_code  = p[3]['code']
-
+        index = self._force_reg(p[3])
         instrs = []
+        instrs.extend(p[1]['code'])
+        instrs.extend(index['code'])
 
-        instrs.extend(arr_code)
-        instrs.extend(ind_code)
-
-        arr = p[1]["result"]
-        arr_name = arr[1:-1]
-
-        if 'temp' in p[3]:
-            ind = p[3]["result"]
-            r1 = p[3]["result"]
-        else:
-            ind = p[3]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {ind}'
-            )
-
-        r2 = self._gestor.ocupar()
+        addr_code, addr_reg, addr_owned = self._address_of_operand(p[1]['result'])
+        instrs.extend(addr_code)
+        result_owned = addr_owned or p[1].get('owned', False)
         instrs.extend([
-            f'MUL {r1}, 8',
-            f'LEA {r2}, {arr}',
-            f'ADD {r1}, {r2}',
-            f'MOVD {r2}, [{r1}]'
+            f'MUL {index["reg"]}, {self._array_stride(p[1])}',
+            f'ADD {addr_reg}, {index["reg"]}'
         ])
 
-        self._gestor.liberar(r1)
-    
+        if index.get('owned'):
+            self._gestor.liberar(index['reg'])
+
+        remaining_dims = max(p[1].get('dims', 0) - 1, 0)
+        remaining_shape = list(p[1].get('shape', []))[1:] if p[1].get('shape') else []
+
+        if remaining_dims > 0 or remaining_shape:
+            p[0] = {
+                'code': instrs,
+                'result': {
+                    'kind': 'addr',
+                    'value': addr_reg,
+                    'type': p[1].get('type'),
+                    'dims': remaining_dims,
+                    'shape': remaining_shape,
+                    'size': p[1].get('size', 0),
+                    'element_size': p[1].get('element_size'),
+                },
+                'temp': True,
+                'reg': addr_reg,
+                'owned': result_owned,
+                'type': p[1].get('type'),
+                'dims': remaining_dims,
+                'shape': remaining_shape,
+                'size': p[1].get('size', 0),
+                'element_size': p[1].get('element_size'),
+            }
+            return
+
+        value_reg = self._gestor.ocupar()
+        instrs.append(f'MOVD {value_reg}, [{addr_reg}]')
+
+        if result_owned:
+            self._gestor.liberar(addr_reg)
 
         p[0] = {
             'code': instrs,
-            "result": f'{r2}',
+            'result': value_reg,
             'temp': True,
-            'type' : f'{self.sim_table[arr_name]["type"]}'
+            'type': p[1].get('type')
         }
 
 
@@ -1314,89 +1553,240 @@ class GeneradorCodigo:
     def p_expr_method_call(self, p):
         """expr : expr DOT ID LPAREN arg_list RPAREN
                 | expr DOT ID LPAREN RPAREN"""
-        #Llenamos los place-holders con el valor de quien llama
-        place_instr = []
-        clase = self.sim_table[p[1]['result'][1:-1]]['type']
+        args = p[5] if len(p) == 7 else []
+        instrs = []
 
-        r1 = self._gestor.ocupar()
+        target_type = p[1].get('type')
+        target_operand = p[1].get('result')
 
-        for atr in self.sim_table[clase]['attr']:
-            place_instr.append(f'MOVD {r1}, [{p[1]["result"][1:-1]}@{atr}]')
-            place_instr.append(f'MOVD [{atr}], {r1}')
-
-        self._gestor.liberar(r1)
+        if target_operand is not None and target_type in self.molds:
+            target_force = self._force_reg(p[1])
+            instrs.extend(target_force['code'])
+            # Store the implicit `this` pointer in the generator-designated
+            # register (OHMY_REG) rather than the architectural link register.
+            instrs.append(f'MOVD {self.OHMY_REG}, {target_force["reg"]}')
+            if target_force.get('owned'):
+                self._gestor.liberar(target_force['reg'])
 
         if len(p) == 7:
-            instrs = []
-            r = self._gestor.ocupar()
-            for param in p[3]:
-                ins0 = f'MOVD {r}, {param["result"]}'
-                ins1 = f'PUSH {r}'
-                instrs.append(ins0)
-                instrs.append(ins1)
-            r = self._gestor.liberar(r)
-            instrs.append(f'CALL {p[3].upper()}')
-            
-            p[0] = {'code': instrs,
-                    "result":'R1'}
-        else:
-            p[0] = {'code': [f'CALL {p[3].upper()}'],
-                "result": 'R1' }
-            # TODO:
+            for arg in reversed(args):
+                force = self._force_reg(arg)
+                instrs.extend(force['code'])
+                instrs.append(f'PUSH {force["reg"]}')
+                if force.get('owned'):
+                    self._gestor.liberar(force['reg'])
+
+        instrs.append(f'CALL {p[3].upper()}')
+
+        if len(args) > 0:
+            instrs.append(f'ADD R13, {len(args) * 8}')
+
+        ret_reg = self._gestor.ocupar()
+        instrs.append(f'MOVD {ret_reg}, R1')
+
+        method_return_type = self.molds.get(target_type, {}).get('methods', {}).get(p[3], {}).get('return_type', 'unknown')
+
+        p[0] = {
+            'code': instrs,
+            'result': ret_reg,
+            'temp': True,
+            'type': method_return_type
+        }
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
-        name_atr = p[1]['result'][1:-1] + '@' + p[3]
+        field_operand = self._field_operand(p[1]['result'], p[3])
+        if field_operand is None:
+            field_operand = {
+                'kind': 'global',
+                'label': p[3],
+            }
         
         p[0] = {
-        'code': [],
-        'result':f'[{name_atr}]',
-        'type': self.sim_table[p[3]]['type'],
+            'code': [],
+            'result': field_operand,
+            'type': field_operand.get('type', self.sim_table[p[3]]['type']),
+            'dims': field_operand.get('dims', self.sim_table[p[3]].get('dims', 0)),
+            'shape': list(field_operand.get('shape', self.sim_table[p[3]].get('shape', []))),
+            'size': field_operand.get('size', self.sim_table[p[3]].get('size', 0)),
+            'text_size': field_operand.get('text_size', self.sim_table[p[3]].get('text_size', 0)),
         }
 
     # Llamada a función
     def p_expr_call_args(self, p):
         """expr : ID LPAREN arg_list RPAREN"""
         instrs = []
-        r = self._gestor.ocupar()
-        for param in p[3]:
-            ins0 = f'MOVD {r}, {param["result"]}'
-            ins1 = f'PUSH {r}'
-            instrs.append(ins0)
-            instrs.append(ins1)
-        r = self._gestor.liberar(r)
+        for param in reversed(p[3]):
+            force = self._force_reg(param)
+            instrs.extend(force['code'])
+            instrs.append(f'PUSH {force["reg"]}')
+            if force.get('owned'):
+                self._gestor.liberar(force['reg'])
         instrs.append(f'CALL {p[1].upper()}')
+        instrs.append(f'ADD R13, {len(p[3]) * 8}')
+
+        ret_reg = self._gestor.ocupar()
+        instrs.append(f'MOVD {ret_reg}, R1')
         
-        p[0] = {'code': instrs,
-                "result":'R1'}
+        p[0] = {
+            'code': instrs,
+            'result': ret_reg,
+            'temp': True,
+            'type': self.sim_table.get(p[1], {}).get('return_type', 'unknown')
+        }
 
     def p_expr_call_noargs(self, p):
         """expr : ID LPAREN RPAREN"""
-        p[0] = {'code': [f'CALL {p[1].upper()}'],
-                "result": 'R1' }
+        ret_reg = self._gestor.ocupar()
+        p[0] = {
+            'code': [f'CALL {p[1].upper()}', f'MOVD {ret_reg}, R1'],
+            'result': ret_reg,
+            'temp': True,
+            'type': self.sim_table.get(p[1], {}).get('return_type', 'unknown')
+        }
 
     # summon
     def p_expr_summon_args(self, p):
         """expr : SUMMON ID LPAREN arg_list RPAREN"""
+        mold_name = p[2]
+        args = p[4]
+        mold = self.molds.get(mold_name, {})
+        size = mold.get('size', 0)
+        
+        target_operand = self._allocate_temp(size)
+        init_code = []
+        
+        addr_code, addr_reg, addr_owned = self._address_of_operand(target_operand)
+        init_code.extend(addr_code)
 
-        p[0] = p[4]
+        raw_order = mold.get('field_order') or list(mold.get('fields', {}).keys())
+        field_order = []
+        for item in raw_order:
+            if isinstance(item, dict):
+                field_order.append(item.get('name'))
+            else:
+                field_order.append(item)
+        field_order = [f for f in field_order if f]
+
+        for i, field_name in enumerate(field_order):
+            if i >= len(args):
+                break
+
+            field = mold.get('fields', {}).get(field_name, {})
+            field_off = field.get('offset', i * 8)
+            arg_expr = args[i]
+
+            if field.get('type') == 'text':
+                materialized = self._materialize_text_storage(
+                    f'{mold_name}_{field_name}',
+                    arg_expr.get('value') if isinstance(arg_expr, dict) else arg_expr,
+                    owner_is_global=(target_operand['kind'] == self.OP_ADDR_LABEL)
+                )
+                if materialized is not None:
+                    if materialized['result']['kind'] == self.OP_REG:
+                        arg_force = {
+                            'code': materialized['code'],
+                            'reg': materialized['result']['value'],
+                            'owned': materialized.get('owned', False),
+                        }
+                    else:
+                        arg_force = self._force_reg(materialized)
+                else:
+                    arg_force = self._force_reg(arg_expr)
+            else:
+                arg_force = self._force_reg(arg_expr)
+
+            init_code.extend(arg_force['code'])
+
+            field_addr_reg = self._gestor.ocupar()
+            init_code.append(f'MOVD {field_addr_reg}, {addr_reg}')
+            if field_off:
+                init_code.append(f'ADD {field_addr_reg}, {field_off}')
+            init_code.append(f'MOVD [{field_addr_reg}], {arg_force["reg"]}')
+
+            self._gestor.liberar(field_addr_reg)
+            if arg_force.get('owned'):
+                self._gestor.liberar(arg_force['reg'])
+
+        p[0] = {
+            'code': init_code,
+            'result': {
+                'kind': self.OP_REG,
+                'value': addr_reg,
+                'is_ref': True
+            },
+            'type': mold_name,
+            'temp': True,
+            'reg': addr_reg,
+            'owned': addr_owned
+        }
 
     def p_expr_summon_noargs(self, p):
         """expr : SUMMON ID LPAREN RPAREN"""
-        p[0] = []
+        mold_name = p[2]
+        mold = self.molds.get(mold_name, {})
+        size = mold.get('size', 0)
+        
+        target_operand = self._allocate_temp(size)
+        init_code = []
+        
+        addr_code, addr_reg, addr_owned = self._address_of_operand(target_operand)
+        init_code.extend(addr_code)
+
+        p[0] = {
+            'code': init_code,
+            'result': {
+                'kind': self.OP_REG,
+                'value': addr_reg,
+                'is_ref': True
+            },
+            'type': mold_name,
+            'temp': True,
+            'reg': addr_reg,
+            'owned': addr_owned
+        }
 
     # ohmy
     def p_expr_ohmy_member(self, p):
         """expr : OHMY DOT ID"""
+        # Within methods, `ohmy` refers to the `this` pointer stored in
+        # the generator-designated register `OHMY_REG`.
+        base_operand = {
+            'kind': 'reg',
+            'value': self.OHMY_REG,
+            'type': self.current_method_mold,
+            'is_ref': True,
+        }
         p[0] = {
             'code' : [],
             'type' : self.sim_table[p[3]]["type"],
-            'result' : f'[{p[3]}]'
+            'result' : self._field_operand(
+                base_operand,
+                p[3]
+            ) or self._mem_operand(p[3]),
+            'dims': self.sim_table[p[3]].get('dims', 0),
+            'shape': list(self.sim_table[p[3]].get('shape', [])),
+            'size': self.sim_table[p[3]].get('size', 0),
+            'text_size': self.sim_table[p[3]].get('text_size', 0),
         }
 
     def p_expr_ohmy(self, p):
         """expr : OHMY"""
-        p[0] = p[1]
+        # Within methods, `ohmy` refers to the `this` pointer stored in
+        # the generator-designated register `OHMY_REG`.
+        p[0] = {
+            'code': [],
+            'result': {
+                'kind': 'reg',
+                'value': self.OHMY_REG,
+                'type': self.current_method_mold,
+                'is_ref': True,
+            },
+            'type': self.current_method_mold,
+            'dims': 0,
+            'shape': [],
+            'size': 0,
+        }
 
     # Agrupación
     def p_expr_group(self, p):
@@ -1412,11 +1802,18 @@ class GeneradorCodigo:
 
     def p_expr_id(self, p):
         """expr : ID"""
+        sym = self._symbol(p[1])
 
         p[0] = {
             'code': [],
-            "result": f'[{p[1]}]',
-            'type': 'id'
+            'result': self._mem_operand(p[1]),
+            'type': sym['type'],
+            'dims': sym.get('dims', 0),
+            'shape': list(sym.get('shape', [])),
+            'size': sym.get('size', 0),
+            'text_size': sym.get('text_size', 0),
+            'value': sym.get('value'),
+            'symbol': sym
         }
 
 
@@ -1425,7 +1822,10 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            "result": int(p[1]),
+            'result': {
+                'kind': 'imm',
+                'value': int(p[1]),
+            },
             'type': 'int'
         }
 
@@ -1433,19 +1833,44 @@ class GeneradorCodigo:
     def p_expr_float(self, p):
         """expr : FLOAT_LIT"""
 
+        float_value = float(p[1])
+        
+        # Crear etiqueta única para este flotante
+        float_label = f"float_{self.float_counter}"
+        
+        # Add to float pool if not already there
+        if float_label not in self.float_pool:
+            self.float_pool[float_label] = float_value
+            self.float_counter += 1
+
         p[0] = {
             'code': [],
-            "result": float(p[1]),
+            'result': {
+                'kind': 'global',
+                'label': float_label,
+            },
             'type': 'float'
         }
 
 
     def p_expr_string(self, p):
         """expr : STRING"""
+        pool_entry = self.string_pool.get(p[1])
+        if pool_entry is None:
+            pool_entry = {
+                'label': p[1],
+                'value': p[1],
+                'size': len(p[1]) + 1,
+            }
         p[0] = {
             'code': [],
-            "result": str(p[1]),
-            'type': 'text'
+            'result': {
+                'kind': 'addr_label',
+                'label': pool_entry['label'],
+            },
+            'value': pool_entry,
+            'type': 'text',
+            'text_size': pool_entry['size'],
         }
 
 
@@ -1454,7 +1879,10 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            "result": 1,
+            'result': {
+                'kind': 'imm',
+                'value': 1,
+            },
             'type': 'bool'
         }
 
@@ -1464,7 +1892,10 @@ class GeneradorCodigo:
 
         p[0] = {
             'code': [],
-            "result": 0,
+            'result': {
+                'kind': 'imm',
+                'value': 0,
+            },
             'type': 'bool'
         }
 
@@ -1473,7 +1904,10 @@ class GeneradorCodigo:
         """expr : NOTHING"""
         p[0] = {
             'code': [],
-            "result": -0.0,
+            'result': {
+                'kind': 'imm',
+                'value': 0,
+            },
             'type': 'none'
         }
 
@@ -1525,6 +1959,11 @@ class GeneradorCodigo:
         self.label_count = 0
         self.scope_count = 0
         self.params_id = {} #func: {param:id} 
+        self.function_stack = []
+        self.float_counter = 0
+        self.function_temp_size = 0
+        self.used_string_labels = set()
+        
     def parse(self, codigo: str, metadata) -> tuple[list[str], object]:
         """
         Analiza el código fuente y devuelve (errores, ast).
@@ -1536,44 +1975,459 @@ class GeneradorCodigo:
             errores -- lista de strings con mensajes de error léxico+sintáctico.
             ast     -- NodoPrograma raíz del árbol, o None si no se pudo parsear.
         """
+        # Cada compilación debe arrancar desde un estado limpio.
+        self._gestor = GestorRegistros()
         self.text = []
         self.data = []
+        self.funcs = []
         self.errors = []
+        self.label_count = 0
+        self.scope_count = 0
+        self.params_id = {}
+        self.function_stack = []
+        self.float_counter = 0
+        self.function_temp_size = 0
+        self.used_string_labels = set()
         _, _, _, self.num_table = self._lex.analize(codigo)
         dict_s = AnalizadorSemantico().parse(codigo, metadata)
         self.sim_table = dict_s['symbol_table']
+        self.molds = dict_s['molds']
+        self.type_sizes = dict_s['type_sizes']
+        self.defined_symbols = dict_s['defined_symbols']
+        self.functions = dict_s['functions']
+        self.target = dict_s['target']
+        self.string_pool = dict_s['string_pool']
+        self.float_pool = dict_s['float_pool']
         # Reinicializar el lexer para el parser
         self._lex.lexer.input(codigo)
         self._lex.lexer.lineno = 1
-        ast = self.parser.parse(
+        asmc = self.parser.parse(
             lexer=self._lex.lexer,
             tracking=True,
             debug=False
         )
-        return self.errors, ast
+        return self.errors, asmc
+    
+    def _symbol(self, name):
+        current_func = self.function_stack[-1] if getattr(self, 'function_stack', []) else None
+        
+        if current_func:
+            for sym in reversed(self.defined_symbols):
+                if sym.get('name') == name and sym.get('scope') == current_func.lower():
+                    return sym
+                    
+        # Fallback to symbol table (for compatibility with globals, functions, etc.)
+        return self.sim_table.get(name, {})
+    
+    def _is_global(self, symbol):
+        return symbol['scope'] == 'global'
 
+    def _type_size(self, type_name):
+        if type_name in self.type_sizes:
+            return self.type_sizes[type_name]
 
-# Programa de prueba
-if __name__ == '__main__':
+        mold = self.molds.get(type_name)
+        if mold is not None:
+            return mold.get('size', 0)
 
-    a_s = GeneradorCodigo()
- 
-    sample_code = '''
-    let n: int = 5
-    let a: int[n] = 1,8,4,2,10
+        return 8
 
-    let max: int = a[0]
+    def _array_stride(self, operand):
+        element_size = operand.get('element_size') or self._type_size(operand.get('type'))
+        shape = list(operand.get('shape', []))
 
-    for (let i: int = 1, i < n, set i += 1){
-        if (max < a[i]){
-            set max = a[i]
+        if shape:
+            tail = 1
+            for dim in shape[1:]:
+                if isinstance(dim, int) and dim > 0:
+                    tail *= dim
+            return element_size * tail
+
+        return element_size
+    
+    def _mem_operand(self, name):
+        sym = self._symbol(name)
+        storage_class = sym.get('storage_class')
+        is_ref = (sym.get('dims', 0) > 0) or (sym.get('type') == 'text') or (sym.get('type') in self.molds)
+
+        if storage_class == 'local':
+            return {
+                'kind': self.OP_STACK,
+                'base': 'R13',
+                'offset': f"__STACK_OFFSET_{sym['offset'] or 0}__",
+                'type': sym.get('type'),
+                'dims': sym.get('dims', 0),
+                'shape': list(sym.get('shape', [])),
+                'size': sym.get('size', 0),
+                'text_size': sym.get('text_size', 0),
+                'element_size': sym.get('element_size') or self._type_size(sym.get('type')),
+                'is_ref': is_ref,
+            }
+
+        elif storage_class == 'param':
+            return {
+                'kind': self.OP_STACK,
+                'base': 'R13',
+                'offset': f"__STACK_OFFSET_{sym.get('param_offset', 0)}__",
+                'type': sym.get('type'),
+                'dims': sym.get('dims', 0),
+                'shape': list(sym.get('shape', [])),
+                'size': sym.get('size', 0),
+                'text_size': sym.get('text_size', 0),
+                'element_size': sym.get('element_size') or self._type_size(sym.get('type')),
+                'is_ref': is_ref,
+            }
+
+        elif storage_class == 'field':
+            return {
+                'kind': self.OP_GLOBAL,
+                'label': name,
+                'type': sym.get('type'),
+                'dims': sym.get('dims', 0),
+                'shape': list(sym.get('shape', [])),
+                'size': sym.get('size', 0),
+                'text_size': sym.get('text_size', 0),
+                'element_size': sym.get('element_size') or self._type_size(sym.get('type')),
+                'is_ref': is_ref,
+            }
+
+        else:
+            return {
+                'kind': self.OP_GLOBAL,
+                'label': name,
+                'type': sym.get('type'),
+                'dims': sym.get('dims', 0),
+                'shape': list(sym.get('shape', [])),
+                'size': sym.get('size', 0),
+                'text_size': sym.get('text_size', 0),
+                'element_size': sym.get('element_size') or self._type_size(sym.get('type')),
+                'is_ref': is_ref,
+            }
+
+    def _field_operand(self, base_operand, member_name):
+        base_type = base_operand.get('type')
+        mold = self.molds.get(base_type, {})
+        field = mold.get('fields', {}).get(member_name)
+
+        if field is None:
+            return None
+
+        return {
+            'kind': self.OP_FIELD,
+            'base': base_operand,
+            'offset': field.get('offset', 0),
+            'type': field.get('type', 'unknown'),
+            'dims': field.get('dims', 0),
+            'shape': list(field.get('shape', [])),
+            'size': field.get('size', 0),
+            'text_size': field.get('text_size', 0),
+            'element_size': field.get('element_size') or self._type_size(field.get('type')),
+            'is_ref': (field.get('dims', 0) > 0) or (field.get('type') == 'text') or (field.get('type') in self.molds),
+            'owner_kind': base_operand.get('kind'),
         }
-    }
 
+    def _allocate_temp(self, size):
+        if not self.function_stack:
+            # Global scope
+            label = f'temp_{self.label_count}'
+            self.label_count += 1
+            for i in range((size + 7) // 8):
+                self.data.append(f'{label}_{i} : 0')
+            return {'kind': self.OP_ADDR_LABEL, 'label': f'{label}_0', 'is_ref': False}
+        else:
+            # Local scope
+            offset = self.function_temp_size
+            self.function_temp_size += size
+            # Returns a stack location representing the pointer/base address.
+            # Because it's a temporary, we don't need a placeholder since it sits at the bottom of the stack frame.
+            return {'kind': self.OP_STACK, 'base': 'R13', 'offset': offset, 'is_ref': False}
 
-'''
+    def _address_of_operand(self, operand):
+        code = []
 
-    errors, ast = a_s.parse(sample_code)
-    print(errors)
-    print(a_s.data)
-    print(a_s.text)
+        if operand['kind'] == self.OP_GLOBAL:
+            reg = self._gestor.ocupar()
+            if operand.get('is_ref'):
+                code.append(f'MOVD {reg}, [{operand["label"]}]')
+            else:
+                code.append(f'LEA {reg}, [{operand["label"]}]')
+            return code, reg, True
+
+        if operand['kind'] == self.OP_STACK:
+            reg = self._gestor.ocupar()
+            code.append(f'MOVD {reg}, {operand["base"]}')
+            off = operand.get('offset', 0)
+            if off != 0 and off != '0':
+                code.append(f'ADD {reg}, {off}')
+            if operand.get('is_ref'):
+                code.append(f'MOVD {reg}, [{reg}]')
+            return code, reg, True
+
+        if operand['kind'] == self.OP_ADDR:
+            return code, operand['value'], False
+
+        if operand['kind'] == self.OP_FIELD:
+            base_code, base_reg, base_owned = self._address_of_operand(operand['base'])
+            code.extend(base_code)
+            off = operand.get('offset', 0)
+            if off != 0 and off != '0':
+                # Avoid modifying a caller-owned base register (e.g., OHMY_REG).
+                if not base_owned:
+                    temp_reg = self._gestor.ocupar()
+                    code.append(f'MOVD {temp_reg}, {base_reg}')
+                    code.append(f'ADD {temp_reg}, {off}')
+                    return code, temp_reg, True
+                else:
+                    code.append(f'ADD {base_reg}, {off}')
+            return code, base_reg, base_owned
+
+        if operand['kind'] == self.OP_REG:
+            # If the register holds a reference pointer (e.g., `this` in OHMY_REG),
+            # do NOT dereference the register itself when computing the address
+            # of a field: the register already contains the base address.
+            if operand.get('is_ref'):
+                if operand['value'] == self.OHMY_REG:
+                    # OHMY_REG already contains the object pointer — use it directly.
+                    return code, operand['value'], False
+                # Other registers that are references may contain an address
+                # pointer-in-pointer and need to be dereferenced to obtain
+                # the actual base address.
+                result_reg = self._gestor.ocupar()
+                code.append(f'MOVD {result_reg}, [{operand["value"]}]')
+                return code, result_reg, True
+            return code, operand['value'], False
+
+        if operand['kind'] == self.OP_ADDR_LABEL:
+            self.used_string_labels.add(operand['label'])
+            reg = self._gestor.ocupar()
+            code.append(f'LEA {reg}, [{operand["label"]}]')
+            return code, reg, True
+
+        raise ValueError(f'Operando no soportado: {operand!r}')
+        
+    def _emit_load(self, reg, operand):
+
+        code = []
+
+        if operand['kind'] == self.OP_GLOBAL:
+            code.append(
+                f'MOVD {reg}, [{operand["label"]}]'
+            )
+
+        elif operand['kind'] == self.OP_STACK:
+            addr = self._gestor.ocupar()
+            code.append(f'MOVD {addr}, {operand["base"]}')
+            off = operand.get('offset', 0)
+            if off != 0 and off != '0':
+                code.append(f'ADD {addr}, {off}')
+            code.append(f'MOVD {reg}, [{addr}]')
+            self._gestor.liberar(addr)
+
+        elif operand['kind'] == self.OP_ADDR:
+            code.append(f'MOVD {reg}, [{operand["value"]}]')
+
+        elif operand['kind'] == self.OP_FIELD:
+            addr_code, addr_reg, addr_owned = self._address_of_operand(operand)
+            code.extend(addr_code)
+            code.append(f'MOVD {reg}, [{addr_reg}]')
+            if addr_owned:
+                self._gestor.liberar(addr_reg)
+
+        elif operand['kind'] == self.OP_REG:
+            code.append(f'MOVD {reg}, {operand["value"]}')
+
+        elif operand['kind'] == self.OP_IMM:
+            code.append(f'MOVD {reg}, {operand["value"]}')
+
+        elif operand['kind'] == self.OP_ADDR_LABEL:
+            self.used_string_labels.add(operand['label'])
+            code.append(f'LEA {reg}, [{operand["label"]}]')
+
+        return code
+
+    def _emit_store(self, operand, reg):
+        code = []
+
+        if operand['kind'] == self.OP_GLOBAL:
+            code.append(f'MOVD [{operand["label"]}], {reg}')
+
+        elif operand['kind'] == self.OP_STACK:
+            addr = self._gestor.ocupar()
+            code.append(f'MOVD {addr}, {operand["base"]}')
+            off = operand.get('offset', 0)
+            if off != 0 and off != '0':
+                code.append(f'ADD {addr}, {off}')
+            code.append(f'MOVD [{addr}], {reg}')
+            self._gestor.liberar(addr)
+
+        elif operand['kind'] == self.OP_ADDR:
+            code.append(f'MOVD [{operand["value"]}], {reg}')
+
+        elif operand['kind'] == self.OP_FIELD:
+            addr_code, addr_reg, addr_owned = self._address_of_operand(operand)
+            code.extend(addr_code)
+            code.append(f'MOVD [{addr_reg}], {reg}')
+            if addr_owned:
+                self._gestor.liberar(addr_reg)
+
+        elif operand['kind'] == self.OP_REG:
+            code.append(f'MOVD [{operand["value"]}], {reg}')
+
+        return code
+
+    def _force_reg(self, expr):
+        code = list(expr.get('code', [])) if isinstance(expr, dict) else []
+
+        if not isinstance(expr, dict):
+            reg = self._gestor.ocupar()
+            code.append(f'MOVD {reg}, {expr}')
+            return {'code': code, 'reg': reg, 'owned': True}
+
+        result = expr.get('result')
+
+        if expr.get('temp') and isinstance(result, str) and result.startswith('R'):
+            return {'code': code, 'reg': result, 'owned': False}
+
+        if isinstance(result, dict):
+            if result.get('kind') == 'reg':
+                return {'code': code, 'reg': result['value'], 'owned': False}
+            reg = self._gestor.ocupar()
+            code.extend(self._emit_load(reg, result))
+            return {'code': code, 'reg': reg, 'owned': True}
+
+        if isinstance(result, (int, float)):
+            reg = self._gestor.ocupar()
+            code.append(f'MOVD {reg}, {result}')
+            return {'code': code, 'reg': reg, 'owned': True}
+
+        if isinstance(result, str) and result.startswith('R'):
+            return {'code': code, 'reg': result, 'owned': False}
+
+        if isinstance(result, str):
+            reg = self._gestor.ocupar()
+            code.append(f'MOVD {reg}, {result}')
+            return {'code': code, 'reg': reg, 'owned': True}
+
+        reg = self._gestor.ocupar()
+        code.append(f'MOVD {reg}, {result}')
+        return {'code': code, 'reg': reg, 'owned': True}
+
+    def _current_function_frame_size(self):
+        if not self.function_stack:
+            return 0
+        func_name = self.function_stack[-1]
+        sym = self._symbol(func_name)
+        return sym.get('frame_size', 0) or 0
+
+    def _current_function_exit_label(self):
+        if not self.function_stack:
+            return None
+        return f'{self.function_stack[-1].upper()}_END'
+
+    @staticmethod
+    def _format_text_cell(ch):
+        """Renderiza una celda de texto como carácter de un byte cuando es posible."""
+        if ch == '\n' or ch == "'":
+            return ord(ch)
+        return f"'{ch}'"
+
+    @staticmethod
+    def _text_value_string(value):
+        if isinstance(value, dict):
+            inner_value = value.get('value')
+            if isinstance(inner_value, str):
+                return inner_value
+        if isinstance(value, str):
+            return value
+        return None
+
+    def _text_value_size(self, value):
+        text = self._text_value_string(value)
+        if text is None:
+            return 0
+        return len(text) + 1
+
+    def _expr_text_size(self, expr):
+        if not isinstance(expr, dict):
+            return 0
+        size = int(expr.get('text_size') or 0)
+        if size:
+            return size
+        value = expr.get('value')
+        if isinstance(value, dict):
+            size = int(value.get('size') or 0)
+            if size:
+                return size
+            inner_value = value.get('value')
+            if isinstance(inner_value, str):
+                return len(inner_value) + 1
+        if expr.get('type') == 'text':
+            return self._text_value_size(value)
+        return 0
+
+    @staticmethod
+    def _normalize_data_label(label_hint):
+        raw = str(label_hint or '').lower()
+        out = []
+        for ch in raw:
+            if ('a' <= ch <= 'z') or ('0' <= ch <= '9') or ch == '_':
+                out.append(ch)
+            else:
+                out.append('_')
+        normalized = ''.join(out).strip('_')
+        if not normalized:
+            return 'text'
+        if not (('a' <= normalized[0] <= 'z') or normalized[0] == '_'):
+            normalized = f'_{normalized}'
+        return normalized
+
+    def _materialize_text_storage(self, name_hint, value, owner_sym=None, owner_is_global=None):
+        text = self._text_value_string(value)
+        if text is None:
+            return None
+
+        if owner_is_global is None and owner_sym is not None:
+            owner_is_global = self._is_global(owner_sym)
+
+        if owner_is_global:
+            safe_hint = self._normalize_data_label(name_hint)
+            base_label = f'{safe_hint}_text_{self.label_count}'
+            self.label_count += 1
+            for i, ch in enumerate(text):
+                self.data.append(f'{base_label}_{i} : {self._format_text_cell(ch)}')
+            self.data.append(f'{base_label}_{len(text)} : 0')
+            return {
+                'code': [],
+                'result': {
+                    'kind': self.OP_ADDR_LABEL,
+                    'label': f'{base_label}_0',
+                },
+                'type': 'text',
+                'text_size': len(text) + 1,
+            }
+
+        temp_operand = self._allocate_temp(len(text) + 1)
+        addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
+        init_code = list(addr_code)
+        cursor_reg = self._gestor.ocupar()
+        init_code.append(f'MOVD {cursor_reg}, {addr_reg}')
+        for ch in text:
+            init_code.append(f'MOVD [{cursor_reg}], {self._format_text_cell(ch)}')
+            init_code.append(f'ADD {cursor_reg}, 8')
+        init_code.append(f'MOVD [{cursor_reg}], 0')
+        self._gestor.liberar(cursor_reg)
+        return {
+            'code': init_code,
+            'result': {
+                'kind': self.OP_REG,
+                'value': addr_reg,
+                'is_ref': True,
+            },
+            'type': 'text',
+            'temp': True,
+            'reg': addr_reg,
+            'owned': addr_owned,
+            'text_size': len(text) + 1,
+        }
+    
+    

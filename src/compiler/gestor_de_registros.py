@@ -1,7 +1,7 @@
 class GestorRegistros:
     def __init__(self):
-        # Usamos de R0 a R12 (13 registros disponibles)
-        self.registros = {f"R{i}": False for i in range(13)}
+        # Usamos de R0 a R12, reservando R1 y R9 para convenios internos.
+        self.registros = {f"R{i}": False for i in range(13) if i not in (1, 9)}
         self.acumulador = "R15"
 
     def ocupar(self):

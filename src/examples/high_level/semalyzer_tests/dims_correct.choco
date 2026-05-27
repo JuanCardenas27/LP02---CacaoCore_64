@@ -39,3 +39,7 @@ func process(
 
     show arr[0]
 }
+
+let arr : int[3] = 1,2,3
+let mat : int[2][2] = 1,2,3,4
+process(arr, mat)

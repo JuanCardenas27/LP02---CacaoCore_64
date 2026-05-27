@@ -150,6 +150,7 @@ class AnalizadorSemantico:
         'scope_id',
         'tipo_decl',
         'semantic_info',
+        'text_size',
     }
 
     # GRAMÁTICA CON LÓGICA SEMÁNTICA (SIN CONSTRUCCIÓN DE NODOS)
@@ -529,6 +530,11 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = self._extract_value(expr_data)
+                if sym.get('type') == 'text':
+                    sym['text_size'] = max(
+                        int(sym.get('text_size') or 0),
+                        self._text_value_size(sym['value'])
+                    )
         
         p[0] = {
             'always_returns': False
@@ -555,6 +561,8 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = None
+                if sym.get('type') == 'text':
+                    sym['text_size'] = int(sym.get('text_size') or 0)
         
         p[0] = {
             'always_returns': False
@@ -625,6 +633,19 @@ class AnalizadorSemantico:
 
         if sym is not None:
             sym['params'] = params
+            num_params = len(params)
+            param_names = {p_info['name']: i for i, p_info in enumerate(params)}
+            updated = 0
+            for sym_entry in reversed(self.defined_symbols):
+                if sym_entry.get('kind') == 'parameter' and sym_entry.get('name') in param_names and sym_entry.get('scope') == name:
+                    idx = param_names[sym_entry['name']]
+                    # CALL pushes return address first, so the first parameter
+                    # starts at SP+16 (SP+8 is the saved return address).
+                    sym_entry['param_offset'] = (idx + 2) * 8
+                    updated += 1
+                    if updated == num_params:
+                        break
+
             inferred_return = 'void'
 
             if self.current_function is not None:
@@ -670,7 +691,10 @@ class AnalizadorSemantico:
                     f"la función '{name}' no retorna en todos los caminos"
                 )
             frame_size = self.function_stack_offsets.pop()
+            if frame_size % 8 != 0:
+                frame_size += 8 - (frame_size % 8)
             sym['frame_size'] = frame_size
+            self._enrich_lexer_symbol_entry(name, sym)
             self.current_function = None
             self.current_method_mold = None
         p[0] = {
@@ -696,7 +720,8 @@ class AnalizadorSemantico:
 
         self.current_method_mold = self.current_mold
 
-        self._enter_scope('function')
+        # Use actual function name as scope so parameters can find their function
+        self._enter_scope(function_name.lower())
         self.function_stack_offsets.append(0)
 
     def p_func_def_no_params(self, p):
@@ -762,7 +787,10 @@ class AnalizadorSemantico:
                     f"la función '{name}' no retorna en todos los caminos"
                 )
             frame_size = self.function_stack_offsets.pop()
+            if frame_size % 8 != 0:
+                frame_size += 8 - (frame_size % 8)
             sym['frame_size'] = frame_size
+            self._enrich_lexer_symbol_entry(name, sym)
             self.current_function = None
             self.current_method_mold = None
         
@@ -1486,7 +1514,8 @@ class AnalizadorSemantico:
             field['type'],
             None,
             field.get('dims', 0),
-            field.get('shape', [])
+            field.get('shape', []),
+            field.get('text_size', 0)
         )
 
     def p_expr_call_args(self, p):
@@ -1699,7 +1728,8 @@ class AnalizadorSemantico:
             field['type'],
             None,
             field.get('dims', 0),
-            field.get('shape', [])
+            field.get('shape', []),
+            field.get('text_size', 0)
         )
 
     def p_expr_ohmy(self, p):
@@ -1849,14 +1879,16 @@ class AnalizadorSemantico:
         self._ast_annotator = ASTSemanticAnnotator(self)
         self.metadata = []
         self.type_sizes = {
-            'int':4,
+            'int':8,
             'float':8,
-            'bool':1,
+            'bool':8,
             'text':8,
         }
         self.function_stack_offsets = []
         self.string_pool = {}
         self.string_counter = 0
+        self.float_pool = {}
+        self.float_counter = 0
 
     def parse(self, codigo: str, metadata:list) -> tuple[list[str], object, dict]:
         """
@@ -1916,35 +1948,45 @@ class AnalizadorSemantico:
                 'stack_alignment': 8,
             },
             'string_pool': self.string_pool,
+            'float_pool': self.float_pool,
         }
     
-    def _sizeof(self, type_name, dims=0):
-
-        if dims > 0:
-            return 8
+    def _sizeof(self, type_name, dims=0, shape=None):
 
         if type_name in self.type_sizes:
-            return self.type_sizes[type_name]
+            base_size = self.type_sizes[type_name]
+        else:
+            mold = self.molds.get(type_name)
 
-        mold = self.molds.get(type_name)
+            if mold:
+                base_size = mold.get('size', 0)
+            else:
+                base_size = 0
 
-        if mold:
-            return mold.get('size', 0)
+        if dims <= 0:
+            return base_size
 
-        return 0
+        total_items = self._shape_size(shape)
+
+        if total_items is None:
+            return base_size
+
+        return base_size * total_items
 
     def _make_expr_data(
         self,
         type_name,
         value=None,
         dims=0,
-        shape=None
+        shape=None,
+        text_size=0
     ):
         return {
             'type': type_name,
             'value': value,
             'dims': dims,
-            'shape': shape or []
+            'shape': shape or [],
+            'text_size': text_size,
         }
     
     def _collect_function_entries(self):
@@ -1991,6 +2033,8 @@ class AnalizadorSemantico:
                 scope_id = symbol.get('scope_id')
             if symbol.get('return_type') is not None:
                 info['return_type'] = symbol.get('return_type')
+            if symbol.get('text_size') is not None:
+                info['text_size'] = symbol.get('text_size')
             compact_params = self._compact_params_info(symbol.get('params'))
             if compact_params is not None:
                 info['params_info'] = compact_params
@@ -2367,12 +2411,15 @@ class AnalizadorSemantico:
                     return None
 
                 dims = target_info.get('dims', 0)
+                shape = list(target_info.get('shape', []))
+                remaining_shape = shape[1:] if shape else []
 
                 return {
                     'type': target_info['type'],
                     'dims': max(dims - 1, 0),
                     'symbol': target_info.get('symbol'),
-                    'scope_id': target_info.get('scope_id')
+                    'scope_id': target_info.get('scope_id'),
+                    'shape': remaining_shape,
                 }
 
         return None
@@ -2418,7 +2465,7 @@ class AnalizadorSemantico:
     def _intern_string(self, value: str):
         if value in self.string_pool:
             return self.string_pool[value]
-        label = f'STR_{self.string_counter}'
+        label = f'str_{self.string_counter}'
         self.string_counter += 1
         entry = {
             'label': label,
@@ -2427,6 +2474,18 @@ class AnalizadorSemantico:
         }
         self.string_pool[value] = entry
         return entry
+
+    def _text_value_size(self, value):
+        if isinstance(value, dict):
+            size = value.get('size')
+            if size is not None:
+                return int(size or 0)
+            inner_value = value.get('value')
+            if isinstance(inner_value, str):
+                return len(inner_value) + 1
+        if isinstance(value, str):
+            return len(value) + 1
+        return 0
 
     def _emit_error(self, line: int, message: str):
         """Emitir error semántico."""
@@ -2466,6 +2525,10 @@ class AnalizadorSemantico:
             self._emit_error(line, f"símbolo '{name}' ya fue definido en '{scope_name}'")
             return False
         symbol_kind = kind
+        base_size = self._sizeof(type_name, 0)
+        total_size = self._sizeof(type_name, dims, shape)
+        text_size = self._text_value_size(value) if type_name == 'text' else 0
+
         entry = {
             'name': name,
             'kind': symbol_kind,
@@ -2476,8 +2539,10 @@ class AnalizadorSemantico:
             'scope_id': self._make_scope_id(self.scope_names[-1] if self.scope_names else 'unknown', line),
             'storage_class': None,
             'offset': None,
-            'size': self._sizeof(type_name, dims),
-            'alignment': self._sizeof(type_name, dims),
+            'size': total_size,
+            'element_size': base_size,
+            'alignment': base_size or 8,
+            'text_size': text_size,
         }
         if symbol_kind in ('variable','array','parameter','field'):
             entry['type']=type_name
@@ -2488,9 +2553,8 @@ class AnalizadorSemantico:
                     s for s in current_scope.values()
                     if s.get('kind') == 'parameter'
                 ])
-                entry['offset'] = (
-                    8
-                    +
+                entry['param_offset'] = (
+                    16 +
                     entry['parameter_index'] * 8
                 )
             else:
@@ -2500,11 +2564,10 @@ class AnalizadorSemantico:
                 )
                 if inside_function:
                     size = entry['size']
-                    current_offset = (
-                        self.function_stack_offsets[-1]
-                        + size
-                    )
-                    entry['offset'] = -current_offset
+                    if type_name == 'text':
+                        size += text_size
+                        entry['size'] = size
+                    entry['offset'] = self.function_stack_offsets[-1]
                     self.function_stack_offsets[-1] += size
         elif symbol_kind in ('function','method'):
             entry['return_info'] = {
@@ -2531,7 +2594,7 @@ class AnalizadorSemantico:
         self._enrich_lexer_symbol_entry(name, entry)
         if self.current_mold is not None:
             mold_data = self.molds[self.current_mold]
-            if kind in ('variable', 'array'):
+            if kind in ('variable', 'array') and self.current_function is None:
                 entry['kind'] = 'field'
                 mold_data['fields'][name] = entry
                 mold_data.setdefault('field_order', []).append(entry)
@@ -2543,7 +2606,8 @@ class AnalizadorSemantico:
                 entry['storage_class']='field'
                 field_size = self._sizeof(
                     type_name,
-                    dims
+                    dims,
+                    shape
                 )
                 mold_data['size'] = (
                     field_offset
@@ -2567,6 +2631,11 @@ class AnalizadorSemantico:
         row['scope_id'] = sem_entry.get('scope_id')
         row['attr'] = sem_entry.get('attr')
         row['fields'] = sem_entry.get('fields')
+        row['frame_size'] = sem_entry.get('frame_size')
+        row['params'] = sem_entry.get('params')
+        row['return_type'] = sem_entry.get('return_type')
+        row['return_info'] = sem_entry.get('return_info')
+        row['text_size'] = sem_entry.get('text_size')
         ###
         line = sem_entry.get('line')
         if line is not None and line not in row.get('lines', []):
