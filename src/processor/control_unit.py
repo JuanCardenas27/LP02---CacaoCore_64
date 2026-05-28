@@ -245,7 +245,8 @@ class ControlUnit(MicroinstructionMixin):
                 ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
             
             elif mode == "m":
-                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=True))
+                # Memory addresses are absolute offsets in RAM and must not be sign-extended.
+                ops[i] = bytearray(int(cod_i, 2).to_bytes(8, byteorder='little', signed=False))
     
 
             acc = self._registers[15][:]
