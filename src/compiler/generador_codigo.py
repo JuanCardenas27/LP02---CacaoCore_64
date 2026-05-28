@@ -1076,19 +1076,28 @@ class GeneradorCodigo:
         if 'temp' in p[1]:
             op1 = p[1]["result"]
             r1 = p[1]["result"]
+            print(p[1])
+            print(p[3])
+            
+            try:
+                is_float =  self.sim_table[p[3]['result'][1:-1]]['type'] == 'float'
+            except KeyError:
+                codigo = p[1]['code']
+                for line in codigo:
+                    if 'FP' in line:
+                        is_float = True
         else:
             op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
             instrs.append(
                 f'MOVD {r1}, {op1}'
             )
-
-        is_float = (
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
-        )
-        print(is_float)
-        print(p[1]['type'])
+        
+            is_float = (
+                self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
+                self.sim_table[p[3]['result'][1:-1]]['type'] == 'float'
+            )
+       
         op2 = p[3]["result"]
 
         if p[2] == '+':
@@ -1468,7 +1477,10 @@ class GeneradorCodigo:
                 | expr DOT ID LPAREN RPAREN"""
         #Llenamos los place-holders con el valor de quien llama
         place_instr = []
-        clase = self.sim_table[p[1]['result'][1:-1]]['type']
+        if 'reg' in p[1].keys():
+            clase = p[1]['type']
+        else:
+            clase = self.sim_table[p[1]['result'][1:-1]]['type']
 
         r1 = self._gestor.ocupar()
 
