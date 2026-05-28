@@ -1,0 +1,82 @@
+// mold, ohmy, funciones iterativas, arrays, for, asLongAs, float, bool
+
+mold Punto {
+    let x : int
+    let y : int
+
+    func cuadrante() {
+        if ohmy.x >= 0 {
+            if ohmy.y >= 0 {
+                deliver 1
+            } otherwise {
+                deliver 4
+            }
+        } otherwise {
+            if ohmy.y >= 0 {
+                deliver 2
+            } otherwise {
+                deliver 3
+            }
+        }
+    }
+}
+
+func maximo(ma : int, mb : int) {
+    if ma >= mb {
+        deliver ma
+    } otherwise {
+        deliver mb
+    }
+}
+
+func suma_hasta(sn : int) {
+    let ss : int = 0
+    let sk : int = 1
+    asLongAs sk <= sn {
+        set ss = ss + sk
+        set sk = sk + 1
+    }
+    deliver ss
+}
+
+let p1 : Punto = summon Punto(3, 4)
+let p2 : Punto = summon Punto(-2, 5)
+let c1 : int
+let c2 : int
+set c1 = p1.cuadrante()
+set c2 = p2.cuadrante()
+show c1    // 1  (+,+)
+show c2    // 2  (-,+)
+
+let mx : int
+set mx = maximo(17, 42)
+show mx    // 42
+
+let s1 : int
+set s1 = suma_hasta(10)
+show s1    // 55
+
+let vals : int[4]
+set vals[0] = 10
+set vals[1] = 20
+set vals[2] = 30
+set vals[3] = 40
+let total : int = 0
+for (let i : int = 0, i < 4, set i += 1) {
+    set total = total + vals[i]
+}
+show total    // 100
+
+let ok : bool
+if mx > 30 {
+    set ok = indeed
+} otherwise {
+    set ok = nope
+}
+show ok    // indeed
+
+let pi    : float = 3.14159
+let radio : float = 3.0
+let area  : float
+set area = pi * radio * radio
+show area    // 28.27431
