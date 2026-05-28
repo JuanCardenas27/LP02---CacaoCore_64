@@ -1514,9 +1514,8 @@ class GeneradorCodigo:
             p[0] = {'code': instrs,
                     "result":'R1'}
         else:
-            p[0] = {'code': [f'CALL {p[3].upper()}'],
+            p[0] = {'code': place_instr + [f'CALL {p[3].upper()}'],
                 "result": 'R1' }
-            # TODO:
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
