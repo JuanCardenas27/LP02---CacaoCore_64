@@ -1,0 +1,25 @@
+mold Estudiante {
+      let name: text
+      let cedula: int
+      let nota: int
+  }
+
+  let e0: Estudiante = summon Estudiante("Juan",  1001, 55)
+  let e1: Estudiante = summon Estudiante("Maria", 1002, 40)
+
+  // Notas originales
+  show e0.cedula
+  show e0.nota
+  show e1.cedula
+  show e1.nota
+
+  // Cambiar las notas con set
+  set e0.nota = 90
+  set e1.nota = 75
+
+  // Notas actualizadas
+  show e0.cedula
+  show e0.nota
+  show e1.cedula
+  show e1.nota
+  
