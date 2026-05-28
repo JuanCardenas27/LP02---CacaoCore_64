@@ -362,9 +362,11 @@ class GeneradorCodigo:
         values = p[12]
 
         total = rows * cols
-        self.data.append(f'{p[2]} : {values[i]}')
-        for i in range(total):
-            self.data.append(f'{p[2]}{i} : {values[i]}')
+        v0 = values[0]["result"] if isinstance(values[0], dict) else values[0]
+        self.data.append(f'{p[2]} : {v0}')
+        for i in range(1, total):
+            vi = values[i]["result"] if isinstance(values[i], dict) else values[i]
+            self.data.append(f'{p[2]}{i} : {vi}')
 
         p[0] = {
             "code": [],
@@ -417,31 +419,48 @@ class GeneradorCodigo:
     # SET
     # ─────────────────────────────────────────────────────────────
 
+    def _deref_if_indirect(self, expr_dict, instrs):
+        """Si el resultado del expr es [Rx] (campo de mold en array), carga el valor en Rx."""
+        r = expr_dict["result"]
+        if isinstance(r, str) and r.startswith('[') and 'reg' in expr_dict and r == f'[{expr_dict["reg"]}]':
+            reg = expr_dict['reg']
+            instrs.append(f'MOVD {reg}, {r}')
+            return reg
+        return r
+
     def p_set_assign(self, p):
         """set_stmt : SET lvalue ASSIGN expr"""
         instrs = []
         instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
+        rhs_indirect = (
+            'temp' in p[4]
+            and 'reg' in p[4]
+            and p[4]['result'] == f'[{p[4]["reg"]}]'
+        )
+
+        if rhs_indirect:
+            rhs_reg = p[4]['reg']
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
+            instrs.append(f'MOVD {r1}, [{rhs_reg}]')
+            self._gestor.liberar(rhs_reg)
+        elif 'temp' in p[4]:
+            r1 = self._deref_if_indirect(p[4], instrs)
+        else:
+            r1 = self._gestor.ocupar()
+            instrs.append(f'MOVD {r1}, {p[4]["result"]}')
+
+        instrs.extend(p[2]['code'])
         lvalue = p[2]["result"]
         instrs.append(f'MOVD {lvalue}, {r1}')
-        
+
         self._gestor.liberar(r1)
 
         if 'temp' in p[2]:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                "result":lvalue
+                "result": lvalue
                 }
 
 
@@ -449,23 +468,31 @@ class GeneradorCodigo:
         """set_stmt : SET lvalue SWEET_PLUS expr"""
         instrs = []
         instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
+        rhs_indirect = (
+            'temp' in p[4]
+            and 'reg' in p[4]
+            and p[4]['result'] == f'[{p[4]["reg"]}]'
+        )
+
+        if rhs_indirect:
+            rhs_reg = p[4]['reg']
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
+            instrs.append(f'MOVD {r1}, [{rhs_reg}]')
+            self._gestor.liberar(rhs_reg)
+        elif 'temp' in p[4]:
+            r1 = self._deref_if_indirect(p[4], instrs)
+        else:
+            r1 = self._gestor.ocupar()
+            instrs.append(f'MOVD {r1}, {p[4]["result"]}')
+
+        instrs.extend(p[2]['code'])
         lvalue = p[2]["result"]
         r2 = self._gestor.ocupar()
         instrs.append(f'MOVD {r2}, {lvalue}')
         instrs.append(f'ADD {r1}, {r2}')
         instrs.append(f'MOVD {lvalue}, {r1}')
-        
+
         self._gestor.liberar(r1)
         self._gestor.liberar(r2)
 
@@ -473,7 +500,7 @@ class GeneradorCodigo:
             self._gestor.liberar(p[2]['reg'])
 
         p[0] = {'code': instrs,
-                "result":lvalue
+                "result": lvalue
                 }
 
     # ── Lvalue ────────────────────────────────────────────────────────────
@@ -958,9 +985,10 @@ class GeneradorCodigo:
 
     def p_deliver_val(self, p):
         """deliver_stmt : DELIVER expr"""
-        p[0] = {
-            'code': [f'MOVD R1, {p[2]["result"]}','RET']
-        }
+        instrs = list(p[2].get('code', []))
+        result = self._deref_if_indirect(p[2], instrs) if 'temp' in p[2] else p[2]["result"]
+        instrs.extend([f'MOVD R1, {result}', 'RET'])
+        p[0] = {'code': instrs}
 
     def p_deliver_nothing(self, p):
         """deliver_stmt : DELIVER"""
@@ -1072,23 +1100,17 @@ class GeneradorCodigo:
         instrs.extend(left_code)
         instrs.extend(right_code)
 
-        #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
+            r1 = self._deref_if_indirect(p[1], instrs)
         else:
             op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
+            instrs.append(f'MOVD {r1}, {op1}')
 
         is_float = (
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
-            self.sim_table[p[1]['result'][1:-1]]['type'] == 'float'
+            p[1].get('type') == 'float' or
+            p[3].get('type') == 'float'
         )
-        print(is_float)
-        print(p[1]['type'])
         op2 = p[3]["result"]
 
         if p[2] == '+':
@@ -1161,16 +1183,12 @@ class GeneradorCodigo:
         self.label_count += 1
 
         
-         #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
+            r1 = self._deref_if_indirect(p[1], instrs)
         else:
             op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
+            instrs.append(f'MOVD {r1}, {op1}')
 
         op2 = p[3]["result"]
 
@@ -1479,22 +1497,18 @@ class GeneradorCodigo:
         self._gestor.liberar(r1)
 
         if len(p) == 7:
-            instrs = []
+            # expr DOT ID LPAREN arg_list RPAREN  →  p[3]=ID, p[5]=arg_list
+            instrs = list(place_instr)
             r = self._gestor.ocupar()
-            for param in p[3]:
-                ins0 = f'MOVD {r}, {param["result"]}'
-                ins1 = f'PUSH {r}'
-                instrs.append(ins0)
-                instrs.append(ins1)
-            r = self._gestor.liberar(r)
+            for param in p[5]:
+                instrs.append(f'MOVD {r}, {param["result"]}')
+                instrs.append(f'PUSH {r}')
+            self._gestor.liberar(r)
             instrs.append(f'CALL {p[3].upper()}')
-            
-            p[0] = {'code': instrs,
-                    "result":'R1'}
+            p[0] = {'code': instrs, "result": 'R1'}
         else:
-            p[0] = {'code': [f'CALL {p[3].upper()}'],
-                "result": 'R1' }
-            # TODO:
+            # expr DOT ID LPAREN RPAREN  →  p[3]=ID
+            p[0] = {'code': place_instr + [f'CALL {p[3].upper()}'], "result": 'R1'}
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
@@ -1582,11 +1596,11 @@ class GeneradorCodigo:
 
     def p_expr_id(self, p):
         """expr : ID"""
-
+        sym = self.sim_table.get(p[1], {})
         p[0] = {
             'code': [],
             "result": f'[{p[1]}]',
-            'type': 'id'
+            'type': sym.get('type', 'id')
         }
 
 

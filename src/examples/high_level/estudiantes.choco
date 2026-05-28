@@ -1,0 +1,83 @@
+// =====================================================
+// Ejemplo: Arreglo de Estudiantes — CacaoScript
+// Mold Estudiante con campos: name, cedula, nota
+// =====================================================
+
+mold Estudiante {
+    let name: text
+    let cedula: int
+    let nota: int
+
+    // Retorna verdadero si la nota es >= 60
+    func aprueba() {
+        if ohmy.nota >= 60 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+
+    // Retorna la nota como entero (para comparaciones)
+    func obtenerNota() {
+        deliver ohmy.nota
+    }
+
+    // Imprime cedula y nota del estudiante
+    func mostrar() {
+        show ohmy.cedula
+        show ohmy.nota
+        deliver
+    }
+}
+
+// ─────────────────────────────────────────────────────
+// Crear los 5 estudiantes (summon en orden: name, cedula, nota)
+// ─────────────────────────────────────────────────────
+let e0: Estudiante = summon Estudiante("Juan",   1001, 85)
+let e1: Estudiante = summon Estudiante("Maria",  1002, 92)
+let e2: Estudiante = summon Estudiante("Carlos", 1003, 55)
+let e3: Estudiante = summon Estudiante("Ana",    1004, 78)
+let e4: Estudiante = summon Estudiante("Pedro",  1005, 43)
+
+// ─────────────────────────────────────────────────────
+// Mostrar cedula y nota de cada estudiante
+// ─────────────────────────────────────────────────────
+e0.mostrar()
+e1.mostrar()
+e2.mostrar()
+e3.mostrar()
+e4.mostrar()
+
+// ─────────────────────────────────────────────────────
+// Contar cuantos aprueban (nota >= 60)
+// ─────────────────────────────────────────────────────
+let aprobados: int = 0
+let res: bool
+
+set res = e0.aprueba()
+if res { set aprobados += 1 }
+set res = e1.aprueba()
+if res { set aprobados += 1 }
+set res = e2.aprueba()
+if res { set aprobados += 1 }
+set res = e3.aprueba()
+if res { set aprobados += 1 }
+set res = e4.aprueba()
+if res { set aprobados += 1 }
+
+show aprobados
+
+// ─────────────────────────────────────────────────────
+// Buscar la mejor nota usando arreglo paralelo de enteros
+// ─────────────────────────────────────────────────────
+let n: int = 5
+let notas: int[5] = 85, 92, 55, 78, 43
+let mejor: int = notas[0]
+
+for (let i: int = 1, i < n, set i += 1) {
+    if notas[i] > mejor {
+        set mejor = notas[i]
+    }
+}
+
+show mejor

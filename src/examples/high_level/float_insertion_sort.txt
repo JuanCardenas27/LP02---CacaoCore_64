@@ -1,28 +1,9 @@
 #define size 9
+#include "float_function.choco" {insertion_sort}
 let n : int = size
 let a: float[size] = 99.1,1.2,8.3,4.5,2.2,10.4,2.8,10.9,11.3
 
-func insertion_sort() {
-    let key : float = 1.0
-    let j: int
-    let temp: int
-    for (let i: int = 1, i < n, set i += 1) {
 
-        set key = a[i]
-        set j = i - 1
-        
-        asLongAs ( j >= 0 and a[j] > key ) {
-            set temp = j + 1
-            set a[temp] = a[j]
-            set j = j - 1
-
-        }
-
-        set j = j + 1
-        set a[j] = key
-
-    }
-}
 
 insertion_sort()
 

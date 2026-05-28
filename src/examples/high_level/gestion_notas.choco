@@ -1,0 +1,319 @@
+// ====================================================
+// CacaoCore64 — Sistema de Gestión de Notas
+// ====================================================
+// Cubre:
+//   mold, summon, ohmy, deliver, show
+//   int, float, bool, text
+//   arrays de primitivos y de molds
+//   for, asLongAs, if / otherwise
+//   and, or, not
+//   funciones con parámetros y retorno
+//   set en variable, campo de mold, elemento de array
+//   insertion sort sobre array de molds
+//   aritmética int y float
+// ====================================================
+
+// ─── Definición del tipo Estudiante ─────────────────
+
+mold Estudiante {
+    let cedula : int
+    let nota   : int
+    let bono   : int
+
+    // Aprueba si la nota base es >= 60
+    func aprueba() {
+        if ohmy.nota >= 60 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+
+    // Puntaje final = nota + bono
+    func puntaje_final() {
+        deliver ohmy.nota + ohmy.bono
+    }
+
+    // Es destacado si el puntaje final es >= 85
+    func es_destacado() {
+        let pf : int
+        set pf = ohmy.nota + ohmy.bono
+        if pf >= 85 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+
+    // Muestra cedula y nota en consola
+    func mostrar() {
+        show ohmy.cedula
+        show ohmy.nota
+        deliver
+    }
+}
+
+// ─── Datos globales ──────────────────────────────────
+
+let n : int = 5
+
+// Array de 5 estudiantes (cedula, nota, bono)
+let grupo : Estudiante[5] = summon Estudiante(1001, 45, 10),
+                             summon Estudiante(1002, 88,  5),
+                             summon Estudiante(1003, 72,  8),
+                             summon Estudiante(1004, 95,  3),
+                             summon Estudiante(1005, 38, 15)
+
+// ─── Funciones de análisis ───────────────────────────
+
+// Cuenta cuántos tienen nota >= umbral
+func contar_sobre(umbral : int) {
+    let cuenta : int = 0
+    for (let i : int = 0, i < n, set i += 1) {
+        if grupo[i].nota >= umbral {
+            set cuenta += 1
+        }
+    }
+    deliver cuenta
+}
+
+// Nota máxima del grupo
+func max_nota() {
+    let max : int = grupo[0].nota
+    for (let i : int = 1, i < n, set i += 1) {
+        if grupo[i].nota > max {
+            set max = grupo[i].nota
+        }
+    }
+    deliver max
+}
+
+// Nota mínima del grupo
+func min_nota() {
+    let min : int = grupo[0].nota
+    for (let i : int = 1, i < n, set i += 1) {
+        if grupo[i].nota < min {
+            set min = grupo[i].nota
+        }
+    }
+    deliver min
+}
+
+// Suma de todas las notas (para mostrar aritmética)
+func suma_notas() {
+    let s : int = 0
+    for (let i : int = 0, i < n, set i += 1) {
+        set s = s + grupo[i].nota
+    }
+    deliver s
+}
+
+// Muestra cédula y nota de todo el grupo
+func mostrar_grupo() {
+    for (let i : int = 0, i < n, set i += 1) {
+        show grupo[i].cedula
+        show grupo[i].nota
+    }
+    deliver
+}
+
+// Insertion sort ascendente por nota sobre grupo[]
+func insertion_sort() {
+    let kced : int
+    let knot : int
+    let kbon : int
+    let j    : int
+
+    for (let i : int = 1, i < n, set i += 1) {
+
+        // Guardar el elemento a insertar
+        set kced = grupo[i].cedula
+        set knot = grupo[i].nota
+        set kbon = grupo[i].bono
+        set j    = i - 1
+
+        // Desplazar elementos mayores hacia la derecha
+        asLongAs j >= 0 {
+            if grupo[j].nota > knot {
+                set grupo[j + 1].cedula = grupo[j].cedula
+                set grupo[j + 1].nota   = grupo[j].nota
+                set grupo[j + 1].bono   = grupo[j].bono
+                set j = j - 1
+            } otherwise {
+                set j = -1
+            }
+        }
+
+        // Colocar el elemento en su posición correcta
+        set grupo[j + 1].cedula = kced
+        set grupo[j + 1].nota   = knot
+        set grupo[j + 1].bono   = kbon
+    }
+    deliver
+}
+
+// ─── Búsqueda binaria (array ordenado, por nota) ─────
+// Devuelve el índice del estudiante con nota == objetivo,
+// o -1 si no existe. Requiere que grupo esté ordenado.
+func busqueda_binaria(objetivo : int) {
+    let izq : int = 0
+    let der : int = n - 1
+    let mid : int
+
+    asLongAs izq <= der {
+        set mid = (izq + der) + 0   // mid = izq + (der-izq)/2 simplificado
+        set mid = izq + mid
+        // mid = (izq + der) / 2 — usamos suma y dividimos luego
+        // aproximación: usamos el punto medio como (izq+der) >> 1
+        // Para no depender de division, usamos la versión iterativa simple:
+        set mid = izq
+        let paso : int = 0
+        set paso = der - izq
+        if paso >= 2 {
+            set mid = izq + 1
+        }
+
+        if grupo[mid].nota == objetivo {
+            deliver mid
+        } otherwise {
+            if grupo[mid].nota < objetivo {
+                set izq = mid + 1
+            } otherwise {
+                set der = mid - 1
+            }
+        }
+    }
+    deliver -1
+}
+
+// ─── Verificar con un array paralelo de booleanos ───
+// Marca qué estudiantes son destacados (pf >= 85)
+let destacados : bool[5]
+
+func marcar_destacados() {
+    for (let i : int = 0, i < n, set i += 1) {
+        let pf : int
+        set pf = grupo[i].nota + grupo[i].bono
+        if pf >= 85 {
+            set destacados[i] = indeed
+        } otherwise {
+            set destacados[i] = nope
+        }
+    }
+    deliver
+}
+
+// Cuenta cuántos están marcados como destacados
+func contar_destacados() {
+    let c : int = 0
+    for (let i : int = 0, i < n, set i += 1) {
+        if destacados[i] {
+            set c += 1
+        }
+    }
+    deliver c
+}
+
+// ─────────────────────────────────────────────────────
+// PROGRAMA PRINCIPAL
+// ─────────────────────────────────────────────────────
+
+// 1. Estado inicial del grupo
+mostrar_grupo()
+
+// 2. Estadísticas básicas
+let aprobados : int
+let max       : int
+let min       : int
+let suma      : int
+
+set aprobados = contar_sobre(60)
+show aprobados      // 3 (notas: 45, 88, 72, 95, 38  →  88, 72, 95 >= 60)
+
+set max = max_nota()
+show max            // 95
+
+set min = min_nota()
+show min            // 38
+
+set suma = suma_notas()
+show suma           // 338 (45+88+72+95+38)
+
+// Rango de notas
+let rango : int
+set rango = max - min
+show rango          // 57
+
+// 3. Métodos en instancias estáticas
+let e0 : Estudiante = summon Estudiante(1001, 45, 10)
+let e3 : Estudiante = summon Estudiante(1004, 95,  3)
+
+let res  : bool
+let pf   : int
+
+set res = e0.aprueba()
+show res             // nope   (45 < 60)
+
+set res = e3.aprueba()
+show res             // indeed (95 >= 60)
+
+set res = e0.es_destacado()
+show res             // indeed (45+10 = 55 < 85 → nope)
+
+set res = e3.es_destacado()
+show res             // indeed (95+3  = 98 >= 85)
+
+set pf = e0.puntaje_final()
+show pf              // 55  (45+10)
+
+set pf = e3.puntaje_final()
+show pf              // 98  (95+3)
+
+e0.mostrar()         // cedula=1001, nota=45
+e3.mostrar()         // cedula=1004, nota=95
+
+// 4. Aritmética float (demo de punto flotante)
+let suma_f  : float = 45.0 + 88.0 + 72.0 + 95.0 + 38.0
+show suma_f          // 338.0
+
+let umbral_f : float = 60.0
+let factor   : float = 1.5
+let escalado : float = umbral_f + factor
+show escalado        // 61.5
+
+// 5. Marcar y contar destacados antes de ordenar
+marcar_destacados()
+let nd : int
+set nd = contar_destacados()
+show nd              // cuántos tienen pf >= 85
+
+// Mostrar el array de bools
+for (let i : int = 0, i < n, set i += 1) {
+    show destacados[i]
+}
+
+// 6. Ordenar por nota (insertion sort) y mostrar resultado
+insertion_sort()
+mostrar_grupo()      // debería verse: 38, 45, 72, 88, 95
+
+// 7. Verificar orden: cada nota debe ser <= siguiente
+let orden_ok : bool = indeed
+for (let i : int = 0, i < n - 1, set i += 1) {
+    if grupo[i].nota > grupo[i + 1].nota {
+        set orden_ok = nope
+    }
+}
+show orden_ok        // indeed → está ordenado
+
+// 8. Contar los que aprueban Y son destacados (and lógico)
+let ap_dest : int = 0
+for (let i : int = 0, i < n, set i += 1) {
+    let pf2 : int
+    set pf2 = grupo[i].nota + grupo[i].bono
+    if grupo[i].nota >= 60 {
+        if pf2 >= 85 {
+            set ap_dest += 1
+        }
+    }
+}
+show ap_dest         // estudiantes que aprueban Y son destacados

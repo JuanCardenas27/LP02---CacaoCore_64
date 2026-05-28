@@ -1,0 +1,94 @@
+// Insertion Sort sobre un array de molds
+// Cubre: mold, summon, ohmy, array de molds,
+//        for, asLongAs, if/otherwise,
+//        set en campos de mold, deliver, show
+
+mold Alumno {
+    let codigo : int
+    let nota   : int
+
+    func aprueba() {
+        if ohmy.nota >= 60 {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+}
+
+let n : int = 5
+
+let alumnos : Alumno[5] = summon Alumno(101, 55),
+                           summon Alumno(102, 90),
+                           summon Alumno(103, 70),
+                           summon Alumno(104, 45),
+                           summon Alumno(105, 80)
+
+// ── Ordenar por nota ascendente ──────────────────────
+func insertion_sort() {
+    let kc  : int
+    let kn  : int
+    let j   : int
+    let ins : int
+
+    for (let i : int = 1, i < n, set i += 1) {
+
+        set kc  = alumnos[i].codigo
+        set kn  = alumnos[i].nota
+        set j   = i - 1
+        set ins = i
+
+        asLongAs j >= 0 {
+            if alumnos[j].nota > kn {
+                set alumnos[j + 1].codigo = alumnos[j].codigo
+                set alumnos[j + 1].nota   = alumnos[j].nota
+                set ins = j
+                set j   = j - 1
+            } otherwise {
+                set j = -1
+            }
+        }
+
+        set alumnos[ins].codigo = kc
+        set alumnos[ins].nota   = kn
+    }
+    deliver
+}
+
+// ── Contar aprobados (nota >= 60) ────────────────────
+func contar_aprobados() {
+    let c : int = 0
+    for (let i : int = 0, i < n, set i += 1) {
+        if alumnos[i].nota >= 60 {
+            set c += 1
+        }
+    }
+    deliver c
+}
+
+// ── Programa principal ───────────────────────────────
+
+// Mostrar antes de ordenar
+for (let i : int = 0, i < n, set i += 1) {
+    show alumnos[i].codigo
+    show alumnos[i].nota
+}
+
+// Contar y mostrar aprobados
+let aprobados : int
+set aprobados = contar_aprobados()
+show aprobados
+
+// Ordenar y mostrar resultado
+insertion_sort()
+
+for (let i : int = 0, i < n, set i += 1) {
+    show alumnos[i].codigo
+    show alumnos[i].nota
+}
+
+// Verificar un método en instancia estática
+let a0  : Alumno = summon Alumno(101, 55)
+let res : bool
+set res = a0.aprueba()
+show res

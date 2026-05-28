@@ -47,7 +47,7 @@ class AsmParser:
         'line : VAR COLON NUMBER NEWLINE'
         self.var_table[p[1]] = len(self.program_data)
         self.program_data.append(p[1])
-        p[0] = p[3].to_bytes(8, byteorder='little').hex()
+        p[0] = p[3].to_bytes(8, byteorder='little', signed=True).hex()
         self.program.append(str(p[0]))
 
     def p_line_variable_char(self, p):
@@ -94,18 +94,18 @@ class AsmParser:
             if instruction["name"] == p[1]+'_ri':
                 code =  str(instruction["opcode"].to_bytes(6, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
-                code = str(p[4].to_bytes(2, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                code = str(p[4].to_bytes(2, byteorder='little', signed=True).hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
                 return
         self.p_error(p)
-    
+
     def p_instr_reg_mem(self, p):
         'instruction : MNEMONIC REGISTER COMMA MEMORY'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_rm':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
                 n = len(code)
-                code = str(p[4].to_bytes(4, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                code = str(p[4].to_bytes(4, byteorder='little', signed=True).hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
                 return
         self.p_error(p)
@@ -158,7 +158,7 @@ class AsmParser:
         'instruction : MNEMONIC MEMORY COMMA NUMBER'
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mi':
-                code =  str(instruction["opcode"].to_bytes(2, byteorder='big').hex()) + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(p[4].to_bytes(2, byteorder='big').hex())
+                code =  str(instruction["opcode"].to_bytes(2, byteorder='big').hex()) + str(p[2].to_bytes(4, byteorder= 'big').hex()) + str(p[4].to_bytes(2, byteorder='big', signed=True).hex())
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
@@ -173,7 +173,7 @@ class AsmParser:
                 n = len(code)
                 code =  "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 code = '[' + f'{self.var_table[p[3]]}' + ']' + code
-                code = str(p[6].to_bytes(2, byteorder='little').hex()) + code
+                code = str(p[6].to_bytes(2, byteorder='little', signed=True).hex()) + code
                 p[0] = code
                 return
         self.p_error(p)
@@ -195,7 +195,7 @@ class AsmParser:
             if instruction["name"] == p[1]+'_m':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())
                 n = len(code)
-                code = str(p[2].to_bytes(4, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                code = str(p[2].to_bytes(4, byteorder='little', signed=True).hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
                 return
         self.p_error(p)
@@ -217,7 +217,7 @@ class AsmParser:
             if instruction["name"] == p[1]+'_i' or instruction["name"]=='int_i':
                 code =  str(instruction["opcode"].to_bytes(6, byteorder='big').hex())
                 n = len(code)
-                code = str(p[2].to_bytes(2, byteorder='little').hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
+                code = str(p[2].to_bytes(2, byteorder='little', signed=True).hex()) + "".join([code[n-i-2] + code[n-i-1] for i in range(len(code)) if i%2 == 0])
                 p[0] = code
                 return
         self.p_error(p)

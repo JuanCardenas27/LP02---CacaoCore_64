@@ -1,0 +1,18 @@
+mold Estudiante {
+    let cedula: int
+    let nota: int
+}
+
+let students: Estudiante[3] = summon Estudiante(1001, 55),
+                               summon Estudiante(1002, 40),
+                               summon Estudiante(1003, 75)
+
+show students[0].cedula
+show students[0].nota
+
+set students[1].nota = 90
+show students[1].cedula
+show students[1].nota
+
+show students[2].cedula
+show students[2].nota
