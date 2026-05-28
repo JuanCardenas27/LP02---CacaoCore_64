@@ -2531,7 +2531,7 @@ class AnalizadorSemantico:
         self._enrich_lexer_symbol_entry(name, entry)
         if self.current_mold is not None:
             mold_data = self.molds[self.current_mold]
-            if kind in ('variable', 'array'):
+            if kind in ('variable', 'array') and self.scope_names[-1] != 'function':
                 entry['kind'] = 'field'
                 mold_data['fields'][name] = entry
                 mold_data.setdefault('field_order', []).append(entry)

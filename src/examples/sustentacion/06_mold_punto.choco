@@ -1,0 +1,12 @@
+mold Punto {
+    let x: int
+    let y: int
+}
+
+let p1: Punto = summon Punto(3, 7)
+let p2: Punto = summon Punto(10, 2)
+
+show p1.x
+show p1.y
+show p2.x
+show p2.y

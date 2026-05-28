@@ -417,64 +417,89 @@ class GeneradorCodigo:
     # SET
     # ─────────────────────────────────────────────────────────────
 
+    def _deref_if_indirect(self, expr_dict, instrs):
+        """Si result es [Rx] (campo de mold en arreglo), emite MOVD Rx,[Rx] y retorna Rx."""
+        r = expr_dict["result"]
+        if isinstance(r, str) and r.startswith('[') and 'reg' in expr_dict and r == f'[{expr_dict["reg"]}]':
+            reg = expr_dict['reg']
+            instrs.append(f'MOVD {reg}, {r}')
+            return reg
+        return r
+
     def p_set_assign(self, p):
         """set_stmt : SET lvalue ASSIGN expr"""
         instrs = []
         instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
+        rhs_indirect = (
+            'temp' in p[4]
+            and 'reg' in p[4]
+            and p[4]['result'] == f'[{p[4]["reg"]}]'
+        )
+
+        if rhs_indirect:
+            rhs_reg = p[4]['reg']
+            instrs.extend(p[2]['code'])
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
+            instrs.append(f'MOVD {r1}, [{rhs_reg}]')
+            self._gestor.liberar(rhs_reg)
+        elif 'temp' in p[4]:
+            r1 = p[4]["result"]
+            instrs.extend(p[2]['code'])
+        else:
+            instrs.extend(p[2]['code'])
+            r1 = self._gestor.ocupar()
+            instrs.append(f'MOVD {r1}, {p[4]["result"]}')
+
         lvalue = p[2]["result"]
         instrs.append(f'MOVD {lvalue}, {r1}')
-        
+
         self._gestor.liberar(r1)
 
         if 'temp' in p[2]:
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {'code': instrs, "result": lvalue}
 
 
     def p_set_pluseq(self, p):
         """set_stmt : SET lvalue SWEET_PLUS expr"""
         instrs = []
         instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
+        rhs_indirect = (
+            'temp' in p[4]
+            and 'reg' in p[4]
+            and p[4]['result'] == f'[{p[4]["reg"]}]'
+        )
+
+        if rhs_indirect:
+            rhs_reg = p[4]['reg']
+            instrs.extend(p[2]['code'])
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
+            instrs.append(f'MOVD {r1}, [{rhs_reg}]')
+            self._gestor.liberar(rhs_reg)
+        elif 'temp' in p[4]:
+            r1 = p[4]["result"]
+            instrs.extend(p[2]['code'])
+        else:
+            instrs.extend(p[2]['code'])
+            r1 = self._gestor.ocupar()
+            instrs.append(f'MOVD {r1}, {p[4]["result"]}')
+
         lvalue = p[2]["result"]
         r2 = self._gestor.ocupar()
         instrs.append(f'MOVD {r2}, {lvalue}')
         instrs.append(f'ADD {r1}, {r2}')
         instrs.append(f'MOVD {lvalue}, {r1}')
-        
+
         self._gestor.liberar(r1)
         self._gestor.liberar(r2)
 
         if 'temp' in p[2]:
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {'code': instrs, "result": lvalue}
 
     # ── Lvalue ────────────────────────────────────────────────────────────
 
@@ -1067,37 +1092,22 @@ class GeneradorCodigo:
         left_code  = p[1]['code']
         right_code = p[3]['code']
 
-        
         instrs = []
         instrs.extend(left_code)
         instrs.extend(right_code)
 
-        #Revisamos si ya se hace uso de algun registro temp
         if 'temp' in p[1]:
-            op1 = p[1]["result"]
-            r1 = p[1]["result"]
-            print(p[1])
-            print(p[3])
-            
-            try:
-                is_float =  self.sim_table[p[3]['result'][1:-1]]['type'] == 'float'
-            except KeyError:
-                codigo = p[1]['code']
-                for line in codigo:
-                    if 'FP' in line:
-                        is_float = True
+            r1 = self._deref_if_indirect(p[1], instrs)
         else:
             op1 = p[1]["result"]
             r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {op1}'
-            )
-        
-            is_float = (
-                self.sim_table[p[1]['result'][1:-1]]['type'] == 'float' or
-                self.sim_table[p[3]['result'][1:-1]]['type'] == 'float'
-            )
-       
+            instrs.append(f'MOVD {r1}, {op1}')
+
+        is_float = (
+            p[1].get('type') == 'float' or
+            p[3].get('type') == 'float'
+        )
+
         op2 = p[3]["result"]
 
         if p[2] == '+':
@@ -1594,11 +1604,11 @@ class GeneradorCodigo:
 
     def p_expr_id(self, p):
         """expr : ID"""
-
+        sym = self.sim_table.get(p[1], {})
         p[0] = {
             'code': [],
             "result": f'[{p[1]}]',
-            'type': 'id'
+            'type': sym.get('type', 'id')
         }
 
 
