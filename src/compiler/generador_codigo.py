@@ -272,16 +272,17 @@ class GeneradorCodigo:
             value = initializer
             if isinstance(value, dict):
                 init_value = value.get('result')
-                code = value.get('code', [])
+                code = list(value.get('code', []))
             else:
                 init_value = value
                 code = []
 
+            target_operand = self._mem_operand(name)
+
             if isinstance(value, dict) and value.get('temp'):
-                decl = f'{name} : 0'
                 if self._is_global(owner_sym):
-                    self.data.append(decl)
-                code = code + [f'MOVD [{name}], {init_value}']
+                    self.data.append(f'{name} : 0')
+                code.extend(self._emit_store(target_operand, init_value))
                 if isinstance(init_value, str) and init_value.startswith('R'):
                     self._gestor.liberar(init_value)
 
@@ -289,13 +290,20 @@ class GeneradorCodigo:
                 if self._is_global(owner_sym):
                     self.data.append(f"{name} : 0")
                 r1 = self._gestor.ocupar()
-                code = code + [f'MOVD {r1}, [{init_value["label"]}]', f'MOVD [{name}], {r1}']
+                code.extend([
+                    f'MOVD {r1}, [{init_value["label"]}]',
+                ])
+                code.extend(self._emit_store(target_operand, r1))
                 self._gestor.liberar(r1)
 
             else:
-                decl = f'{name} : {_scalar_repr(init_value)}'
                 if self._is_global(owner_sym):
-                    self.data.append(decl)
+                    self.data.append(f'{name} : 0')
+                forced = self._force_reg(value)
+                code.extend(forced['code'])
+                code.extend(self._emit_store(target_operand, forced['reg']))
+                if forced.get('owned'):
+                    self._gestor.liberar(forced['reg'])
 
             p[0] = {
                 'code': code,
@@ -357,6 +365,7 @@ class GeneradorCodigo:
         n_code = []
         owner_sym = owner_sym or {}
         init_value = arg.get('result')
+        target_operand = self._mem_operand(name)
 
         def _scalar_repr(value):
             if isinstance(value, dict):
@@ -383,13 +392,16 @@ class GeneradorCodigo:
                 n_code.extend(materialized['code'])
                 init_value = materialized['result']
             else:
-                n_code.append(f'MOVD [{name}], {init_value}')
+                forced = self._force_reg(arg)
+                n_code.extend(forced['code'])
+                n_code.extend(self._emit_store(target_operand, forced['reg']))
+                if forced.get('owned'):
+                    self._gestor.liberar(forced['reg'])
 
         elif arg.get('temp'):
-            decl = f'{name} : 0'
             if self._is_global(owner_sym):
-                self.data.append(decl)
-            n_code.append(f'MOVD [{name}], {init_value}')
+                self.data.append(f'{name} : 0')
+            n_code.extend(self._emit_store(target_operand, init_value))
 
         elif isinstance(init_value, dict) and init_value.get('kind') == 'global':
             if self._is_global(owner_sym):
@@ -397,14 +409,18 @@ class GeneradorCodigo:
             r1 = self._gestor.ocupar()
             n_code.extend([
                 f'MOVD {r1}, [{init_value["label"]}]',
-                f'MOVD [{name}], {r1}'
             ])
+            n_code.extend(self._emit_store(target_operand, r1))
             self._gestor.liberar(r1)
 
         else:
-            decl = f'{name} : {_scalar_repr(init_value)}'
             if self._is_global(owner_sym):
-                self.data.append(decl)
+                self.data.append(f'{name} : 0')
+            forced = self._force_reg(arg)
+            n_code.extend(forced['code'])
+            n_code.extend(self._emit_store(target_operand, forced['reg']))
+            if forced.get('owned'):
+                self._gestor.liberar(forced['reg'])
 
         return n_code
 
@@ -492,8 +508,7 @@ class GeneradorCodigo:
         instrs.extend(src['code'])
         instrs.extend(self._emit_store(p[2]['result'], src['reg']))
 
-        if src.get('owned'):
-            self._gestor.liberar(src['reg'])
+        self._release_forced_reg(src, p[4])
         if p[2].get('owned'):
             self._gestor.liberar(p[2]['reg'])
 
@@ -514,8 +529,7 @@ class GeneradorCodigo:
         instrs.append(f'ADD {dest["reg"]}, {src["reg"]}')
         instrs.extend(self._emit_store(p[2]['result'], dest['reg']))
 
-        if src.get('owned'):
-            self._gestor.liberar(src['reg'])
+        self._release_forced_reg(src, p[4])
         if dest.get('owned'):
             self._gestor.liberar(dest['reg'])
         if p[2].get('owned'):
@@ -577,7 +591,7 @@ class GeneradorCodigo:
         instrs.append(f'MUL {index["reg"]}, {stride}')
         instrs.append(f'ADD {base_reg}, {index["reg"]}')
 
-        if index.get('owned'):
+        if index.get('owned') or index.get('reg') in self._gestor.registros:
             self._gestor.liberar(index['reg'])
 
         remaining_dims = max(p[1].get('dims', 0) - 1, 0)
@@ -894,88 +908,81 @@ class GeneradorCodigo:
     # for_init: declaración let simple, expresión, o vacío
     def p_for_init_let(self, p):
         """for_init : LET ID COLON type_annot ASSIGN expr"""
+        name = p[2]
+        dest = self._mem_operand(name)
 
-        value = p[6]
+        # If this loop variable is addressed as a global label, ensure it
+        # has a backing declaration in .data to satisfy the assembler table.
+        if isinstance(dest, dict) and dest.get('kind') == self.OP_GLOBAL:
+            decl = f"{name} : 0"
+            if decl not in self.data:
+                self.data.append(decl)
 
-        if isinstance(value, dict):
-            init_value = value["result"]
-            code = value["code"]
-        else:
-            init_value = value
-            code = []
-
-        sym = self._symbol(p[2])
-
-        if self._is_global(sym):
-            self.data.append(   f"{p[2]} : 0")
-
-        code.append(f"MOVD [{p[2]}], {init_value}")
+        src = self._force_reg(p[6])
+        code = []
+        code.extend(src['code'])
+        code.extend(self._emit_store(dest, src['reg']))
+        self._release_forced_reg(src, p[6])
 
         p[0] = {
             "code": code,
-            "result": [p[2]]
+            "result": dest
         }
 
     # for_update: set simple, expresión, o vacío
     def p_for_update_set_assign(self, p):
         """for_update : SET lvalue ASSIGN expr"""
-
         instrs = []
-        instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
+        instrs.extend(p[2]['code'])
+        src = self._force_reg(p[4])
+        instrs.extend(src['code'])
+        instrs.extend(self._emit_store(p[2]['result'], src['reg']))
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
-        else:
-            n_value = p[4]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
-        lvalue = p[2]["result"]
-        instrs.append(f'MOVD {lvalue}, {r1}')
-        
-        self._gestor.liberar(r1)
-
-        if 'temp' in p[2]:
+        self._release_forced_reg(src, p[4])
+        if p[2].get('owned'):
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {
+            'code': instrs,
+            'result': p[2]['result']
+        }
 
     def p_for_update_set_pluseq(self, p):
         """for_update : SET lvalue SWEET_PLUS expr"""
+        dest = self._force_reg(p[2])
 
         instrs = []
-        instrs.extend(p[4]['code'])
-        instrs.extend(p[2]['code'])    
+        instrs.extend(dest['code'])
 
-        if 'temp' in p[4]:
-            n_value = p[4]["result"]
-            r1 = p[4]["result"]
+        rhs_result = p[4].get('result') if isinstance(p[4], dict) else p[4]
+        rhs_is_plain_imm = isinstance(rhs_result, (int, float)) and not p[4].get('code')
+        rhs_is_struct_imm = (
+            isinstance(rhs_result, dict)
+            and rhs_result.get('kind') == self.OP_IMM
+            and not p[4].get('code')
+        )
+        rhs_is_imm = rhs_is_plain_imm or rhs_is_struct_imm
+
+        if rhs_is_imm:
+            imm_value = rhs_result.get('value') if isinstance(rhs_result, dict) else rhs_result
+            instrs.append(f'ADD {dest["reg"]}, {imm_value}')
         else:
-            n_value = p[4]["result"]
-            r1 = self._gestor.ocupar()
-            instrs.append(
-                f'MOVD {r1}, {n_value}'
-            )
-        lvalue = p[2]["result"]
-        r2 = self._gestor.ocupar()
-        instrs.append(f'MOVD {r2}, {lvalue}')
-        instrs.append(f'ADD {r1}, {r2}')
-        instrs.append(f'MOVD {lvalue}, {r1}')
-        
-        self._gestor.liberar(r1)
-        self._gestor.liberar(r2)
+            src = self._force_reg(p[4])
+            instrs.extend(src['code'])
+            instrs.append(f'ADD {dest["reg"]}, {src["reg"]}')
+            self._release_forced_reg(src, p[4])
 
-        if 'temp' in p[2]:
+        instrs.extend(self._emit_store(p[2]['result'], dest['reg']))
+
+        if dest.get('owned'):
+            self._gestor.liberar(dest['reg'])
+        if p[2].get('owned'):
             self._gestor.liberar(p[2]['reg'])
 
-        p[0] = {'code': instrs,
-                "result":lvalue
-                }
+        p[0] = {
+            'code': instrs,
+            'result': p[2]['result']
+        }
 
     def p_for_update_expr(self, p):
         """for_update : expr"""
@@ -1189,8 +1196,7 @@ class GeneradorCodigo:
 
             if p[2] in ('==', '!='):
                 instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
-                if right.get('owned'):
-                    self._gestor.liberar(right['reg'])
+                self._release_forced_reg(right, p[3])
                 p[0] = {
                     'code': instrs,
                     'result': left['reg'],
@@ -1206,8 +1212,7 @@ class GeneradorCodigo:
 
             if p[2] in ('==', '!='):
                 instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
-                if right.get('owned'):
-                    self._gestor.liberar(right['reg'])
+                self._release_forced_reg(right, p[3])
                 p[0] = {
                     'code': instrs,
                     'result': left['reg'],
@@ -1235,8 +1240,7 @@ class GeneradorCodigo:
         elif p[2] == '%':
             instrs.append(f'FPMOD {result_reg}, {op2}' if is_float else f'MOD {result_reg}, {op2}')
 
-        if right.get('owned'):
-            self._gestor.liberar(right['reg'])
+        self._release_forced_reg(right, p[3])
 
         p[0] = {
             'code': instrs,
@@ -1268,8 +1272,7 @@ class GeneradorCodigo:
 
             if p[2] in ('==', '!='):
                 instrs.extend(self._emit_text_cmp(left, right, p[2], p[1], p[3]))
-                if right.get('owned'):
-                    self._gestor.liberar(right['reg'])
+                self._release_forced_reg(right, p[3])
                 p[0] = {
                     'code': instrs,
                     'result': left['reg'],
@@ -1309,8 +1312,7 @@ class GeneradorCodigo:
             f'{false_label}:'
         ])
 
-        if right.get('owned'):
-            self._gestor.liberar(right['reg'])
+        self._release_forced_reg(right, p[3])
 
         p[0] = {
             'code': instrs,
@@ -1399,8 +1401,7 @@ class GeneradorCodigo:
         instrs.extend(right['code'])
         instrs.append(f'AND {left["reg"]}, {right["reg"]}')
 
-        if right.get('owned'):
-            self._gestor.liberar(right['reg'])
+        self._release_forced_reg(right, p[3])
 
         p[0] = {
             'code': instrs,
@@ -1419,8 +1420,7 @@ class GeneradorCodigo:
         instrs.extend(right['code'])
         instrs.append(f'OR {left["reg"]}, {right["reg"]}')
 
-        if right.get('owned'):
-            self._gestor.liberar(right['reg'])
+        self._release_forced_reg(right, p[3])
 
         p[0] = {
             'code': instrs,
@@ -1439,8 +1439,7 @@ class GeneradorCodigo:
         instrs.extend(right['code'])
         instrs.append(f'XOR {left["reg"]}, {right["reg"]}')
 
-        if right.get('owned'):
-            self._gestor.liberar(right['reg'])
+        self._release_forced_reg(right, p[3])
 
         p[0] = {
             'code': instrs,
@@ -1506,7 +1505,7 @@ class GeneradorCodigo:
             f'ADD {addr_reg}, {index["reg"]}'
         ])
 
-        if index.get('owned'):
+        if index.get('owned') or index.get('reg') in self._gestor.registros:
             self._gestor.liberar(index['reg'])
 
         remaining_dims = max(p[1].get('dims', 0) - 1, 0)
@@ -2048,7 +2047,14 @@ class GeneradorCodigo:
     def _mem_operand(self, name):
         sym = self._symbol(name)
         storage_class = sym.get('storage_class')
-        is_ref = (sym.get('dims', 0) > 0) or (sym.get('type') == 'text') or (sym.get('type') in self.molds)
+        kind = sym.get('kind')
+        is_collection = kind in ('array', 'matrix')
+        is_ref = (
+            (sym.get('dims', 0) > 0)
+            or is_collection
+            or (sym.get('type') == 'text')
+            or (sym.get('type') in self.molds)
+        )
 
         if storage_class == 'local':
             return {
@@ -2311,6 +2317,16 @@ class GeneradorCodigo:
         reg = self._gestor.ocupar()
         code.append(f'MOVD {reg}, {result}')
         return {'code': code, 'reg': reg, 'owned': True}
+
+    def _release_forced_reg(self, forced, expr=None):
+        reg = forced.get('reg') if isinstance(forced, dict) else None
+        if not reg:
+            return
+        if forced.get('owned'):
+            self._gestor.liberar(reg)
+            return
+        if isinstance(expr, dict) and expr.get('temp') and reg in self._gestor.registros:
+            self._gestor.liberar(reg)
 
     def _current_function_frame_size(self):
         if not self.function_stack:
