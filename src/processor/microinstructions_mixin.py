@@ -309,7 +309,6 @@ class MicroinstructionMixin:
         op1 : bytearray
             Valor a empilar (8 bytes).
         """
-        print('aaaaa')
         self._mar[:] = self._registers[13][:]
         self._mdr[:] = op1[:]
         self._write_to_ram()

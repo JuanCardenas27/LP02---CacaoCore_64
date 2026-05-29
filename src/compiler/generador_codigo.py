@@ -858,7 +858,7 @@ class GeneradorCodigo:
         for line in body_code:
             def replacer(match):
                 base_val = int(match.group(1))
-                return str(base_val + self.function_temp_size)
+                return str(base_val)
             resolved_line = re.sub(r'__STACK_OFFSET_(\d+)__', replacer, line)
             resolved_body.append(resolved_line)
 
@@ -887,7 +887,7 @@ class GeneradorCodigo:
         for line in body_code:
             def replacer(match):
                 base_val = int(match.group(1))
-                return str(base_val + self.function_temp_size)
+                return str(base_val)
             resolved_line = re.sub(r'__STACK_OFFSET_(\d+)__', replacer, line)
             resolved_body.append(resolved_line)
 
@@ -1524,20 +1524,17 @@ class GeneradorCodigo:
         # Preserve RHS before emitting LHS code. Child expressions may have
         # generated code with fixed register names; spilling avoids accidental
         # clobbering when both sides transiently use the same register.
-        cmp_rhs_temp = self._allocate_temp(8)
-        rhs_addr_code, rhs_addr_reg, rhs_addr_owned = self._address_of_operand(cmp_rhs_temp)
-        instrs.extend(rhs_addr_code)
-        instrs.append(f'MOVD [{rhs_addr_reg}], {right["reg"]}')
-        if rhs_addr_owned:
-            self._gestor.liberar(rhs_addr_reg)
+        # Spill RHS into a global data label to avoid consuming extra
+        # temporary registers while emitting LHS code (robust under high
+        # register pressure).
+        spill_label = f'_cmp_data_{self.label_count}'
+        self.label_count += 1
+        self.data.append(f'{spill_label} : 0')
+        instrs.append(f'MOVD [{spill_label}], {right["reg"]}')
 
         instrs.extend(left['code'])
         rhs_cmp_reg = self._gestor.ocupar()
-        rhs_load_code, rhs_load_addr, rhs_load_owned = self._address_of_operand(cmp_rhs_temp)
-        instrs.extend(rhs_load_code)
-        instrs.append(f'MOVD {rhs_cmp_reg}, [{rhs_load_addr}]')
-        if rhs_load_owned:
-            self._gestor.liberar(rhs_load_addr)
+        instrs.append(f'MOVD {rhs_cmp_reg}, [{spill_label}]')
 
         true_label = f"LTRUE{self.label_count}"
         false_label = f"LFALSE{self.label_count}"
