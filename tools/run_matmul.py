@@ -15,39 +15,6 @@ errs,asmc=compiler.compile_generator(res.text, imports.lista)
 print('errors', errs)
 open('resultado_matmul.asm','w',encoding='utf-8').write('\n'.join(asmc))
 asm=Assembler()
-# Post-process the generated asm to ensure any forward-declared data labels
-# referenced via LEA exist in the .data section (best-effort). This helps
-# avoid assembler KeyError when generator emits LEA to synthesized labels.
-import re
-asm_text = '\n'.join(asmc)
-used_labels = set(re.findall(r'LEA\s+\w+,\s*\[(\w+)\]', asm_text))
-lines = asm_text.splitlines()
-if used_labels:
-	# find .data section range
-	try:
-		data_idx = lines.index('.data')
-	except ValueError:
-		data_idx = -1
-	if data_idx >= 0:
-		existing = set()
-		for ln in lines[data_idx+1:]:
-			if ln.strip() == '.text':
-				break
-			m = re.match(r"(\w+)\s*:\s*", ln)
-			if m:
-				existing.add(m.group(1))
-		inserts = []
-		for lab in used_labels:
-			if lab not in existing:
-				inserts.append(f'{lab} : 0')
-		if inserts:
-			# insert after .data header
-			lines = lines[:data_idx+1] + inserts + lines[data_idx+1:]
-			asm_text = '\n'.join(lines)
-			open('resultado_matmul.asm','w',encoding='utf-8').write(asm_text)
-			# update asmc source for assembler input
-			asmc = asm_text.splitlines()
-
 asm.process('\n'.join(asmc))
 reloc=asm.get_output()
 Linker().link_and_load(reloc,CODE_START,[])

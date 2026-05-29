@@ -1,0 +1,13 @@
+#define EDAD 25
+#define TASA 8.5
+#define ACTIVO indeed
+
+let nombre: text = "CacaoCore"
+let edad: int = EDAD
+let tasa: float = TASA
+let activo: bool = ACTIVO
+
+show nombre
+show edad
+show tasa
+show activo

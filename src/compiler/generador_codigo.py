@@ -152,10 +152,17 @@ class GeneradorCodigo:
             if isinstance(value, dict):
                 if 'value' in value:
                     return value['value']
+                if value.get('kind') == 'global' and value.get('label') in self.float_pool:
+                    return self.float_pool[value['label']]
                 if 'label' in value:
-                    return value['label']
+                    label = value['label']
+                    if label in self.float_pool:
+                        return self.float_pool[label]
+                    return label
                 if 'result' in value:
                     return _scalar_repr(value['result'])
+            if isinstance(value, str) and value in self.float_pool:
+                return self.float_pool[value]
             return value
 
         dims = dims_info.get('dims', 0)
@@ -195,23 +202,50 @@ class GeneradorCodigo:
                     # values when initializer has fewer elements than total.
                     elem_count = total if total > 0 else len(initializer)
                     inserts = []
+                    runtime_inits = []
                     for i in range(elem_count):
+                        label = f'{base_label}_{i}'
                         if i < len(initializer):
                             val = initializer[i]
                             scalar = _scalar_repr(val)
                         else:
                             scalar = defecto
-                        label = f'{base_label}_{i}'
-                        decl = f'{label} : {scalar}'
-                        if decl not in self.data and decl not in inserts:
-                            inserts.append(decl)
+
+                        # If scalar is a register name or non-serializable,
+                        # emit an empty slot in .data and schedule a runtime
+                        # initialization that stores the computed value into
+                        # the label address. This handles summons and other
+                        # dynamic initializers.
+                        if isinstance(scalar, str) and scalar.startswith('R'):
+                            decl = f'{label} : 0'
+                            if decl not in self.data and decl not in inserts:
+                                inserts.append(decl)
+
+                            # Generate runtime init code to store the value
+                            # Evaluate the initializer expression into a register
+                            val_force = self._force_reg(val)
+                            # Allocate an address register and store
+                            addr_reg = self._gestor.ocupar()
+                            runtime_inits.extend(val_force['code'])
+                            runtime_inits.append(f'LEA {addr_reg}, [{label}]')
+                            runtime_inits.append(f'MOVD [{addr_reg}], {val_force["reg"]}')
+                            if val_force.get('owned'):
+                                self._gestor.liberar(val_force['reg'])
+                            self._gestor.liberar(addr_reg)
+                        else:
+                            decl = f'{label} : {scalar}'
+                            if decl not in self.data and decl not in inserts:
+                                inserts.append(decl)
+
                     if inserts:
                         # Place the element declarations before existing .data
                         # entries, preserving ascending index order.
                         self.data = inserts + self.data
 
-                    # Make the variable point to the first element
+                    # Make the variable point to the first element and
+                    # prepend any runtime initializers so they run at startup.
                     ptr_reg = self._gestor.ocupar()
+                    init_code.extend(runtime_inits)
                     init_code.append(f'LEA {ptr_reg}, [{base_label}_0]')
                     init_code.extend(self._emit_store(target_operand, ptr_reg))
                     self._gestor.liberar(ptr_reg)
@@ -312,9 +346,8 @@ class GeneradorCodigo:
                                     if isinstance(name_attr, str):
                                         l = int(self.sim_table.get(name_attr, {}).get('value', 0) or 0)
                             if l == 0:
-                                # Unable to resolve at compile-time — warn and
-                                # conservatively assume 1 so codegen can continue.
-                                self.errors.append(f"unable to resolve dimension for '{name}'; assuming 1")
+                                # Unable to resolve at compile-time — conservatively
+                                # assume 1 so codegen can continue.
                                 l = 1
                             lengths.append(l)
                         total = 1
@@ -322,13 +355,49 @@ class GeneradorCodigo:
                             total *= v
                         size = total * base_size
 
+                    # If semantic information already contains a computed
+                    # size for this symbol, prefer it (this happens when
+                    # dimensions reference previously-declared symbols).
+                    if size == 0 and owner_sym is not None:
+                        syminfo = self._symbol(name)
+                        sem_size = syminfo.get('size', 0) if isinstance(syminfo, dict) else 0
+                        if sem_size:
+                            size = sem_size
+
                     if size > 0:
-                        temp_operand = self._allocate_temp(size)
-                        addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
-                        init_code.extend(addr_code)
-                        init_code.extend(self._emit_store(target_operand, addr_reg))
-                        if addr_owned:
-                            self._gestor.liberar(addr_reg)
+                        # For global arrays, prefer emitting a static .data
+                        # area so the assembler/linker see concrete labels
+                        # (avoids runtime temp allocation). If semantic
+                        # information provides a size, emit that many
+                        # element labels and point the variable to the
+                        # first element.
+                        if self._is_global(owner_sym):
+                            # Prefer semantic table size when available
+                            sem = self._symbol(name) or {}
+                            sem_size = sem.get('size', 0) if isinstance(sem, dict) else 0
+                            if sem_size:
+                                elem_count = sem_size // base_size if base_size else 0
+                            else:
+                                elem_count = size // base_size if base_size else 0
+                            base_label = f'{name}_data'
+                            inserts = []
+                            for i in range(elem_count):
+                                decl = f'{base_label}_{i} : 0'
+                                if decl not in self.data and decl not in inserts:
+                                    inserts.append(decl)
+                            if inserts:
+                                self.data = inserts + self.data
+                            ptr_reg = self._gestor.ocupar()
+                            init_code.append(f'LEA {ptr_reg}, [{base_label}_0]')
+                            init_code.extend(self._emit_store(target_operand, ptr_reg))
+                            self._gestor.liberar(ptr_reg)
+                        else:
+                            temp_operand = self._allocate_temp(size)
+                            addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
+                            init_code.extend(addr_code)
+                            init_code.extend(self._emit_store(target_operand, addr_reg))
+                            if addr_owned:
+                                self._gestor.liberar(addr_reg)
 
             p[0] = {
                 'code': init_code,
@@ -453,10 +522,17 @@ class GeneradorCodigo:
             if isinstance(value, dict):
                 if 'value' in value:
                     return value['value']
+                if value.get('kind') == 'global' and value.get('label') in self.float_pool:
+                    return self.float_pool[value['label']]
                 if 'label' in value:
-                    return value['label']
+                    label = value['label']
+                    if label in self.float_pool:
+                        return self.float_pool[label]
+                    return label
                 if 'result' in value:
                     return _scalar_repr(value['result'])
+            if isinstance(value, str) and value in self.float_pool:
+                return self.float_pool[value]
             return value
 
         if tipo == 'text':
@@ -770,7 +846,7 @@ class GeneradorCodigo:
 
     def p_func_def(self, p):
         """func_def : FUNC ID LPAREN enter_function_scope param_list RPAREN block"""
-        name = p[2].upper()
+        name = self._function_asm_label(p[2])
         frame_size = self._symbol(p[2]).get('frame_size', 0)
         total_frame = frame_size + self.function_temp_size
         label = f'{name}:'
@@ -799,7 +875,7 @@ class GeneradorCodigo:
 
     def p_func_def_no_params(self, p):
         """func_def : FUNC ID LPAREN enter_function_scope RPAREN block"""
-        name = p[2].upper()
+        name = self._function_asm_label(p[2])
         frame_size = self._symbol(p[2]).get('frame_size', 0)
         total_frame = frame_size + self.function_temp_size
         label = f'{name}:'
@@ -1422,10 +1498,10 @@ class GeneradorCodigo:
                 | expr GT expr
                 | expr LEQ expr
                 | expr GEQ expr"""
-        left = self._force_reg(p[1])
         right = self._force_reg(p[3])
 
         if p[1].get('type') == 'text' or p[3].get('type') == 'text':
+            left = self._force_reg(p[1])
             instrs = []
             instrs.extend(left['code'])
             instrs.extend(right['code'])
@@ -1441,15 +1517,33 @@ class GeneradorCodigo:
                 }
                 return
 
+        left = self._force_reg(p[1])
         instrs = []
-        instrs.extend(left['code'])
         instrs.extend(right['code'])
+
+        # Preserve RHS before emitting LHS code. Child expressions may have
+        # generated code with fixed register names; spilling avoids accidental
+        # clobbering when both sides transiently use the same register.
+        cmp_rhs_temp = self._allocate_temp(8)
+        rhs_addr_code, rhs_addr_reg, rhs_addr_owned = self._address_of_operand(cmp_rhs_temp)
+        instrs.extend(rhs_addr_code)
+        instrs.append(f'MOVD [{rhs_addr_reg}], {right["reg"]}')
+        if rhs_addr_owned:
+            self._gestor.liberar(rhs_addr_reg)
+
+        instrs.extend(left['code'])
+        rhs_cmp_reg = self._gestor.ocupar()
+        rhs_load_code, rhs_load_addr, rhs_load_owned = self._address_of_operand(cmp_rhs_temp)
+        instrs.extend(rhs_load_code)
+        instrs.append(f'MOVD {rhs_cmp_reg}, [{rhs_load_addr}]')
+        if rhs_load_owned:
+            self._gestor.liberar(rhs_load_addr)
 
         true_label = f"LTRUE{self.label_count}"
         false_label = f"LFALSE{self.label_count}"
         self.label_count += 1
 
-        instrs.append(f'CMP {left["reg"]}, {right["reg"]}')
+        instrs.append(f'CMP {left["reg"]}, {rhs_cmp_reg}')
 
         if p[2] == '==':
             instrs.append(f'JZ {true_label}')
@@ -1472,6 +1566,7 @@ class GeneradorCodigo:
             f'{false_label}:'
         ])
 
+        self._gestor.liberar(rhs_cmp_reg)
         self._release_forced_reg(right, p[3])
 
         p[0] = {
@@ -1671,7 +1766,10 @@ class GeneradorCodigo:
         remaining_dims = max(p[1].get('dims', 0) - 1, 0)
         remaining_shape = list(p[1].get('shape', []))[1:] if p[1].get('shape') else []
 
-        if remaining_dims > 0 or remaining_shape:
+        # If indexing yields a sub-collection or the base type is a mold/text,
+        # return an address to the element so members can be accessed.
+        element_is_ref = (p[1].get('type') in self.molds) or (p[1].get('type') == 'text') or p[1].get('is_ref', False)
+        if remaining_dims > 0 or remaining_shape or element_is_ref:
             p[0] = {
                 'code': instrs,
                 'result': {
@@ -1735,7 +1833,7 @@ class GeneradorCodigo:
                 if force.get('owned'):
                     self._gestor.liberar(force['reg'])
 
-        instrs.append(f'CALL {p[3].upper()}')
+        instrs.append(f'CALL {self._function_asm_label(p[3])}')
 
         if len(args) > 0:
             instrs.append(f'ADD R13, {len(args) * 8}')
@@ -1781,7 +1879,7 @@ class GeneradorCodigo:
             instrs.append(f'PUSH {force["reg"]}')
             if force.get('owned'):
                 self._gestor.liberar(force['reg'])
-        instrs.append(f'CALL {p[1].upper()}')
+        instrs.append(f'CALL {self._function_asm_label(p[1])}')
         instrs.append(f'ADD R13, {len(p[3]) * 8}')
 
         ret_reg = self._gestor.ocupar()
@@ -1798,7 +1896,7 @@ class GeneradorCodigo:
         """expr : ID LPAREN RPAREN"""
         ret_reg = self._gestor.ocupar()
         p[0] = {
-            'code': [f'CALL {p[1].upper()}', f'MOVD {ret_reg}, R1'],
+            'code': [f'CALL {self._function_asm_label(p[1])}', f'MOVD {ret_reg}, R1'],
             'result': ret_reg,
             'temp': True,
             'type': self.sim_table.get(p[1], {}).get('return_type', 'unknown')
@@ -2173,7 +2271,7 @@ class GeneradorCodigo:
         
         if current_func:
             for sym in reversed(self.defined_symbols):
-                if sym.get('name') == name and sym.get('scope') == current_func.lower():
+                if sym.get('name') == name and sym.get('scope') == current_func:
                     return sym
                     
         # Fallback to symbol table (for compatibility with globals, functions, etc.)
@@ -2204,7 +2302,7 @@ class GeneradorCodigo:
             return element_size * tail
 
         return element_size
-    
+
     def _mem_operand(self, name):
         sym = self._symbol(name)
         storage_class = sym.get('storage_class')
@@ -2272,6 +2370,10 @@ class GeneradorCodigo:
             }
 
     def _field_operand(self, base_operand, member_name):
+        # Defensive: base_operand may sometimes be a plain name string (legacy paths).
+        if isinstance(base_operand, str):
+            base_operand = self._mem_operand(base_operand)
+
         base_type = base_operand.get('type')
         mold = self.molds.get(base_type, {})
         field = mold.get('fields', {}).get(member_name)
@@ -2499,7 +2601,12 @@ class GeneradorCodigo:
     def _current_function_exit_label(self):
         if not self.function_stack:
             return None
-        return f'{self.function_stack[-1].upper()}_END'
+        return f'{self._function_asm_label(self.function_stack[-1])}_END'
+
+    @staticmethod
+    def _function_asm_label(function_name):
+        safe = ''.join(ch if (ch.isalnum() or ch == '_') else '_' for ch in str(function_name))
+        return f'FN_{safe}'
 
     @staticmethod
     def _format_text_cell(ch):

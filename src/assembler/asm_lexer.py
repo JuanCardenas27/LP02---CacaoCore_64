@@ -70,7 +70,7 @@ class AsmLexer:
         return t    
     
     def t_VAR(self, t):
-        r'[a-z_][a-z0-9_@]*'
+        r'[a-z_][A-Za-z0-9_@]*'
         
         value = t.value.lower()
 
@@ -83,7 +83,7 @@ class AsmLexer:
         return t    
     
     def t_LABEL(self, t):
-        r'[A-Z_][A-Z0-9_]*'
+        r'[A-Z_][A-Za-z0-9_]*'
         
         value = t.value.lower()
 

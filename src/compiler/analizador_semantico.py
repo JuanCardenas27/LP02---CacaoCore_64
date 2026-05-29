@@ -720,8 +720,8 @@ class AnalizadorSemantico:
 
         self.current_method_mold = self.current_mold
 
-        # Use actual function name as scope so parameters can find their function
-        self._enter_scope(function_name.lower())
+        # Keep function scope case-sensitive so func/Func/FUNC remain distinct.
+        self._enter_scope(function_name)
         self.function_stack_offsets.append(0)
 
     def p_func_def_no_params(self, p):

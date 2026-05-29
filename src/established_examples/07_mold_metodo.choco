@@ -1,0 +1,26 @@
+mold Rectangulo {
+    let base: int
+    let altura: int
+
+    func area() {
+        let ar: int
+        set ar = ohmy.base * ohmy.altura
+        deliver ar
+    }
+
+    func perimetro() {
+        let per: int
+        set per = ohmy.base + ohmy.base + ohmy.altura + ohmy.altura
+        deliver per
+    }
+}
+
+let rect: Rectangulo = summon Rectangulo(6, 4)
+
+let resultado: int
+set resultado = rect.area()
+show resultado
+
+let peri: int
+set peri = rect.perimetro()
+show peri

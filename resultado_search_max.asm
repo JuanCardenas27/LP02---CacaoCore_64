@@ -1,0 +1,122 @@
+.data
+a_data_0 : 1
+a_data_1 : 8
+a_data_2 : 4
+a_data_3 : 2
+a_data_4 : 10
+n : 0
+a : 0
+max : 0
+res : 0
+j : 0
+temp_0_0 : 0
+temp_2_0 : 0
+i : 0
+temp_4_0 : 0
+temp_6_0 : 0
+temp_10_0 : 0
+.text
+MOVD R0, 5
+MOVD [n], R0
+LEA R0, [a_data_0]
+MOVD [a], R0
+MOVD R0, 0
+MOVD R2, [a]
+MUL R0, 8
+ADD R2, R0
+MOVD R0, [R2]
+MOVD [max], R0
+MOVD R0, 0
+MOVD [j], R0
+LFOR_START3:
+MOVD R0, [n]
+LEA R3, [temp_0_0]
+MOVD [R3], R0
+MOVD R2, [j]
+LEA R4, [temp_0_0]
+MOVD R3, [R4]
+CMP R2, R3
+JL LTRUE1
+MOVD R2, 0
+JMP LFALSE1
+LTRUE1:
+MOVD R2, 1
+LFALSE1:
+CMP R2, 0
+JZ LFOR_END3
+MOVD R0, [j]
+MOVD R3, [a]
+MUL R0, 8
+ADD R3, R0
+MOVD R0, [R3]
+MOVD [res], R0
+MOVD R0, [res]
+LEA R3, [temp_2_0]
+MOVD [R3], R0
+MOVD R10, 0
+MOVD R11, R3
+MOVD R12, 1
+INTR 0
+MOVD R0, [j]
+ADD R0, 1
+MOVD [j], R0
+JMP LFOR_START3
+LFOR_END3:
+MOVD R0, 1
+MOVD [i], R0
+LFOR_START9:
+MOVD R0, [n]
+LEA R4, [temp_4_0]
+MOVD [R4], R0
+MOVD R3, [i]
+LEA R5, [temp_4_0]
+MOVD R4, [R5]
+CMP R3, R4
+JL LTRUE5
+MOVD R3, 0
+JMP LFALSE5
+LTRUE5:
+MOVD R3, 1
+LFALSE5:
+CMP R3, 0
+JZ LFOR_END9
+MOVD R0, [i]
+MOVD R4, [a]
+MUL R0, 8
+ADD R4, R0
+MOVD R0, [R4]
+LEA R5, [temp_6_0]
+MOVD [R5], R0
+MOVD R4, [max]
+LEA R6, [temp_6_0]
+MOVD R5, [R6]
+CMP R4, R5
+JL LTRUE7
+MOVD R4, 0
+JMP LFALSE7
+LTRUE7:
+MOVD R4, 1
+LFALSE7:
+CMP R4, 0
+JZ LEND8
+MOVD R0, [i]
+MOVD R5, [a]
+MUL R0, 8
+ADD R5, R0
+MOVD R0, [R5]
+MOVD [max], R0
+JMP LEND8
+LEND8:
+MOVD R0, [i]
+ADD R0, 1
+MOVD [i], R0
+JMP LFOR_START9
+LFOR_END9:
+MOVD R0, [max]
+LEA R4, [temp_10_0]
+MOVD [R4], R0
+MOVD R10, 0
+MOVD R11, R4
+MOVD R12, 1
+INTR 0
+HLT

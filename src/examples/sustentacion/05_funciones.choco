@@ -1,0 +1,26 @@
+func maximo(a: int, b: int) {
+    let mx_res: int
+    if a > b {
+        set mx_res = a
+    } otherwise {
+        set mx_res = b
+    }
+    deliver mx_res
+}
+
+func factorial(n: int) {
+    let fact_res: int
+    set fact_res = 1
+    for (let fi: int = 2, fi <= n, set fi += 1) {
+        set fact_res = fact_res * fi
+    }
+    deliver fact_res
+}
+
+let mx: int
+set mx = maximo(15, 27)
+show mx
+
+let hecho: int
+set hecho = factorial(6)
+show hecho

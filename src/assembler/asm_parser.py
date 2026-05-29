@@ -36,7 +36,8 @@ class AsmParser:
             self.symbol_table[p[1]] = str(len(cur_program))
 
     def p_line_variable_float(self, p):
-        'line : VAR COLON FLOAT NEWLINE'
+        '''line : VAR COLON FLOAT NEWLINE
+            | LABEL COLON FLOAT NEWLINE'''
         self.var_table[p[1]] = len(self.program_data)
         self.program_data.append(p[1])
         number = bytearray(struct.pack('<d', p[3])).hex()
@@ -44,14 +45,16 @@ class AsmParser:
         self.program.append(p[0])
 
     def p_line_variable_number(self, p):
-        'line : VAR COLON NUMBER NEWLINE'
+        '''line : VAR COLON NUMBER NEWLINE
+            | LABEL COLON NUMBER NEWLINE'''
         self.var_table[p[1]] = len(self.program_data)
         self.program_data.append(p[1])
         p[0] = p[3].to_bytes(8, byteorder='little').hex()
         self.program.append(str(p[0]))
 
     def p_line_variable_char(self, p):
-        'line : VAR COLON STR'
+        '''line : VAR COLON STR
+            | LABEL COLON STR'''
         self.var_table[p[1]] = len(self.program_data)
         self.program_data.append(p[1])
         p[0] = ord(p[3][1:-1]).to_bytes(8, byteorder='little').hex()
@@ -111,7 +114,8 @@ class AsmParser:
         self.p_error(p)
     
     def p_instr_reg_var(self, p):
-        'instruction : MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKET'
+        '''instruction : MNEMONIC REGISTER COMMA LBRACKET VAR RBRACKET
+                       | MNEMONIC REGISTER COMMA LBRACKET LABEL RBRACKET'''
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_rm':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + str(hex(p[2]))[2:]
@@ -142,7 +146,8 @@ class AsmParser:
         self.p_error(p)
     
     def p_instr_var_reg(self, p):
-        'instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTER'
+        '''instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA REGISTER
+                       | MNEMONIC LBRACKET LABEL RBRACKET COMMA REGISTER'''
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mr':
                 code =  str(instruction["opcode"].to_bytes(4, byteorder='big').hex())[1:] + '-'
@@ -166,7 +171,8 @@ class AsmParser:
         self.p_error(p)
 
     def p_instr_var_inm(self, p):
-        'instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA NUMBER'
+        '''instruction : MNEMONIC LBRACKET VAR RBRACKET COMMA NUMBER
+                       | MNEMONIC LBRACKET LABEL RBRACKET COMMA NUMBER'''
         for instruction in MICROINSTRUCTION_SPECS:
             if instruction["name"] == p[1]+'_mi':
                 code =  str(instruction["opcode"].to_bytes(2, byteorder='big').hex())

@@ -1,0 +1,12 @@
+let a: int = 756
+let b: int = 924
+
+asLongAs a != b {
+    if a > b {
+        set a = a - b
+    } otherwise {
+        set b = b - a
+    }
+}
+
+show a

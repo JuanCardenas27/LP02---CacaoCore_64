@@ -1,0 +1,41 @@
+#define min_age1 18
+
+mold Person {
+    let name: text
+    let age: int
+
+    func greet() {
+        show ohmy.name
+        deliver
+    }
+
+    func isAdult(min: int) {
+        if ohmy.age >= min {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+}
+
+func sum(a: int, b: int) {
+    deliver a + b
+}
+
+func avg(a: int, b: int) {
+    deliver (a + b) / 2.0
+}
+
+let x: int = 10
+let y: float = 20.5
+
+let nums: int[3] = 1, 2, 3
+
+set x = sum(1, 21)
+
+let p: Person = summon Person("Cocoa", x)
+
+show p.name
+show p.greet()              // Imprime 0 porque el método greet
+                            // devuelve vacío y se está haciendo show
+show p.isAdult(min_age1)
