@@ -2410,6 +2410,12 @@ class GeneradorCodigo:
 
     def _address_of_operand(self, operand):
         code = []
+        # Debug: log operand requests for address_of to help trace leaks
+        try:
+            with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                fh.write(f"_address_of_operand called with: {repr(operand)[:200]}\n")
+        except Exception:
+            pass
 
         if operand['kind'] == self.OP_GLOBAL:
             reg = self._gestor.ocupar()

@@ -23,7 +23,7 @@ Ejemplo de uso:
     cu.run_full_exec()  # Ejecutar programa completo
 """
 
-from memoria.ram import ram, SP_INITIAL, INTR_BUFFER
+from memoria.ram import ram, SP_INITIAL, INTR_BUFFER, AddressOutOfRange, CODE_START, CODE_END
 from .alu import ALU
 from .float_aritmethic_unit import FloatAritmethicUnit
 from .decoder import Decoder
@@ -98,6 +98,7 @@ class ControlUnit(MicroinstructionMixin):
         self._registers =[
             bytearray(8) for _ in range(16)
         ]
+        self._last_fetched_addr = None
         self.global_index = 0
         self._pc = bytearray(8)
         self._ir = bytearray(8)
@@ -191,7 +192,12 @@ class ControlUnit(MicroinstructionMixin):
         decodifica la instrucción y la ejecuta.
         """
         self._mar[:] = self._pc[:]
-        
+        # Record the address of the instruction we are about to fetch
+        try:
+            self._last_fetched_addr = int.from_bytes(self._mar[:], byteorder='little', signed=False)
+        except Exception:
+            self._last_fetched_addr = None
+
         self._read_from_ram()
 
         self._ir[:] = self._mdr[:]
@@ -255,6 +261,29 @@ class ControlUnit(MicroinstructionMixin):
             self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
+        # ONE-SHOT TRACE: if instruction was fetched from problematic PC, print decode details
+        fetched_addr = getattr(self, '_last_fetched_addr', None)
+
+        if fetched_addr is not None:
+            try:
+                idx = (fetched_addr - CODE_START) // 8
+            except Exception:
+                idx = None
+
+            if idx is not None and 95 <= idx <= 110:
+                print(f"--- TRACE: Decoded instruction at fetched_addr=0x{fetched_addr:08X} (index={idx}) ---")
+                try:
+                    print(f"  IR raw : {self._ir.hex()}")
+                    print(f"  Decoded: {name}_{modes}")
+                    print(f"  Ops[0] raw: {ops[0].hex()}")
+                    print(f"  Ops[1] raw: {ops[1].hex()}")
+                    regs = self.get_registers()
+                    print('  Registers snapshot:')
+                    for k,v in regs.items():
+                        print(f"    {k}: 0x{v:016X}")
+                except Exception as e:
+                    print('  Trace printing failed:', e)
+
         self._methods[name+"_"+modes](ops[0], ops[1])
         
         print("Completó EXECUTE")
@@ -296,7 +325,18 @@ class ControlUnit(MicroinstructionMixin):
             Número de bytes a leer (default: 8).
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
-        self._mdr[:] = self.ram.read(direccion, size)
+        try:
+            self._mdr[:] = self.ram.read(direccion, size)
+        except AddressOutOfRange as e:
+            pc_val = int.from_bytes(self._pc, byteorder='little', signed=False)
+            word_idx = None
+            if CODE_START <= pc_val < CODE_END:
+                word_idx = (pc_val - CODE_START) // 8
+            print("AddressOutOfRange during RAM READ:")
+            print(f"  MAR=0x{direccion:08X}, size={size}")
+            print(f"  PC=0x{pc_val:08X}, code_word_index={word_idx}")
+            print(f"  Exception: {e}")
+            raise
 
     def _write_to_ram(self, size=8):
         """Escribe datos en RAM desde MDR usando dirección en MAR.
@@ -308,7 +348,19 @@ class ControlUnit(MicroinstructionMixin):
         """
         direccion = int.from_bytes(self._mar[:], byteorder='little', signed=False)
         value = self._mdr[:size]
-        self.ram.write(direccion, value)
+        try:
+            self.ram.write(direccion, value)
+        except AddressOutOfRange as e:
+            pc_val = int.from_bytes(self._pc, byteorder='little', signed=False)
+            word_idx = None
+            if CODE_START <= pc_val < CODE_END:
+                word_idx = (pc_val - CODE_START) // 8
+            print("AddressOutOfRange during RAM WRITE:")
+            print(f"  MAR=0x{direccion:08X}, size={size}")
+            print(f"  PC=0x{pc_val:08X}, code_word_index={word_idx}")
+            print(f"  MDR (first bytes): {value[:min(len(value),8)].hex()}")
+            print(f"  Exception: {e}")
+            raise
     
     #################################
     #     FUNCIONES AUXILIARES      #
