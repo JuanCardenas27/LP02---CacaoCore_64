@@ -17,7 +17,7 @@ class IOController:
         INT: lambda x: int.from_bytes(x, byteorder="little", signed=True),
         FLOAT: lambda x: struct.unpack('<d', x)[0],
         STRING: lambda x: x.decode("utf-8", errors="surrogateescape"),
-        BOOL: lambda x: bool(int.from_bytes(x, byteorder="little", signed=True))
+        BOOL: lambda x: "indeed" if bool(int.from_bytes(x, byteorder="little", signed=True)) else "nope"
     }
 
     def __init__(self):

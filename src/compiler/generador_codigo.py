@@ -827,7 +827,15 @@ class GeneradorCodigo:
         if isinstance(left, dict):
             res = left.get('result')
             if isinstance(res, dict):
-                base_src = dict(res)
+                if res.get('kind') == 'addr':
+                    base_src = {
+                        'kind': self.OP_REG,
+                        'value': res.get('value'),
+                        'type': left.get('type'),
+                        'is_ref': True,
+                    }
+                else:
+                    base_src = dict(res)
             elif left.get('reg'):
                 base_src = {
                     'kind': self.OP_REG,
@@ -1388,14 +1396,11 @@ class GeneradorCodigo:
         else:
             force = self._force_reg(p[2])
             instrs.extend(force['code'])
-            # For scalar types (int/float/bool) the ROM expects an address
-            # pointing to an 8-byte cell. Materialize the value into a
-            # temporary location and pass its address in R11.
             if tipo_expr in ("int", "float", "bool"):
                 temp_addr_op = self._allocate_temp(8)
                 addr_code, addr_reg, addr_owned = self._address_of_operand(temp_addr_op)
                 instrs.extend(addr_code)
-                # Store the scalar value into the temp cell
+                # Store the scalar value into a temporary cell and pass its address.
                 instrs.append(f'MOVD [{addr_reg}], {force["reg"]}')
                 instrs.extend([
                     f'MOVD R10, {tipo}',
@@ -1504,12 +1509,20 @@ class GeneradorCodigo:
                 return
 
         instrs = []
-        instrs.extend(left['code'])
+        spill_label = f'_arith_data_{self.label_count}'
+        self.label_count += 1
+        self.data.append(f'{spill_label} : 0')
         instrs.extend(right['code'])
+        instrs.append(f'MOVD [{spill_label}], {right["reg"]}')
+
+        instrs.extend(left['code'])
+
+        right_reg = self._gestor.ocupar()
+        instrs.append(f'MOVD {right_reg}, [{spill_label}]')
 
         result_reg = left['reg']
         is_float = p[1].get('type') == 'float' or p[3].get('type') == 'float'
-        op2 = right['reg']
+        op2 = right_reg
 
         if p[2] == '+':
             instrs.append(f'FPADD {result_reg}, {op2}' if is_float else f'ADD {result_reg}, {op2}')
@@ -1522,6 +1535,7 @@ class GeneradorCodigo:
         elif p[2] == '%':
             instrs.append(f'FPMOD {result_reg}, {op2}' if is_float else f'MOD {result_reg}, {op2}')
 
+        self._gestor.liberar(right_reg)
         self._release_forced_reg(right, p[3])
 
         p[0] = {
@@ -1593,13 +1607,20 @@ class GeneradorCodigo:
         elif p[2] == '!=':
             instrs.append(f'JNZ {true_label}')
         elif p[2] == '<':
-            instrs.append(f'JL {true_label}')
+            instrs.append(f'JS {true_label}')
         elif p[2] == '>':
-            instrs.append(f'JG {true_label}')
+            instrs.extend([
+                f'JS {false_label}',
+                f'JZ {false_label}',
+                f'JMP {true_label}',
+            ])
         elif p[2] == '<=':
-            instrs.append(f'JLE {true_label}')
+            instrs.extend([
+                f'JS {true_label}',
+                f'JZ {true_label}',
+            ])
         elif p[2] == '>=':
-            instrs.append(f'JGE {true_label}')
+            instrs.append(f'JNS {true_label}')
 
         instrs.extend([
             f'MOVD {left["reg"]}, 0',
@@ -1811,7 +1832,12 @@ class GeneradorCodigo:
 
         # If indexing yields a sub-collection or the base type is a mold/text,
         # return an address to the element so members can be accessed.
-        element_is_ref = (p[1].get('type') in self.molds) or (p[1].get('type') == 'text') or p[1].get('is_ref', False)
+        element_is_ref = (
+            (p[1].get('type') in self.molds)
+            or (p[1].get('type') == 'text')
+            or remaining_dims > 0
+            or bool(remaining_shape)
+        )
         if remaining_dims > 0 or remaining_shape or element_is_ref:
             p[0] = {
                 'code': instrs,
@@ -1895,15 +1921,27 @@ class GeneradorCodigo:
 
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
-        field_operand = self._field_operand(p[1]['result'], p[3])
+        base_operand = p[1]['result']
+        if isinstance(base_operand, dict) and base_operand.get('kind') == 'addr':
+            base_operand = {
+                'kind': self.OP_REG,
+                'value': base_operand.get('value'),
+                'type': p[1].get('type'),
+                'is_ref': True,
+            }
+
+        field_operand = self._field_operand(base_operand, p[3])
         if field_operand is None:
             field_operand = {
                 'kind': 'global',
                 'label': p[3],
             }
+
+        if isinstance(p[1], dict) and p[1].get('owned') and p[1].get('reg') in self._gestor.registros:
+            self._gestor.liberar(p[1]['reg'])
         
         p[0] = {
-            'code': [],
+            'code': list(p[1].get('code', [])),
             'result': field_operand,
             'type': field_operand.get('type', self.sim_table[p[3]]['type']),
             'dims': field_operand.get('dims', self.sim_table[p[3]].get('dims', 0)),
@@ -2334,7 +2372,10 @@ class GeneradorCodigo:
         return 8
 
     def _array_stride(self, operand):
-        element_size = operand.get('element_size') or self._type_size(operand.get('type'))
+        element_type = operand.get('type')
+        element_size = operand.get('element_size') or self._type_size(element_type)
+        if element_type in self.molds or element_type == 'text' or operand.get('is_ref'):
+            element_size = self.target.get('pointer_size', 8) if getattr(self, 'target', None) else 8
         shape = list(operand.get('shape', []))
 
         if shape:
@@ -2373,10 +2414,18 @@ class GeneradorCodigo:
             }
 
         elif storage_class == 'param':
+            func_sym = self.sim_table.get(sym.get('scope'), {}) if isinstance(sym, dict) else {}
+            frame_size = func_sym.get('frame_size') or 0
+            param_index = sym.get('parameter_index', 0)
+            num_params = len([
+                s for s in self.sim_table.values()
+                if s.get('kind') == 'parameter' and s.get('scope') == sym.get('scope')
+            ])
+            param_offset = frame_size + (num_params - param_index + 1) * 8
             return {
                 'kind': self.OP_STACK,
                 'base': 'R13',
-                'offset': f"__STACK_OFFSET_{sym.get('param_offset', 0)}__",
+                'offset': f"__STACK_OFFSET_{param_offset}__",
                 'type': sym.get('type'),
                 'dims': sym.get('dims', 0),
                 'shape': list(sym.get('shape', [])),

@@ -639,9 +639,11 @@ class AnalizadorSemantico:
             for sym_entry in reversed(self.defined_symbols):
                 if sym_entry.get('kind') == 'parameter' and sym_entry.get('name') in param_names and sym_entry.get('scope') == name:
                     idx = param_names[sym_entry['name']]
-                    # CALL pushes return address first, so the first parameter
-                    # starts at SP+16 (SP+8 is the saved return address).
-                    sym_entry['param_offset'] = (idx + 2) * 8
+                    # CALL pushes arguments right-to-left and then pushes the
+                    # return address; the callee prologue adds its frame size,
+                    # so the first declared parameter sits at frame_size + 16
+                    # plus one 8-byte slot for each later parameter.
+                    sym_entry['param_offset'] = (sym.get('frame_size') or 0) + (num_params - idx + 1) * 8
                     updated += 1
                     if updated == num_params:
                         break
@@ -2554,7 +2556,7 @@ class AnalizadorSemantico:
                     if s.get('kind') == 'parameter'
                 ])
                 entry['param_offset'] = (
-                    16 +
+                    24 +
                     entry['parameter_index'] * 8
                 )
             else:

@@ -1,3 +1,4 @@
+import os
 from memoria.ram import VECTOR_TABLE, INTR_BUFFER
 HALTED = 0
 
@@ -256,7 +257,8 @@ class MicroinstructionMixin:
         flags = self._to_binary(self._fr, 8, False)[::-1]
         val_z = int(flags[4])
         val_s = int(flags[3])
-        print(flags, val_z, val_s )
+        if getattr(self, 'debug_trace', False) or os.environ.get('CACAO_TRACE_EXECUTION') == '1':
+            print(flags, val_z, val_s )
         if cmp == "<":
             salto = val_s == 1 and val_z == 0
         elif cmp == ">":

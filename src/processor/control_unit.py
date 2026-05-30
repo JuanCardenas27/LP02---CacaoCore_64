@@ -101,9 +101,6 @@ class ControlUnit(MicroinstructionMixin):
             bytearray(8) for _ in range(16)
         ]
         self._last_fetched_addr = None
-
-    def _debug_exec(self):
-        return getattr(self, 'debug_trace', False) or os.environ.get('CACAO_TRACE_EXECUTION') == '1'
         self.global_index = 0
         self._pc = bytearray(8)
         self._ir = bytearray(8)
@@ -125,6 +122,9 @@ class ControlUnit(MicroinstructionMixin):
             '/':self._fau.fp_div,
             'c':self._fau.fp_cmp
             }
+
+    def _debug_exec(self):
+        return getattr(self, 'debug_trace', False) or os.environ.get('CACAO_TRACE_EXECUTION') == '1'
 
     def get_registers(self):
         values_dict = {}
@@ -280,18 +280,7 @@ class ControlUnit(MicroinstructionMixin):
                     idx = None
 
                 if idx is not None and 95 <= idx <= 110:
-                    print(f"--- TRACE: Decoded instruction at fetched_addr=0x{fetched_addr:08X} (index={idx}) ---")
-                    try:
-                        print(f"  IR raw : {self._ir.hex()}")
-                        print(f"  Decoded: {name}_{modes}")
-                        print(f"  Ops[0] raw: {ops[0].hex()}")
-                        print(f"  Ops[1] raw: {ops[1].hex()}")
-                        regs = self.get_registers()
-                        print('  Registers snapshot:')
-                        for k,v in regs.items():
-                            print(f"    {k}: 0x{v:016X}")
-                    except Exception as e:
-                        print('  Trace printing failed:', e)
+                    print(f"--- TRACE: Decoded {name}_{modes} at 0x{fetched_addr:08X} (index={idx}) ---")
 
         self._methods[name+"_"+modes](ops[0], ops[1])
         
