@@ -1,7 +1,8 @@
 class GestorRegistros:
     def __init__(self):
-        # Usamos R0-R15, reservando R9 para convenios internos y R13 para SP.
-        self.registros = {f"R{i}": False for i in range(16) if i not in (9,)}
+        # Usamos R0-R15. R13 es SP; include R9 to provide one extra
+        # scratch register to reduce allocation failures during codegen.
+        self.registros = {f"R{i}": False for i in range(16)}
         self.acumulador = "R15"
         self.allow_r13 = True
         # Instrumentation: append-only log of allocation/free events for debugging.

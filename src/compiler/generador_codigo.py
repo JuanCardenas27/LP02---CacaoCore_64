@@ -818,20 +818,66 @@ class GeneradorCodigo:
 
     def p_lvalue_member(self, p):
         """lvalue : lvalue DOT ID"""
-        field_operand = self._field_operand(p[1]['result'], p[3])
+        # Normalize the left operand so _field_operand can deterministically
+        # resolve fields to OP_FIELD when base type/mold is known. Handle
+        # common wrapper shapes: operand dicts with 'result', wrappers that
+        # already carry a computed 'reg', and plain identifier strings.
+        left = p[1]
+        base_src = None
+        if isinstance(left, dict):
+            res = left.get('result')
+            if isinstance(res, dict):
+                base_src = dict(res)
+            elif left.get('reg'):
+                base_src = {
+                    'kind': self.OP_REG,
+                    'value': left.get('reg'),
+                    'type': left.get('type'),
+                    'is_ref': left.get('type') in self.molds or left.get('dims', 0) > 0,
+                }
+            elif isinstance(res, str):
+                base_src = self._mem_operand(res)
+                try:
+                    sym = self._symbol(res)
+                    if isinstance(sym, dict) and sym.get('type'):
+                        base_src['type'] = sym.get('type')
+                except Exception:
+                    pass
+        if base_src is None and isinstance(left, str):
+            base_src = self._mem_operand(left)
+            try:
+                sym = self._symbol(left)
+                if isinstance(sym, dict) and sym.get('type'):
+                    base_src['type'] = sym.get('type')
+            except Exception:
+                pass
+        if base_src is None:
+            base_src = p[1].get('result') if isinstance(p[1], dict) else p[1]
+
+        field_operand = self._field_operand(base_src, p[3])
         if field_operand is None:
             field_operand = {
-                'kind': 'global',
+                'kind': self.OP_GLOBAL,
                 'label': p[3],
             }
-        p[0] = {
-            'code': p[1]['code'],
+
+        wrapper = {
+            'code': p[1].get('code', []) if isinstance(p[1], dict) else [],
             'result': field_operand,
             'type': field_operand.get('type', 'unknown'),
             'dims': field_operand.get('dims', 0),
             'shape': list(field_operand.get('shape', [])),
             'size': field_operand.get('size', 0),
         }
+        if isinstance(p[1], dict):
+            if p[1].get('reg'):
+                wrapper['reg'] = p[1].get('reg')
+            if 'owned' in p[1]:
+                wrapper['owned'] = p[1].get('owned')
+            if p[1].get('temp'):
+                wrapper['temp'] = True
+
+        p[0] = wrapper
 
     # ── Función ───────────────────────────────────────────────────────────
 

@@ -23,6 +23,8 @@ Ejemplo de uso:
     cu.run_full_exec()  # Ejecutar programa completo
 """
 
+import os
+
 from memoria.ram import ram, SP_INITIAL, INTR_BUFFER, AddressOutOfRange, CODE_START, CODE_END
 from .alu import ALU
 from .float_aritmethic_unit import FloatAritmethicUnit
@@ -99,6 +101,9 @@ class ControlUnit(MicroinstructionMixin):
             bytearray(8) for _ in range(16)
         ]
         self._last_fetched_addr = None
+
+    def _debug_exec(self):
+        return getattr(self, 'debug_trace', False) or os.environ.get('CACAO_TRACE_EXECUTION') == '1'
         self.global_index = 0
         self._pc = bytearray(8)
         self._ir = bytearray(8)
@@ -166,7 +171,8 @@ class ControlUnit(MicroinstructionMixin):
         #Cambiar el estado a RUNNING
         self.state = RUNNING
         
-        print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
+        if self._debug_exec():
+            print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
         
     def run_full_exec(self):
         """Ejecuta el programa completo hasta que se detiene (HLT).
@@ -206,7 +212,8 @@ class ControlUnit(MicroinstructionMixin):
         self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)), False)
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc
-        print("Completó FETCH")
+        if self._debug_exec():
+            print("Completó FETCH")
         self._decode()
         
     def _decode(self):
@@ -222,7 +229,8 @@ class ControlUnit(MicroinstructionMixin):
         except:
             name = instruction
             modes = ""
-        print("Completó DECODE")
+        if self._debug_exec():
+            print("Completó DECODE")
         self._execute(name, modes)
 
     def _execute(self, name, modes):
@@ -261,33 +269,35 @@ class ControlUnit(MicroinstructionMixin):
             self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
-        # ONE-SHOT TRACE: if instruction was fetched from problematic PC, print decode details
-        fetched_addr = getattr(self, '_last_fetched_addr', None)
+        if self._debug_exec():
+            # ONE-SHOT TRACE: if instruction was fetched from problematic PC, print decode details
+            fetched_addr = getattr(self, '_last_fetched_addr', None)
 
-        if fetched_addr is not None:
-            try:
-                idx = (fetched_addr - CODE_START) // 8
-            except Exception:
-                idx = None
-
-            if idx is not None and 95 <= idx <= 110:
-                print(f"--- TRACE: Decoded instruction at fetched_addr=0x{fetched_addr:08X} (index={idx}) ---")
+            if fetched_addr is not None:
                 try:
-                    print(f"  IR raw : {self._ir.hex()}")
-                    print(f"  Decoded: {name}_{modes}")
-                    print(f"  Ops[0] raw: {ops[0].hex()}")
-                    print(f"  Ops[1] raw: {ops[1].hex()}")
-                    regs = self.get_registers()
-                    print('  Registers snapshot:')
-                    for k,v in regs.items():
-                        print(f"    {k}: 0x{v:016X}")
-                except Exception as e:
-                    print('  Trace printing failed:', e)
+                    idx = (fetched_addr - CODE_START) // 8
+                except Exception:
+                    idx = None
+
+                if idx is not None and 95 <= idx <= 110:
+                    print(f"--- TRACE: Decoded instruction at fetched_addr=0x{fetched_addr:08X} (index={idx}) ---")
+                    try:
+                        print(f"  IR raw : {self._ir.hex()}")
+                        print(f"  Decoded: {name}_{modes}")
+                        print(f"  Ops[0] raw: {ops[0].hex()}")
+                        print(f"  Ops[1] raw: {ops[1].hex()}")
+                        regs = self.get_registers()
+                        print('  Registers snapshot:')
+                        for k,v in regs.items():
+                            print(f"    {k}: 0x{v:016X}")
+                    except Exception as e:
+                        print('  Trace printing failed:', e)
 
         self._methods[name+"_"+modes](ops[0], ops[1])
         
-        print("Completó EXECUTE")
-        print(self.global_index)
+        if self._debug_exec():
+            print("Completó EXECUTE")
+            print(self.global_index)
         self.global_index += 1
         self._check_intp()
         
