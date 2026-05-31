@@ -571,7 +571,19 @@ class AnalizadorSemantico:
     # ── Lvalue
     def p_lvalue_id(self, p):
         """lvalue : ID"""
-        p[0] = p[1]
+        name = p[1]
+
+        if self.current_method_mold is not None:
+            mold = self._resolve_ohmy(p.lineno(1))
+            if mold is not None and name in mold.get('fields', {}):
+                self._emit_error(
+                    p.lineno(1),
+                    f"el miembro '{name}' del mold '{self.current_method_mold}' debe accederse con ohmy"
+                )
+                p[0] = '__invalid_field_access__'
+                return
+
+        p[0] = name
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
@@ -1763,6 +1775,16 @@ class AnalizadorSemantico:
         """expr : ID"""
 
         name = p[1]
+
+        if self.current_method_mold is not None:
+            mold = self._resolve_ohmy(p.lineno(1))
+            if mold is not None and name in mold.get('fields', {}):
+                self._emit_error(
+                    p.lineno(1),
+                    f"el miembro '{name}' del mold '{self.current_method_mold}' debe accederse con ohmy"
+                )
+                p[0] = self._make_expr_data('unknown')
+                return
 
         sym = self._resolve_symbol(name)
 

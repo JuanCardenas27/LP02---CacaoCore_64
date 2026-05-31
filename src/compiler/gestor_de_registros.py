@@ -4,7 +4,7 @@ class GestorRegistros:
         # scratch register to reduce allocation failures during codegen.
         self.registros = {f"R{i}": False for i in range(16)}
         self.acumulador = "R15"
-        self.allow_r13 = True
+        self.allow_r13 = False
         # Instrumentation: append-only log of allocation/free events for debugging.
         try:
             self._log_fh = open('reg_ops.log', 'a', encoding='utf-8')

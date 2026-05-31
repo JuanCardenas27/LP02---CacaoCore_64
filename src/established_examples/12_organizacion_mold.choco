@@ -9,7 +9,7 @@ mold Estudiante {
       let nota3: float
 
       func avgNote() {
-        set avg = nota1 + nota2 + nota3
+        set avg = ohmy.nota1 + ohmy.nota2 + ohmy.nota3
         set avg = avg / n_notas
         deliver avg
     }
