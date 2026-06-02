@@ -1,0 +1,327 @@
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'arr', 'type': 'int', 'dims': 1, 'shape': [7], 'size': 56, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [arr]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, [a]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [a]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [a]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [a]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, [a]']
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'float', 'dims': 1, 'shape': [9], 'size': 72, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [a]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_0_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_0_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_1_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_1_0]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p1', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p1', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p1]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p1]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p1', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p1', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p1]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p1]', 'ADD R3, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]', 'ADD R3, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [p2]']
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [p2]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims'
+_address_of_operand called with: {'kind': 'global', 'label': 'p2', 'type': 'Punto', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, [p2]', 'ADD R3, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Rectangulo', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 8']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_4_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_4_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_0_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_0_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_1_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_1_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_2_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_2_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_3_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_3_0]']
+_address_of_operand called with: {'kind': 'global', 'label': 'alumnos', 'type': 'Estudiante', 'dims': 1, 'shape': [4], 'size': 64, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=True code=['MOVD R6, [alumnos]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R0', 'type': 'Estudiante', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R0', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R0 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'alumnos', 'type': 'Estudiante', 'dims': 1, 'shape': [4], 'size': 64, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R7 owned=True code=['MOVD R7, [alumnos]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, R6', 'ADD R8, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref': F
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref': F
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, R9', 'ADD R3, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref': F
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Punto', 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, R9', 'ADD R4, 8']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_17_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_17_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_18_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_18_0]']
+_address_of_operand called with: {'kind': 'global', 'label': 'vals', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 32, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [vals]']
+_address_of_operand called with: {'kind': 'global', 'label': 'vals', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 32, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [vals]']
+_address_of_operand called with: {'kind': 'global', 'label': 'vals', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 32, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [vals]']
+_address_of_operand called with: {'kind': 'global', 'label': 'vals', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 32, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [vals]']
+_address_of_operand called with: {'kind': 'global', 'label': 'vals', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 32, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, [vals]']
+_address_of_operand called with: {'kind': 'global', 'label': 'c', 'type': 'int', 'dims': 2, 'shape': [3, 4], 'size': 96, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [c]']
+_address_of_operand called with: {'kind': 'addr', 'value': 'R4'}
+_address_of_operand returning: reg=R4 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'a', 'type': 'int', 'dims': 2, 'shape': [3, 2], 'size': 48, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [a]']
+_address_of_operand called with: {'kind': 'addr', 'value': 'R5', 'type': 'int', 'dims': 1, 'shape': [2], 'size': 48, 'element_size': None}
+_address_of_operand returning: reg=R5 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'b', 'type': 'int', 'dims': 2, 'shape': [2, 4], 'size': 64, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=True code=['MOVD R6, [b]']
+_address_of_operand called with: {'kind': 'addr', 'value': 'R6', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 64, 'element_size': None}
+_address_of_operand returning: reg=R6 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'c', 'type': 'int', 'dims': 2, 'shape': [3, 4], 'size': 96, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [c]']
+_address_of_operand called with: {'kind': 'addr', 'value': 'R4', 'type': 'int', 'dims': 1, 'shape': [4], 'size': 96, 'element_size': None}
+_address_of_operand returning: reg=R4 owned=False code=[]
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_1_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_1_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_2_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_2_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_3_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_3_0]']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=True code=['MOVD R4, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R0', 'type': 'Estudiante', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R0', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R0 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R4', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R4', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=True code=['MOVD R6, R4', 'ADD R6, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=True code=['MOVD R6, [students]']
+_address_of_operand called with: {'kind': 'global', 'label': 'correcciones', 'type': 'float', 'dims': 1, 'shape': [3], 'size': 24, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R7 owned=True code=['MOVD R7, [correcciones]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'addr', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, '
+_address_of_operand called with: {'kind': 'addr', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}
+_address_of_operand returning: reg=R6 owned=False code=[]
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [R6]', 'ADD R8, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=True code=['MOVD R6, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R5', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R5', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R7 owned=True code=['MOVD R7, R5', 'ADD R7, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R7 owned=True code=['MOVD R7, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R6', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R6 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R7', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R7', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, R7', 'ADD R9, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, [students]']
+_address_of_operand called with: {'kind': 'global', 'label': 'correcciones', 'type': 'float', 'dims': 1, 'shape': [3], 'size': 24, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [correcciones]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'addr', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, '
+_address_of_operand called with: {'kind': 'addr', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand returning: reg=R11 owned=True code=['MOVD R11, [R9]', 'ADD R11, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R8', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R8', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, R8', 'ADD R10, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_re
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R11 owned=True code=['MOVD R11, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R10', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is
+_address_of_operand called with: {'kind': 'reg', 'value': 'R10', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R12 owned=True code=['MOVD R12, R10', 'ADD R12, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R12 owned=True code=['MOVD R12, [students]']
+_address_of_operand called with: {'kind': 'global', 'label': 'correcciones', 'type': 'float', 'dims': 1, 'shape': [3], 'size': 24, 'text_size': 0, 'element_size': 8, 'is_ref': True}
+_address_of_operand returning: reg=R14 owned=True code=['MOVD R14, [correcciones]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'addr', 'value': 'R12', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 
+_address_of_operand called with: {'kind': 'addr', 'value': 'R12', 'type': 'Estudiante', 'is_ref': True, 'needs_deref': True}
+_address_of_operand returning: reg=R12 owned=False code=[]
+_address_of_operand returning: reg=R15 owned=True code=['MOVD R15, [R12]', 'ADD R15, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 48, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R12 owned=True code=['MOVD R12, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R11', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is
+_address_of_operand called with: {'kind': 'reg', 'value': 'R11', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R14 owned=True code=['MOVD R14, R11', 'ADD R14, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}, 'offset': 8, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, R9', 'ADD R1, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}, 'offset': 16, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 16']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}, 'offset': 24, 'type': 'float', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Estudiante', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 24']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_3_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_3_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_4_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_4_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_5_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_5_0]']
+_address_of_operand called with: {'kind': 'global', 'label': 'students', 'type': 'Estudiante', 'dims': 1, 'shape': [3], 'size': 96, 'text_size': 0, 'element_size': 32, 'is_ref': True}
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [students]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Person', 'is_ref': True}, 'offset': 0, 'type': 'text', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Person', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Person', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref': 
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Person', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 8']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_7_0', 'is_ref': False}
+_address_of_operand returning: reg=R3 owned=True code=['LEA R3, [temp_7_0]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'p', 'type': 'Person', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}, 'offset': 0, 'type': 'text', 'dims
+_address_of_operand called with: {'kind': 'global', 'label': 'p', 'type': 'Person', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [p]']
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [p]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_0_0', 'is_ref': False}
+_address_of_operand returning: reg=R0 owned=True code=['LEA R0, [temp_0_0]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 0, 'type': 'text', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref'
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 16, 'type': 'Ubicacion', 'dims': 0, 'shape': [], 'size': 16, 'text_size
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 16, 'type': 'Ubicacion', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, R9', 'ADD R1, 16']
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R1, R9', 'ADD R1, 16', 'MOVD R2, [R1]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, R9', 'ADD R1, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 16, 'type': 'Ubicacion', 'dims': 0, 'shape': [], 'size': 16, 'text_size
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 16, 'type': 'Ubicacion', 'dims': 0, 'shape': [], 'size': 16, 'text_size': 0, 'element_size': 16, 
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 16']
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R2, R9', 'ADD R2, 16', 'MOVD R3, [R2]', 'ADD R3, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}, 'offset': 96, 'type': 'text', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref'
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 96']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}, 'offset': 32, 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 64, 'text_size': 0, 'element_size': 32, 'i
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}
+_address_of_operand returning: reg=R3 owned=True code=['MOVD R3, R9', 'ADD R3, 32']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R1', 'type': 'Persona', 'is_ref': True}, 'offset': 0, 'type': 'text', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref'
+_address_of_operand called with: {'kind': 'reg', 'value': 'R1', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R1 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}, 'offset': 0, 'type': 'Persona', 'dims': 0, 'shape': [], 'size': 32, 'text_size': 0, 'element_size': 32, 'is_
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Equipo', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_9_0', 'is_ref': False}
+_address_of_operand returning: reg=R4 owned=True code=['LEA R4, [temp_9_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_11_0', 'is_ref': False}
+_address_of_operand returning: reg=R4 owned=True code=['LEA R4, [temp_11_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_13_0', 'is_ref': False}
+_address_of_operand returning: reg=R4 owned=True code=['LEA R4, [temp_13_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_15_0', 'is_ref': False}
+_address_of_operand returning: reg=R4 owned=True code=['LEA R4, [temp_15_0]']
+_address_of_operand called with: {'kind': 'addr_label', 'label': 'temp_17_0', 'is_ref': False}
+_address_of_operand returning: reg=R4 owned=True code=['LEA R4, [temp_17_0]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}, '
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}, 'offset': 0, 'type': 'Perso
+_address_of_operand called with: {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [equipo]']
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [equipo]']
+_address_of_operand returning: reg=R11 owned=True code=['MOVD R10, [equipo]', 'MOVD R11, [R10]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'field', 'base': {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}, '
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}, 'offset': 0, 'type': 'Perso
+_address_of_operand called with: {'kind': 'global', 'label': 'equipo', 'type': 'Equipo', 'dims': 0, 'shape': [], 'size': 104, 'text_size': 0, 'element_size': 104, 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [equipo]']
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [equipo]']
+_address_of_operand returning: reg=R11 owned=True code=['MOVD R10, [equipo]', 'MOVD R11, [R10]', 'ADD R11, 16']
+_address_of_operand returning: reg=R10 owned=True code=['MOVD R10, [equipo]', 'MOVD R11, [R10]', 'ADD R11, 16', 'MOVD R10, [R11]', 'ADD R10, 8']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=False code=[]
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R9', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R2 owned=True code=['MOVD R2, R9', 'ADD R2, 8']
+_address_of_operand called with: {'kind': 'heap', 'size': 16, 'is_ref': False}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, [__heap_cursor]', 'MOVD R2, R1', 'ADD R2, 16', 'MOVD [__heap_cursor], R2']
+_address_of_operand called with: {'kind': 'heap', 'size': 16, 'is_ref': False}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, [__heap_cursor]', 'MOVD R3, R1', 'ADD R3, 16', 'MOVD [__heap_cursor], R3']
+_address_of_operand called with: {'kind': 'heap', 'size': 32, 'is_ref': False}
+_address_of_operand returning: reg=R1 owned=True code=['MOVD R1, [__heap_cursor]', 'MOVD R4, R1', 'ADD R4, 32', 'MOVD [__heap_cursor], R4']
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R5 owned=True code=['MOVD R5, [personas]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R4', 'type': 'Persona', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R4', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R4 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R8 owned=True code=['MOVD R8, [personas]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R5', 'type': 'Persona', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref':
+_address_of_operand called with: {'kind': 'reg', 'value': 'R5', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, R5', 'ADD R9, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R9 owned=True code=['MOVD R9, [personas]']
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R11 owned=True code=['MOVD R11, [personas]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R10', 'type': 'Persona', 'is_ref': True}, 'offset': 0, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref'
+_address_of_operand called with: {'kind': 'reg', 'value': 'R10', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R10 owned=False code=[]
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R12 owned=True code=['MOVD R12, [personas]']
+_address_of_operand called with: {'kind': 'field', 'base': {'kind': 'reg', 'value': 'R11', 'type': 'Persona', 'is_ref': True}, 'offset': 8, 'type': 'int', 'dims': 0, 'shape': [], 'size': 8, 'text_size': 0, 'element_size': 8, 'is_ref'
+_address_of_operand called with: {'kind': 'reg', 'value': 'R11', 'type': 'Persona', 'is_ref': True}
+_address_of_operand returning: reg=R14 owned=True code=['MOVD R14, R11', 'ADD R14, 8']
+_address_of_operand called with: {'kind': 'global', 'label': 'personas', 'type': 'Persona', 'dims': 1, 'shape': [2], 'size': 32, 'text_size': 0, 'element_size': 16, 'is_ref': True}
+_address_of_operand returning: reg=R14 owned=True code=['MOVD R14, [personas]']

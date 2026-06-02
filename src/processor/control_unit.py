@@ -123,9 +123,6 @@ class ControlUnit(MicroinstructionMixin):
             'c':self._fau.fp_cmp
             }
 
-    def _debug_exec(self):
-        return getattr(self, 'debug_trace', False) or os.environ.get('CACAO_TRACE_EXECUTION') == '1'
-
     def get_registers(self):
         values_dict = {}
 
@@ -171,8 +168,7 @@ class ControlUnit(MicroinstructionMixin):
         #Cambiar el estado a RUNNING
         self.state = RUNNING
         
-        if self._debug_exec():
-            print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
+        print(f"Sistema Re-Iniciado. PC configurado en: {start_address}")
         
     def run_full_exec(self):
         """Ejecuta el programa completo hasta que se detiene (HLT).
@@ -212,8 +208,7 @@ class ControlUnit(MicroinstructionMixin):
         self._alu.add(self._pc, bytearray((8).to_bytes(8, byteorder='little', signed=True)), False)
         self._pc[:] = self._registers[15][:]
         self._registers[15][:] = acc
-        if self._debug_exec():
-            print("Completó FETCH")
+        print("Completó FETCH")
         self._decode()
         
     def _decode(self):
@@ -229,8 +224,7 @@ class ControlUnit(MicroinstructionMixin):
         except:
             name = instruction
             modes = ""
-        if self._debug_exec():
-            print("Completó DECODE")
+        print("Completó DECODE")
         self._execute(name, modes)
 
     def _execute(self, name, modes):
@@ -269,24 +263,10 @@ class ControlUnit(MicroinstructionMixin):
             self._fr[:] = flgs
             self._registers[15][:] = acc[:]
 
-        if self._debug_exec():
-            # ONE-SHOT TRACE: if instruction was fetched from problematic PC, print decode details
-            fetched_addr = getattr(self, '_last_fetched_addr', None)
-
-            if fetched_addr is not None:
-                try:
-                    idx = (fetched_addr - CODE_START) // 8
-                except Exception:
-                    idx = None
-
-                if idx is not None and 95 <= idx <= 110:
-                    print(f"--- TRACE: Decoded {name}_{modes} at 0x{fetched_addr:08X} (index={idx}) ---")
-
         self._methods[name+"_"+modes](ops[0], ops[1])
         
-        if self._debug_exec():
-            print("Completó EXECUTE")
-            print(self.global_index)
+        print("Completó EXECUTE")
+        print(self.global_index)
         self.global_index += 1
         self._check_intp()
         

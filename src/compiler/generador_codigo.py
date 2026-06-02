@@ -2,6 +2,7 @@ import ply.yacc as yacc
 from .analizador_lexico import AnalizadorLexico
 from .analizador_semantico import AnalizadorSemantico
 from .gestor_de_registros import GestorRegistros
+from memoria.ram import HEAP_START
 
 
 class GeneradorCodigo:
@@ -21,6 +22,7 @@ class GeneradorCodigo:
     OP_FIELD = 'field'
     OP_REG = 'reg'
     OP_ADDR_LABEL = 'addr_label'
+    OP_HEAP = 'heap'
     # Register used to hold the implicit `this`/`ohmy` pointer during method
     # generation. Do NOT use the architectural link register (R14).
     OHMY_REG = 'R9'
@@ -169,6 +171,11 @@ class GeneradorCodigo:
         shape = dims_info.get('shape', [])
         is_ref_decl = dims > 0 or tipo == 'text' or tipo in self.molds
 
+        def _array_slot_size(element_type):
+            if element_type == 'text' or element_type in self.molds:
+                return self.target.get('pointer_size', 8) if getattr(self, 'target', None) else 8
+            return self._type_size(element_type)
+
         # Reference-like declarations (molds/arrays/text) are stored as pointers.
         if is_ref_decl:
             target_operand = self._mem_operand(name)
@@ -227,8 +234,13 @@ class GeneradorCodigo:
                             # Allocate an address register and store
                             addr_reg = self._gestor.ocupar()
                             runtime_inits.extend(val_force['code'])
+                            store_reg = val_force['reg']
+                            if store_reg == addr_reg:
+                                shadow = self._gestor.ocupar()
+                                runtime_inits.append(f'MOVD {shadow}, {store_reg}')
+                                store_reg = shadow
                             runtime_inits.append(f'LEA {addr_reg}, [{label}]')
-                            runtime_inits.append(f'MOVD [{addr_reg}], {val_force["reg"]}')
+                            runtime_inits.append(f'MOVD [{addr_reg}], {store_reg}')
                             if val_force.get('owned'):
                                 self._gestor.liberar(val_force['reg'])
                             self._gestor.liberar(addr_reg)
@@ -250,9 +262,11 @@ class GeneradorCodigo:
                     init_code.extend(self._emit_store(target_operand, ptr_reg))
                     self._gestor.liberar(ptr_reg)
                 else:
-                    temp_operand = self._allocate_temp(size)
+                    temp_operand = self._allocate_temp(size, heap=True)
                     addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
                     init_code.extend(addr_code)
+
+                    slot_size = _array_slot_size(tipo)
 
                     for i, val in enumerate(initializer):
                         if i >= total:
@@ -261,10 +275,17 @@ class GeneradorCodigo:
                         init_code.extend(val_force['code'])
 
                         elem_addr_reg = self._gestor.ocupar()
+                        store_reg = val_force['reg']
+                        if store_reg == elem_addr_reg:
+                            shadow = self._gestor.ocupar()
+                            init_code.append(f'MOVD {shadow}, {store_reg}')
+                            store_reg = shadow
+                        base_reg = self._gestor.ocupar()
+                        init_code.append(f'MOVD {base_reg}, {addr_reg}')
                         init_code.append(f'MOVD {elem_addr_reg}, {addr_reg}')
                         if i > 0:
-                            init_code.append(f'ADD {elem_addr_reg}, {i * base_size}')
-                        init_code.append(f'MOVD [{elem_addr_reg}], {val_force["reg"]}')
+                            init_code.append(f'ADD {elem_addr_reg}, {i * slot_size}')
+                        init_code.append(f'MOVD [{elem_addr_reg}], {store_reg}')
                         self._gestor.liberar(elem_addr_reg)
                         if val_force.get('owned'):
                             self._gestor.liberar(val_force['reg'])
@@ -316,7 +337,7 @@ class GeneradorCodigo:
                         total = 1
                         for v in lengths:
                             total *= v
-                        base_size = self._type_size(tipo)
+                        base_size = _array_slot_size(tipo)
                         size = total * base_size
                     elif tipo in self.molds:
                         size = self.molds[tipo].get('size', 0)
@@ -327,7 +348,7 @@ class GeneradorCodigo:
                     # still fails, conservatively assume 1 for each unknown
                     # dimension so we still allocate space for globals.
                     if size == 0 and dims > 0:
-                        base_size = self._type_size(tipo)
+                        base_size = _array_slot_size(tipo)
                         lengths = []
                         for x in shape:
                             l = _to_int_dim(x)
@@ -365,7 +386,7 @@ class GeneradorCodigo:
                             size = sem_size
 
                     if size > 0:
-                        base_size = self._type_size(tipo)
+                        base_size = _array_slot_size(tipo)
                         # For global arrays, prefer emitting a static .data
                         # area so the assembler/linker see concrete labels
                         # (avoids runtime temp allocation). If semantic
@@ -393,7 +414,7 @@ class GeneradorCodigo:
                             init_code.extend(self._emit_store(target_operand, ptr_reg))
                             self._gestor.liberar(ptr_reg)
                         else:
-                            temp_operand = self._allocate_temp(size)
+                            temp_operand = self._allocate_temp(size, heap=True)
                             addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
                             init_code.extend(addr_code)
                             init_code.extend(self._emit_store(target_operand, addr_reg))
@@ -837,11 +858,17 @@ class GeneradorCodigo:
             if isinstance(res, dict):
                 if res.get('kind') == 'addr':
                     base_src = {
-                        'kind': self.OP_REG,
+                        'kind': self.OP_ADDR,
                         'value': res.get('value'),
                         'type': left.get('type'),
                         'is_ref': True,
                     }
+                    # An addr result for molds/text likely refers to a slot
+                    # containing a pointer to the referenced object. Member
+                    # access must dereference that slot before applying the
+                    # field offset.
+                    if left.get('type') in self.molds or left.get('type') == 'text':
+                        base_src['needs_deref'] = True
                 else:
                     base_src = dict(res)
             elif left.get('reg'):
@@ -1867,6 +1894,20 @@ class GeneradorCodigo:
             or bool(remaining_shape)
         )
         if remaining_dims > 0 or remaining_shape or element_is_ref:
+            if element_is_ref and not remaining_dims and not remaining_shape:
+                value_reg = self._gestor.ocupar()
+                instrs.append(f'MOVD {value_reg}, [{addr_reg}]')
+                if result_owned:
+                    self._gestor.liberar(addr_reg)
+                p[0] = {
+                    'code': instrs,
+                    'result': value_reg,
+                    'temp': True,
+                    'type': p[1].get('type'),
+                    'is_ref': True,
+                    'owned': True,
+                }
+                return
             p[0] = {
                 'code': instrs,
                 'result': {
@@ -1950,6 +1991,13 @@ class GeneradorCodigo:
     def p_expr_member(self, p):
         """expr : expr DOT ID"""
         base_operand = p[1]['result']
+        if isinstance(base_operand, str) and base_operand.startswith('R'):
+            base_operand = {
+                'kind': self.OP_REG,
+                'value': base_operand,
+                'type': p[1].get('type'),
+                'is_ref': True,
+            }
         if isinstance(base_operand, dict) and base_operand.get('kind') == 'addr':
             base_operand = {
                 'kind': self.OP_REG,
@@ -2020,8 +2068,15 @@ class GeneradorCodigo:
         mold = self.molds.get(mold_name, {})
         size = mold.get('size', 0)
         
-        target_operand = self._allocate_temp(size)
+        target_operand = self._allocate_temp(size, heap=True)
         init_code = []
+
+        addr_code, addr_reg, addr_owned = self._address_of_operand(target_operand)
+        init_code.extend(addr_code)
+        base_reg = self._gestor.ocupar()
+        init_code.append(f'MOVD {base_reg}, {addr_reg}')
+        if addr_owned:
+            self._gestor.liberar(addr_reg)
 
         raw_order = mold.get('field_order') or list(mold.get('fields', {}).keys())
         field_order = []
@@ -2062,14 +2117,16 @@ class GeneradorCodigo:
 
             init_code.extend(arg_force['code'])
 
-            addr_code, addr_reg, addr_owned = self._address_of_operand(target_operand)
-            init_code.extend(addr_code)
-
             field_addr_reg = self._gestor.ocupar()
-            init_code.append(f'MOVD {field_addr_reg}, {addr_reg}')
+            store_reg = arg_force['reg']
+            if store_reg == field_addr_reg:
+                shadow = self._gestor.ocupar()
+                init_code.append(f'MOVD {shadow}, {store_reg}')
+                store_reg = shadow
+            init_code.append(f'MOVD {field_addr_reg}, {base_reg}')
             if field_off:
                 init_code.append(f'ADD {field_addr_reg}, {field_off}')
-            init_code.append(f'MOVD [{field_addr_reg}], {arg_force["reg"]}')
+            init_code.append(f'MOVD [{field_addr_reg}], {store_reg}')
 
             self._gestor.liberar(field_addr_reg)
             if addr_owned:
@@ -2077,20 +2134,17 @@ class GeneradorCodigo:
             if arg_force.get('owned'):
                 self._gestor.liberar(arg_force['reg'])
 
-        result_addr_code, result_addr_reg, result_addr_owned = self._address_of_operand(target_operand)
-        init_code.extend(result_addr_code)
-
         p[0] = {
             'code': init_code,
             'result': {
                 'kind': self.OP_REG,
-                'value': result_addr_reg,
+                'value': base_reg,
                 'is_ref': True
             },
             'type': mold_name,
             'temp': True,
-            'reg': result_addr_reg,
-            'owned': result_addr_owned
+            'reg': base_reg,
+            'owned': True
         }
 
     def p_expr_summon_noargs(self, p):
@@ -2099,23 +2153,27 @@ class GeneradorCodigo:
         mold = self.molds.get(mold_name, {})
         size = mold.get('size', 0)
         
-        target_operand = self._allocate_temp(size)
+        target_operand = self._allocate_temp(size, heap=True)
         init_code = []
         
         addr_code, addr_reg, addr_owned = self._address_of_operand(target_operand)
         init_code.extend(addr_code)
+        base_reg = self._gestor.ocupar()
+        init_code.append(f'MOVD {base_reg}, {addr_reg}')
+        if addr_owned:
+            self._gestor.liberar(addr_reg)
 
         p[0] = {
             'code': init_code,
             'result': {
                 'kind': self.OP_REG,
-                'value': addr_reg,
+                'value': base_reg,
                 'is_ref': True
             },
             'type': mold_name,
             'temp': True,
-            'reg': addr_reg,
-            'owned': addr_owned
+            'reg': base_reg,
+            'owned': True
         }
 
     # ohmy
@@ -2334,6 +2392,7 @@ class GeneradorCodigo:
         self.float_counter = 0
         self.function_temp_size = 0
         self.used_string_labels = set()
+        self.heap_cursor_label = '__heap_cursor'
         
     def parse(self, codigo: str, metadata) -> tuple[list[str], object]:
         """
@@ -2359,6 +2418,7 @@ class GeneradorCodigo:
         self.float_counter = 0
         self.function_temp_size = 0
         self.used_string_labels = set()
+        self.data = [f'{self.heap_cursor_label} : {HEAP_START}']
         _, _, _, self.num_table = self._lex.analize(codigo)
         dict_s = AnalizadorSemantico().parse(codigo, metadata)
         self.sim_table = dict_s['symbol_table']
@@ -2430,6 +2490,12 @@ class GeneradorCodigo:
             or (sym.get('type') == 'text')
             or (sym.get('type') in self.molds)
         )
+
+        # Preserve the original reference semantics for reference-like globals.
+        # Global arrays, text values, and molds are stored as pointer-like
+        # variables and must be loaded via `MOVD [label]` when accessing their
+        # addressable contents.
+        # Locals and parameters continue to use the same `is_ref` semantics.
 
         if storage_class == 'local':
             return {
@@ -2540,7 +2606,7 @@ class GeneradorCodigo:
             'owner_kind': base_operand.get('kind'),
         }
 
-    def _allocate_temp(self, size):
+    def _allocate_temp(self, size, heap=False):
         if not self.function_stack:
             # Global scope
             label = f'temp_{self.label_count}'
@@ -2549,6 +2615,8 @@ class GeneradorCodigo:
                 self.data.append(f'{label}_{i} : 0')
             return {'kind': self.OP_ADDR_LABEL, 'label': f'{label}_0', 'is_ref': False}
         else:
+            if heap:
+                return {'kind': self.OP_HEAP, 'size': size, 'is_ref': False}
             # Local scope
             offset = self.function_temp_size
             self.function_temp_size += size
@@ -2567,10 +2635,19 @@ class GeneradorCodigo:
 
         if operand['kind'] == self.OP_GLOBAL:
             reg = self._gestor.ocupar()
+            # If this global represents a reference-like variable (e.g.
+            # a pointer stored in a global slot), load the pointer value.
+            # Otherwise (plain data labels), return the label address so
+            # callers can index into the data block.
             if operand.get('is_ref'):
                 code.append(f'MOVD {reg}, [{operand["label"]}]')
             else:
                 code.append(f'LEA {reg}, [{operand["label"]}]')
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={reg} owned=True code={code}\n")
+            except Exception:
+                pass
             return code, reg, True
 
         if operand['kind'] == self.OP_STACK:
@@ -2581,15 +2658,32 @@ class GeneradorCodigo:
                 code.append(f'ADD {reg}, {off}')
             if operand.get('is_ref'):
                 code.append(f'MOVD {reg}, [{reg}]')
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={reg} owned=True code={code}\n")
+            except Exception:
+                pass
             return code, reg, True
 
         if operand['kind'] == self.OP_ADDR:
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={operand['value']} owned=False code={code}\n")
+            except Exception:
+                pass
             return code, operand['value'], False
 
         if operand['kind'] == self.OP_FIELD:
             base_code, base_reg, base_owned = self._address_of_operand(operand['base'])
             code.extend(base_code)
-            if operand['base'].get('is_ref') and operand['base'].get('kind') == self.OP_FIELD:
+            if operand['base'].get('needs_deref'):
+                deref_reg = self._gestor.ocupar()
+                code.append(f'MOVD {deref_reg}, [{base_reg}]')
+                if base_owned:
+                    self._gestor.liberar(base_reg)
+                base_reg = deref_reg
+                base_owned = True
+            elif operand['base'].get('is_ref') and operand['base'].get('kind') == self.OP_FIELD:
                 deref_reg = self._gestor.ocupar()
                 code.append(f'MOVD {deref_reg}, [{base_reg}]')
                 if base_owned:
@@ -2603,32 +2697,64 @@ class GeneradorCodigo:
                     temp_reg = self._gestor.ocupar()
                     code.append(f'MOVD {temp_reg}, {base_reg}')
                     code.append(f'ADD {temp_reg}, {off}')
+                    try:
+                        with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                            fh.write(f"_address_of_operand returning: reg={temp_reg} owned=True code={code}\n")
+                    except Exception:
+                        pass
                     return code, temp_reg, True
                 else:
                     code.append(f'ADD {base_reg}, {off}')
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={base_reg} owned={base_owned} code={code}\n")
+            except Exception:
+                pass
             return code, base_reg, base_owned
 
         if operand['kind'] == self.OP_REG:
-            # If the register holds a reference pointer (e.g., `this` in OHMY_REG),
-            # do NOT dereference the register itself when computing the address
-            # of a field: the register already contains the base address.
+            # If the register is marked as a reference, it already contains the
+            # base address of the object/slot. Do not perform an automatic
+            # dereference here — callers expect the register to hold the
+            # address itself. Return (code, reg, owned=False).
             if operand.get('is_ref'):
-                if operand['value'] == self.OHMY_REG:
-                    # OHMY_REG already contains the object pointer — use it directly.
-                    return code, operand['value'], False
-                # Other registers that are references may contain an address
-                # pointer-in-pointer and need to be dereferenced to obtain
-                # the actual base address.
-                result_reg = self._gestor.ocupar()
-                code.append(f'MOVD {result_reg}, [{operand["value"]}]')
-                return code, result_reg, True
+                return code, operand['value'], False
+            # Non-reference registers: the register itself is the value.
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={operand['value']} owned=False code={code}\n")
+            except Exception:
+                pass
             return code, operand['value'], False
 
         if operand['kind'] == self.OP_ADDR_LABEL:
             self.used_string_labels.add(operand['label'])
             reg = self._gestor.ocupar()
             code.append(f'LEA {reg}, [{operand["label"]}]')
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={reg} owned=True code={code}\n")
+            except Exception:
+                pass
             return code, reg, True
+
+        if operand['kind'] == self.OP_HEAP:
+            base_reg = self._gestor.ocupar()
+            end_reg = self._gestor.ocupar()
+            aligned_size = ((int(operand.get('size', 0)) + 7) // 8) * 8
+            code.extend([
+                f'MOVD {base_reg}, [{self.heap_cursor_label}]',
+                f'MOVD {end_reg}, {base_reg}',
+                f'ADD {end_reg}, {aligned_size}',
+                f'MOVD [{self.heap_cursor_label}], {end_reg}',
+            ])
+            self._gestor.liberar(end_reg)
+            try:
+                with open('address_trace.log', 'a', encoding='utf-8') as fh:
+                    fh.write(f"_address_of_operand returning: reg={base_reg} owned=True code={code}\n")
+            except Exception:
+                pass
+            return code, base_reg, True
 
         raise ValueError(f'Operando no soportado: {operand!r}')
         
@@ -2675,27 +2801,70 @@ class GeneradorCodigo:
     def _emit_store(self, operand, reg):
         code = []
 
+        # (Instrumentation removed) 
         if operand['kind'] == self.OP_GLOBAL:
-            code.append(f'MOVD [{operand["label"]}], {reg}')
+            store_reg = reg
+            if store_reg == operand.get('label'):
+                shadow = self._gestor.ocupar()
+                code.append(f'MOVD {shadow}, {store_reg}')
+                store_reg = shadow
+            code.append(f'MOVD [{operand["label"]}], {store_reg}')
 
         elif operand['kind'] == self.OP_STACK:
+            # Protect the source register from being clobbered by address
+            # computation: copy `reg` into a shadow before computing address.
+            store_reg = reg
+            if isinstance(store_reg, str) and store_reg.startswith('R'):
+                shadow = self._gestor.ocupar()
+                code.append(f'MOVD {shadow}, {store_reg}')
+                store_reg = shadow
             addr = self._gestor.ocupar()
             code.append(f'MOVD {addr}, {operand["base"]}')
             off = operand.get('offset', 0)
             if off != 0 and off != '0':
                 code.append(f'ADD {addr}, {off}')
-            code.append(f'MOVD [{addr}], {reg}')
+            code.append(f'MOVD [{addr}], {store_reg}')
             self._gestor.liberar(addr)
+            if store_reg != reg:
+                self._gestor.liberar(store_reg)
 
         elif operand['kind'] == self.OP_ADDR:
-            code.append(f'MOVD [{operand["value"]}], {reg}')
+            # Protect the source register before writing to memory at the
+            # address contained in `operand['value']`.
+            store_reg = reg
+            if isinstance(store_reg, str) and store_reg.startswith('R'):
+                shadow = self._gestor.ocupar()
+                code.append(f'MOVD {shadow}, {store_reg}')
+                store_reg = shadow
+            code.append(f'MOVD [{operand["value"]}], {store_reg}')
+            if store_reg != reg:
+                self._gestor.liberar(store_reg)
 
         elif operand['kind'] == self.OP_FIELD:
+            # Protect the source register before computing the field address.
+            store_reg = reg
+            made_shadow = False
+            if isinstance(store_reg, str) and store_reg.startswith('R'):
+                shadow = self._gestor.ocupar()
+                code.append(f'MOVD {shadow}, {store_reg}')
+                store_reg = shadow
+                made_shadow = True
             addr_code, addr_reg, addr_owned = self._address_of_operand(operand)
             code.extend(addr_code)
-            code.append(f'MOVD [{addr_reg}], {reg}')
+            if store_reg == addr_reg:
+                # If address computation still returned the same reg, copy
+                # the source again to a fresh shadow to avoid clobber.
+                shadow2 = self._gestor.ocupar()
+                code.append(f'MOVD {shadow2}, {reg}')
+                store_reg = shadow2
+                if made_shadow:
+                    # release the first shadow because we replaced it
+                    self._gestor.liberar(shadow)
+            code.append(f'MOVD [{addr_reg}], {store_reg}')
             if addr_owned:
                 self._gestor.liberar(addr_reg)
+            if store_reg != reg:
+                self._gestor.liberar(store_reg)
 
         elif operand['kind'] == self.OP_REG:
             code.append(f'MOVD [{operand["value"]}], {reg}')
@@ -2848,7 +3017,7 @@ class GeneradorCodigo:
                 'text_size': len(text) + 1,
             }
 
-        temp_operand = self._allocate_temp(len(text) + 1)
+        temp_operand = self._allocate_temp(len(text) + 1, heap=True)
         addr_code, addr_reg, addr_owned = self._address_of_operand(temp_operand)
         init_code = list(addr_code)
         cursor_reg = self._gestor.ocupar()

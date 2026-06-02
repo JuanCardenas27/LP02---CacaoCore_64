@@ -2335,6 +2335,9 @@ class AnalizadorSemantico:
         if isinstance(value, list):
             return len(value)
 
+        if isinstance(expr_data, dict) and expr_data.get('dims', 0) > 0:
+            return self._shape_size(expr_data.get('shape', []))
+
         return 1
     
     def _shape_size(self, shape):
