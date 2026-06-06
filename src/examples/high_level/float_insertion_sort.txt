@@ -1,0 +1,35 @@
+#define size 9
+let n : int = size
+let a: float[size] = 99.1,1.2,8.3,4.5,2.2,10.4,2.8,10.9,11.3
+
+func insertion_sort() {
+    let key : float = 1.0
+    let j: int
+    let temp: int
+    for (let I: int = 1, I < n, set I += 1) {
+
+        set key = a[I]
+        set j = I - 1
+        
+        asLongAs ( j >= 0 and a[j] > key ) {
+            set temp = j + 1
+            set a[temp] = a[j]
+            set j = j - 1
+
+        }
+
+        set j = j + 1
+        set a[j] = key
+
+    }
+}
+
+insertion_sort()
+
+let elem: float
+
+for (let k: int = 0, k < n, set k += 1) {
+    set elem = a[k]
+    show elem
+}
+

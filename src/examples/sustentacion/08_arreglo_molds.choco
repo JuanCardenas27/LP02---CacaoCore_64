@@ -1,0 +1,19 @@
+#define NUM_ALUMNOS 4
+
+mold Estudiante {
+    let codigo: int
+    let nota: int
+}
+
+let n: int = NUM_ALUMNOS
+let alumnos: Estudiante[NUM_ALUMNOS] = summon Estudiante(101, 85), summon Estudiante(102, 72), summon Estudiante(103, 91), summon Estudiante(104, 68)
+
+let al_codigo: int
+let al_nota: int
+
+for (let i: int = 0, i < n, set i += 1) {
+    set al_codigo = alumnos[i].codigo
+    set al_nota = alumnos[i].nota
+    show al_codigo
+    show al_nota
+}

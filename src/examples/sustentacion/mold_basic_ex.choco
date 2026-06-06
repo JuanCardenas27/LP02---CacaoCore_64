@@ -1,0 +1,33 @@
+let correcciones: float[3] = 2.5, 4.5, 4.0
+let msj_cor: text = "Corrigiendo..."
+
+mold Estudiante {
+      let cedula: int
+      let nota: float
+  }
+
+  let students: Estudiante[3] = summon Estudiante(1001, 5.0),
+                                 summon Estudiante(1002, 4.0),
+                                 summon Estudiante(1003, 3.5)
+
+  show students[0].cedula
+  show students[0].nota
+  show msj_cor
+  set students[0].nota = correcciones[0]
+  show students[0].nota
+
+  show students[1].cedula
+  show students[1].nota
+  show msj_cor
+  set students[1].nota = correcciones[1]
+  show students[1].nota
+
+
+  show students[2].cedula
+  show students[2].nota     
+  show msj_cor
+  set students[2].nota = correcciones[2]
+  show students[2].nota
+
+  let msj : text = "Notas corregidas !"
+  show msj

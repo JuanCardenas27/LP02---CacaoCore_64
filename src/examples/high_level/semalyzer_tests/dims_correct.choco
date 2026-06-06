@@ -1,0 +1,45 @@
+mold Vector {
+
+    let values:int[3]
+
+    func load(data:int[3]) {
+
+        set ohmy.values = data
+    }
+
+    func sum(other:int[3]) {
+
+        let temp:int[3] = 1,2,3
+
+        set temp = other
+
+        deliver 0
+    }
+}
+
+func process(
+    a:int[3],
+    matrix:int[2][2]
+) {
+
+    let x:int
+    let y:float = 5
+
+    let arr:int[3]
+    let arr2:int[3] = 1,2,3
+
+    let mat:int[2][2]
+    let mat2:int[2][2] = 1,2,3,4
+
+    set arr = arr2
+    set mat = mat2
+
+    set arr[0] = 99
+    set mat[1][1] = 88
+
+    show arr[0]
+}
+
+let arr : int[3] = 1,2,3
+let mat : int[2][2] = 1,2,3,4
+process(arr, mat)

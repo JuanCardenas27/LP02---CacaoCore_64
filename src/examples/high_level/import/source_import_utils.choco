@@ -1,0 +1,20 @@
+#export { max_of_three, total }
+
+func max_of_three(a: int, b: int, c: int) {
+    if a > b {
+        if a > c {
+            deliver a
+        } otherwise {
+            deliver c
+        }
+    } otherwise {
+        if b > c {
+            deliver b
+        } otherwise {
+            deliver c
+        }
+    }
+}
+
+let total: int = 0
+let internal_counter: int = 0

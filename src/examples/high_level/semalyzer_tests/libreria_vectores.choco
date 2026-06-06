@@ -1,0 +1,9 @@
+func VEC_MAX(a: int[5], n: int){
+    let max: int = -100000000
+    for (let i: int = 1, i < n, set i += 1){
+        if (a[i] > max){
+            set max = a[i]
+        }
+    }
+
+}

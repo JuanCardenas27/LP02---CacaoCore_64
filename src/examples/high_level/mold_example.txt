@@ -1,0 +1,22 @@
+#define min_age 18
+
+mold Person {
+    let name: text
+    let age: int
+
+    func isAdult() {
+        if ohmy.age >= min_age {
+            deliver indeed
+        } otherwise {
+            deliver nope
+        }
+    }
+}
+
+let p: Person = summon Person("Cocoa", 2)
+
+show p.name
+
+let res : bool
+set res = p.isAdult()
+show res

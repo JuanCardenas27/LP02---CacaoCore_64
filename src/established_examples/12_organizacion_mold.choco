@@ -1,0 +1,28 @@
+
+#define size 3
+let n_notas : float = 3.0
+let avg: float
+mold Estudiante {
+      let cedula: int
+      let nota1: float
+      let nota2: float
+      let nota3: float
+
+      func avgNote() {
+        set avg = ohmy.nota1 + ohmy.nota2 + ohmy.nota3
+        set avg = avg / n_notas
+        deliver avg
+    }
+  }
+
+let students: Estudiante[size] = summon Estudiante(1001, 3.5, 3.5, 3.5),
+                                 summon Estudiante(1002, 2.5, 4.0, 4.2),
+                                 summon Estudiante(1003, 5.0, 4.5, 4.0)
+
+let final_note : float
+for (let i:int = 0, i<size, set i += 1){
+    set final_note = students[i].avgNote()
+    show final_note
+}
+
+

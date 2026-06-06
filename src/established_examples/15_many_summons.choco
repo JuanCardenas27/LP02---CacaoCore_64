@@ -1,0 +1,24 @@
+mold Persona {
+    let codigo: int
+    let edad: int
+
+    func resumen() {
+        deliver ohmy.codigo + ohmy.edad
+    }
+}
+
+func crearGrupo() {
+    let uno: Persona = summon Persona(10, 21)
+    let dos: Persona = summon Persona(20, 22)
+    let grupo: Persona[2] = uno, dos
+    deliver grupo
+}
+
+let personas: Persona[2] = crearGrupo()
+
+show personas[0].codigo
+show personas[0].edad
+show personas[0].resumen()
+show personas[1].codigo
+show personas[1].edad
+show personas[1].resumen()

@@ -1,7 +1,7 @@
 """
 analizador_semantico.py
 =======================
-Analizador Semántico para CacaoScript — CACAO_Core-64.
+Analizador Semántico para Choco — CACAO_Core-64.
 Usa yacc para validación semántica sin construir AST.
 Luego anota el AST sintáctico con información semántica.
 
@@ -21,29 +21,59 @@ statement       ::= let_stmt
                   | oops_stmt
                   | expr_stmt
 
-let_stmt        ::= 'let' ID ':' type_annot [ dims ] [ '=' initializer ]
-dims            ::= '[' expr ']' [ '[' expr ']' ]
-initializer     ::= expr | value_list
-value_list      ::= expr { ',' expr }          (* ≥ 2 elementos *)
+let_stmt        ::= 'let' ID ':' type_annot
+                    opt_dims
+                    opt_initializer
+
+opt_dims        ::= dims
+                  | ε
+
+dims            ::= '[' expr ']' { '[' expr ']' }
+
+opt_initializer ::= '=' initializer
+                  | ε
+
+initializer     ::= expr
+                  | value_list
+
+value_list      ::= expr ',' expr { ',' expr }
+                    (* ≥ 2 elementos *)
 
 set_stmt        ::= 'set' lvalue ( '=' | '+=' ) expr
 
-lvalue          ::= ID { '[' expr ']' } { '.' ID }
+lvalue          ::= primary_lvalue
+                    { '[' expr ']' | '.' ID }
 
-type_annot      ::= 'int' | 'float' | 'text' | 'bool' | ID
+primary_lvalue  ::= ID
+                  | 'ohmy'
+
+type_annot      ::= 'int'
+                  | 'float'
+                  | 'text'
+                  | 'bool'
+                  | ID
 
 func_def        ::= 'func' ID '(' [ param_list ] ')' block
 param_list      ::= param { ',' param }
-param           ::= ID ':' type_annot
+
+param           ::= ID ':' type_annot opt_dims
 
 mold_def        ::= 'mold' ID '{' { mold_member } '}'
-mold_member     ::= let_stmt | func_def
+
+mold_member     ::= let_stmt
+                  | func_def
 
 if_stmt         ::= 'if' expr block [ 'otherwise' block ]
 while_stmt      ::= 'asLongAs' expr block
-for_stmt        ::= 'for' '(' for_init ',' expr ',' for_update ')' block
+
+for_stmt        ::= 'for'
+                    '(' for_init ',' expr ',' for_update ')'
+                    block
+
 for_init        ::= let_stmt_simple
-for_update      ::= set_stmt_simple | expr
+
+for_update      ::= set_stmt_simple
+                  | expr
 
 deliver_stmt    ::= 'deliver' [ expr ]
 show_stmt       ::= 'show' expr
@@ -62,10 +92,16 @@ expr            ::= expr ( '+' | '-' | '*' | '/' | '%' ) expr
                   | expr '.' ID
                   | ID '(' [ arg_list ] ')'
                   | 'summon' ID '(' [ arg_list ] ')'
-                  | 'ohmy' [ '.' ID ]
+                  | 'ohmy'
+                  | 'ohmy' '.' ID
                   | '(' expr ')'
-                  | ID | INT_LIT | FLOAT_LIT | STRING
-                  | 'indeed' | 'nope' | 'nothing'
+                  | ID
+                  | INT_LIT
+                  | FLOAT_LIT
+                  | STRING
+                  | 'indeed'
+                  | 'nope'
+                  | 'nothing'
 
 arg_list        ::= expr { ',' expr }
 ──────────────────────────────────────────────────────────────────
@@ -77,34 +113,12 @@ from .analizador_sintactico import AnalizadorSintactico
 from .semantic_ast_annotator import ASTSemanticAnnotator
 from .ast_nodos import (
     Nodo,
-    NodoAccesoArreglo,
-    NodoAccesoMiembro,
-    NodoBinario,
-    NodoBloque,
-    NodoBooleano,
-    NodoCadena,
     NodoDeclaracion,
-    NodoEntregar,
-    NodoEntero,
-    NodoFlotante,
     NodoFuncion,
     NodoID,
-    NodoListaValores,
-    NodoLlamada,
     NodoMold,
-    NodoNada,
-    NodoOhmy,
-    NodoOops,
     NodoParametro,
-    NodoPrograma,
-    NodoReasignacion,
-    NodoSi,
-    NodoMostrar,
-    NodoSummon,
-    NodoTerminal,
-    NodoUnario,
-    NodoMientras,
-    NodoPara,
+    NodoTerminal
 )
 
 
@@ -124,18 +138,7 @@ class AnalizadorSemantico:
     tokens = AnalizadorLexico.tokens
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
-    precedence = (
-        ('left',  'OR', 'XOR'),
-        ('left',  'AND'),
-        ('right', 'NOT'),
-        ('left',  'EQ', 'NEQ'),
-        ('left',  'LT', 'GT', 'LEQ', 'GEQ'),
-        ('left',  'PLUS', 'MINUS'),
-        ('left',  'TIMES', 'DIVIDE', 'MOD'),
-        ('right', 'UMINUS'),
-        ('left',  'LBRACKET'),
-        ('left',  'DOT'),
-    )
+    precedence = AnalizadorSintactico.precedence
 
     _SEMANTIC_META_KEYS = {
         'tipo',
@@ -147,11 +150,10 @@ class AnalizadorSemantico:
         'scope_id',
         'tipo_decl',
         'semantic_info',
+        'text_size',
     }
 
-    # ══════════════════════════════════════════════════════════════════════
     # GRAMÁTICA CON LÓGICA SEMÁNTICA (SIN CONSTRUCCIÓN DE NODOS)
-    # ══════════════════════════════════════════════════════════════════════
 
     # PROGRAMA
     def p_program(self, p):
@@ -208,211 +210,193 @@ class AnalizadorSemantico:
         p[0] = p[1]
 
     # ── Declaración let
-    def p_let_simple(self, p):
-        """let_stmt : LET ID COLON type_annot"""
-        # Validar y definir símbolo
-        name = p[2]
-        type_name = self._get_type_name_from_token(p[4])
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
-        self._define_symbol(
-            name,
-            'variable',
-            type_name,
-            p.lineno(1),
-            value=None
-        )
-        p[0] = {
-            'always_returns': False
-        }
-
-    def p_let_with_val(self, p):
-        """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
+    def p_let_stmt(self, p):
+        """
+        let_stmt : LET ID COLON type_annot opt_dims opt_initializer
+        """
 
         name = p[2]
         type_name = self._get_type_name_from_token(p[4])
+
+        declared_dims = p[5]['dims']
+        declared_shape = p[5]['shape']
+
+        initializer = p[6]
+
         if not self._type_exists(type_name):
+
             self._emit_error(
                 p.lineno(3),
                 f"tipo '{type_name}' no existe"
             )
 
-        init_data = p[6]
+        value = None
 
-        expr_type = self._extract_type(init_data)
+        if initializer is not None:
 
-        compatible = (
-            type_name == expr_type
-            or
-            (
-                type_name == 'float'
-                and expr_type == 'int'
+            expr_type = self._extract_type(initializer)
+            expr_dims = self._extract_dims(initializer)
+
+            compatible = (
+                type_name == expr_type
+                or (
+                    type_name == 'float'
+                    and expr_type == 'int'
+                )
             )
+
+            if not compatible:
+
+                self._emit_error(
+                    p.lineno(1),
+                    f"asignación incompatible: "
+                    f"no se puede asignar "
+                    f"'{expr_type}' a '{type_name}'"
+                )
+
+            if not self._is_flat_initializer(initializer):
+
+                if declared_dims != expr_dims:
+
+                    self._emit_error(
+                        p.lineno(1),
+                        f"dimensiones incompatibles: "
+                        f"se esperaba {declared_dims}D "
+                        f"y se recibió {expr_dims}D"
+                    )
+
+            if self._is_flat_initializer(initializer):
+
+                expected_size = self._shape_size(
+                    declared_shape
+                )
+
+                received_size = initializer.get(
+                    'flat_size',
+                    0
+                )
+
+                if expected_size != received_size:
+
+                    self._emit_error(
+                        p.lineno(1),
+                        f"tamaño incompatible: "
+                        f"se esperaban {expected_size} elementos "
+                        f"y se recibieron {received_size}"
+                    )
+
+            init_size = self._flatten_size(initializer)
+
+            declared_size = self._shape_size(
+                declared_shape
+            )
+
+            if (
+                declared_dims > 0
+                and
+                declared_size != init_size
+            ):
+
+                self._emit_error(
+                    p.lineno(1),
+                    f"tamaño incompatible: "
+                    f"se esperaban {declared_size} elementos "
+                    f"y se recibieron {init_size}"
+                )
+
+            value = self._extract_value(initializer)
+
+        kind = (
+            'array'
+            if declared_dims > 0
+            else 'variable'
         )
-
-        if not compatible:
-
-            self._emit_error(
-                p.lineno(5),
-                f"asignación incompatible: "
-                f"no se puede asignar "
-                f"'{expr_type}' a '{type_name}'"
-            )
-
-        self._define_symbol(
-            name,
-            'variable',
-            type_name,
-            p.lineno(1),
-            value=self._extract_value(init_data)
-        )
-        p[0] = {
-            'always_returns': False
-        }
-
-    def p_let_array_1d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
-        name = p[2]
-        type_name = self._get_type_name_from_token(p[4])
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
-        self._define_symbol(
-            name,
-            'array',
-            type_name,
-            p.lineno(1),
-            dims=1,
-            value=None
-        )
-        p[0] = {
-            'always_returns': False
-        }
-
-    def p_let_array_1d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
-        name = p[2]
-        type_name = self._get_type_name_from_token(p[4])
-
-        init_data = p[9]
-
-        expr_type = self._extract_type(init_data)
-        expr_dims = self._extract_dims(init_data)
-
-        compatible = (
-            type_name == expr_type
-            or
-            (
-                type_name == 'float'
-                and expr_type == 'int'
-            )
-        )
-
-        if expr_dims != 1:
-
-            self._emit_error(
-                p.lineno(8),
-                "dimensiones incompatibles: se esperaba 1D"
-            )
-
-        elif not compatible:
-
-            self._emit_error(
-                p.lineno(8),
-                f"asignación incompatible: "
-                f"no se puede asignar "
-                f"'{expr_type}' a '{type_name}'"
-            )
-
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
-        self._define_symbol(
-            name,
-            'array',
-            type_name,
-            p.lineno(1),
-            dims=1,
-            value=self._extract_value(p[9])
-        )
-        p[0] = {
-            'always_returns': False
-        }
-
-    def p_let_array_2d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
-        name = p[2]
-        type_name = self._get_type_name_from_token(p[4])
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
-        self._define_symbol(name, 'array', type_name, p.lineno(1), dims=2)
-        p[0] = {
-            'always_returns': False
-        }
-
-    def p_let_array_2d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
-
-        name = p[2]
-        type_name = self._get_type_name_from_token(p[4])
-
-        init_data = p[12]
-
-        expr_type = self._extract_type(init_data)
-        expr_dims = self._extract_dims(init_data)
-
-        compatible = (
-            type_name == expr_type
-            or
-            (
-                type_name == 'float'
-                and expr_type == 'int'
-            )
-        )
-
-        if expr_dims != 2:
-
-            self._emit_error(
-                p.lineno(11),
-                "dimensiones incompatibles: se esperaba 2D"
-            )
-
-        elif not compatible:
-
-            self._emit_error(
-                p.lineno(11),
-                f"asignación incompatible: "
-                f"no se puede asignar "
-                f"'{expr_type}' a '{type_name}'"
-            )
-
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
 
         self._define_symbol(
             name,
-            'array',
+            kind,
             type_name,
             p.lineno(1),
-            dims=2,
-            value=self._extract_value(p[12])
+            dims=declared_dims,
+            shape=declared_shape,
+            value=value
         )
+
         p[0] = {
             'always_returns': False
         }
+
+    def p_opt_dims(self, p):
+        """opt_dims : dims
+                    | empty"""
+
+        if p[1] is None:
+
+            p[0] = {
+                'dims': 0,
+                'shape': []
+            }
+
+            return
+
+        p[0] = p[1]
+
+    def p_dims_one(self, p):
+        """dims : LBRACKET expr RBRACKET"""
+
+        expr_type = self._extract_type(p[2])
+
+        if expr_type != 'int':
+
+            self._emit_error(
+                p.lineno(1),
+                "las dimensiones deben ser int"
+            )
+
+        p[0] = {
+            'dims': 1,
+            'shape': [
+                self._extract_value(p[2])
+            ]
+        }
+
+    def p_dims_many(self, p):
+        """dims : dims LBRACKET expr RBRACKET"""
+
+        expr_type = self._extract_type(p[3])
+
+        if expr_type != 'int':
+
+            self._emit_error(
+                p.lineno(2),
+                "las dimensiones deben ser int"
+            )
+
+        shape = list(p[1]['shape'])
+
+        shape.append(
+            self._extract_value(p[3])
+        )
+
+        p[0] = {
+            'dims': p[1]['dims'] + 1,
+            'shape': shape
+        }
+
+    def p_opt_initializer_empty(self, p):
+        """
+        opt_initializer : empty
+        """
+
+        p[0] = None
+
+
+    def p_opt_initializer_assign(self, p):
+        """
+        opt_initializer : ASSIGN initializer
+        """
+
+        p[0] = p[2]
 
     def p_initializer_expr(self, p):
         """initializer : expr"""
@@ -424,29 +408,53 @@ class AnalizadorSemantico:
         p[0] = p[1]
 
     def p_value_list_start(self, p):
-        """value_list : expr COMMA expr"""
+        """
+        value_list : expr COMMA expr
+        """
 
-        t1 = self._extract_type(p[1])
-        t2 = self._extract_type(p[3])
+        left_type = self._extract_type(p[1])
+        right_type = self._extract_type(p[3])
 
-        if t1 != t2:
+        if left_type != right_type:
 
             self._emit_error(
                 p.lineno(2),
                 "lista con tipos incompatibles"
             )
 
+        left_dims = self._extract_dims(p[1])
+        right_dims = self._extract_dims(p[3])
+
+        if left_dims != right_dims:
+
+            self._emit_error(
+                p.lineno(2),
+                "lista con dimensiones incompatibles"
+            )
+
+        values = []
+
+        values.extend(
+            self._flatten_values(p[1])
+        )
+
+        values.extend(
+            self._flatten_values(p[3])
+        )
+
         p[0] = {
-            'type': t1,
-            'value': [
-                self._extract_value(p[1]),
-                self._extract_value(p[3])
-            ],
-            'dims': 1
+            'type': left_type,
+            'value': values,
+            'dims': None,
+            'item_dims': left_dims,
+            'is_flat': True,
+            'flat_size': len(values)
         }
 
     def p_value_list_grow(self, p):
-        """value_list : value_list COMMA expr"""
+        """
+        value_list : value_list COMMA expr
+        """
 
         current_type = p[1]['type']
         new_type = self._extract_type(p[3])
@@ -458,16 +466,29 @@ class AnalizadorSemantico:
                 "lista con tipos incompatibles"
             )
 
+        current_dims = p[1].get('item_dims', 0)
+        new_dims = self._extract_dims(p[3])
+
+        if current_dims != new_dims:
+
+            self._emit_error(
+                p.lineno(2),
+                "lista con dimensiones incompatibles"
+            )
+
         values = list(p[1]['value'])
 
-        values.append(
-            self._extract_value(p[3])
+        values.extend(
+            self._flatten_values(p[3])
         )
 
         p[0] = {
             'type': current_type,
             'value': values,
-            'dims': 1
+            'dims': None,
+            'item_dims': current_dims,
+            'is_flat': True,
+            'flat_size': len(values)
         }
 
     def p_type_int(self, p):
@@ -509,6 +530,11 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = self._extract_value(expr_data)
+                if sym.get('type') == 'text':
+                    sym['text_size'] = max(
+                        int(sym.get('text_size') or 0),
+                        self._text_value_size(sym['value'])
+                    )
         
         p[0] = {
             'always_returns': False
@@ -535,6 +561,8 @@ class AnalizadorSemantico:
 
             if sym is not None:
                 sym['value'] = None
+                if sym.get('type') == 'text':
+                    sym['text_size'] = int(sym.get('text_size') or 0)
         
         p[0] = {
             'always_returns': False
@@ -543,7 +571,19 @@ class AnalizadorSemantico:
     # ── Lvalue
     def p_lvalue_id(self, p):
         """lvalue : ID"""
-        p[0] = p[1]
+        name = p[1]
+
+        if self.current_method_mold is not None:
+            mold = self._resolve_ohmy(p.lineno(1))
+            if mold is not None and name in mold.get('fields', {}):
+                self._emit_error(
+                    p.lineno(1),
+                    f"el miembro '{name}' del mold '{self.current_method_mold}' debe accederse con ohmy"
+                )
+                p[0] = '__invalid_field_access__'
+                return
+
+        p[0] = name
 
     def p_lvalue_ohmy(self, p):
         """lvalue : OHMY"""
@@ -593,6 +633,15 @@ class AnalizadorSemantico:
         name = p[2]
         params = p[5]
 
+        # p_enter_function_scope inserted a forward-decl stub in the outer scope
+        # so that recursive self-calls could be resolved during body parsing.
+        # Delete the stub now so _define_symbol can create a proper entry with
+        # all required fields ('label', 'frame_size', defined_symbols entry, etc.).
+        for scope in reversed(self.scopes):
+            if name in scope and scope[name].get('_forward_decl'):
+                del scope[name]
+                break
+
         self._define_symbol(
             name,
             'function',
@@ -605,6 +654,20 @@ class AnalizadorSemantico:
 
         if sym is not None:
             sym['params'] = params
+            num_params = len(params)
+            param_names = {p_info['name']: i for i, p_info in enumerate(params)}
+            updated = 0
+            for sym_entry in reversed(self.defined_symbols):
+                if sym_entry.get('kind') == 'parameter' and sym_entry.get('name') in param_names and sym_entry.get('scope') == name:
+                    idx = param_names[sym_entry['name']]
+                    # Arguments are pushed right-to-left; first declared param
+                    # (idx=0) is pushed last so it sits at frame_size+16.
+                    # frame_size is added by the code generator at emit time.
+                    sym_entry['param_offset'] = 16 + idx * 8
+                    updated += 1
+                    if updated == num_params:
+                        break
+
             inferred_return = 'void'
 
             if self.current_function is not None:
@@ -614,6 +677,14 @@ class AnalizadorSemantico:
                 )
 
             sym['return_type'] = inferred_return
+            sym['return_info'] = (
+                self.current_function.get('return_info')
+                or {
+                    'type': 'void',
+                    'dims': 0,
+                    'shape': []
+                }
+            )
             if self.current_method_mold is not None:
 
                 mold = self.molds.get(
@@ -623,11 +694,11 @@ class AnalizadorSemantico:
                 if mold is not None:
 
                     method = mold['methods'].get(name)
-
                     if method is not None:
 
                         method['params'] = params
                         method['return_type'] = inferred_return
+                        method['return_info'] = sym['return_info']
 
             body_returns = p[7]['always_returns']
 
@@ -641,7 +712,11 @@ class AnalizadorSemantico:
                     p.lineno(1),
                     f"la función '{name}' no retorna en todos los caminos"
                 )
-                
+            frame_size = self.function_stack_offsets.pop()
+            if frame_size % 8 != 0:
+                frame_size += 8 - (frame_size % 8)
+            sym['frame_size'] = frame_size
+            self._enrich_lexer_symbol_entry(name, sym)
             self.current_function = None
             self.current_method_mold = None
         p[0] = {
@@ -653,21 +728,57 @@ class AnalizadorSemantico:
 
         function_name = p[-2]
 
+        # Pre-register the function in the OUTER scope so that recursive
+        # self-calls inside the body can be found by _resolve_symbol.
+        # p_func_def will update this stub with full info once the body
+        # has been parsed (bottom-up).
+        if self.scopes:
+            outer_scope = self.scopes[-1]
+            outer_scope_name = self.scope_names[-1] if self.scope_names else 'global'
+            if function_name not in outer_scope:
+                outer_scope[function_name] = {
+                    'name': function_name,
+                    'kind': 'function',
+                    'type': 'void',
+                    'scope': outer_scope_name,
+                    'params': [],
+                    'return_type': None,
+                    'return_info': {'type': 'void', 'dims': 0, 'shape': []},
+                    # Marker: params list is empty only because the body hasn't
+                    # been parsed yet.  Argument validation must be skipped for
+                    # recursive calls that resolve to this stub.
+                    '_forward_decl': True,
+                }
+
         self.current_function = {
             'name': function_name,
             'return_type': None,
+            'return_info': {
+                'type': 'void',
+                'dims': 0,
+                'shape': []
+            },
             'mold': self.current_mold,
             'has_deliver': False
         }
 
         self.current_method_mold = self.current_mold
 
-        self._enter_scope('function')
+        # Keep function scope case-sensitive so func/Func/FUNC remain distinct.
+        self._enter_scope(function_name)
+        self.function_stack_offsets.append(0)
 
     def p_func_def_no_params(self, p):
         """func_def : FUNC ID LPAREN enter_function_scope RPAREN block"""
 
         name = p[2]
+
+        # Same as p_func_def: delete the forward-decl stub before calling
+        # _define_symbol to get a complete entry with all required fields.
+        for scope in reversed(self.scopes):
+            if name in scope and scope[name].get('_forward_decl'):
+                del scope[name]
+                break
 
         self._define_symbol(
             name,
@@ -690,6 +801,14 @@ class AnalizadorSemantico:
                 )
 
             sym['return_type'] = inferred_return
+            sym['return_info'] = (
+                self.current_function.get('return_info')
+                or {
+                    'type': 'void',
+                    'dims': 0,
+                    'shape': []
+                }
+            )
             if self.current_method_mold is not None:
 
                 mold = self.molds.get(
@@ -704,6 +823,7 @@ class AnalizadorSemantico:
 
                         method['params'] = []
                         method['return_type'] = inferred_return
+                        method['return_info'] = sym['return_info']
             
             body_returns = p[6]['always_returns']
 
@@ -717,7 +837,11 @@ class AnalizadorSemantico:
                     p.lineno(1),
                     f"la función '{name}' no retorna en todos los caminos"
                 )
-
+            frame_size = self.function_stack_offsets.pop()
+            if frame_size % 8 != 0:
+                frame_size += 8 - (frame_size % 8)
+            sym['frame_size'] = frame_size
+            self._enrich_lexer_symbol_entry(name, sym)
             self.current_function = None
             self.current_method_mold = None
         
@@ -736,24 +860,29 @@ class AnalizadorSemantico:
         p[0] = p[1] + [p[3]]
 
     def p_param(self, p):
-        """param : ID COLON type_annot"""
+        """
+        param : ID COLON type_annot opt_dims
+        """
+
         name = p[1]
         type_name = p[3]
-        if not self._type_exists(type_name):
-            self._emit_error(
-                p.lineno(3),
-                f"tipo '{type_name}' no existe"
-            )
+
+        dims_info = p[4]
+
         self._define_symbol(
             name,
             'parameter',
             type_name,
             p.lineno(1),
-            value=None
+            dims=dims_info['dims'],
+            shape=dims_info['shape']
         )
+
         p[0] = {
             'name': name,
-            'type': type_name
+            'type': type_name,
+            'dims': dims_info['dims'],
+            'shape': dims_info['shape']
         }
 
     # ── Mold
@@ -762,6 +891,19 @@ class AnalizadorSemantico:
 
         name = p[2]
 
+        mold_info = self.molds.get(name, {})
+
+        attrs = list(
+            mold_info.get('fields', {}).keys()
+        )
+
+        fields = mold_info.get('fields', {})
+
+        # IMPORTANTE
+        self._leave_scope()
+
+        self.current_mold = None
+
         self._define_symbol(
             name,
             'mold',
@@ -769,7 +911,23 @@ class AnalizadorSemantico:
             p.lineno(1)
         )
 
-        self.current_mold = None
+        sym = self._resolve_symbol(name)
+
+        if sym is not None:
+
+            sym['attr'] = attrs
+            sym['fields'] = fields
+            sym['size'] = mold_info.get('size',0)
+            sym['field_order'] = mold_info.get(
+                'field_order',
+                []
+            )
+            sym['methods'] = mold_info.get('methods', {})
+            self._enrich_lexer_symbol_entry(
+                name,
+                sym
+            )
+
         p[0] = {
             'always_returns': False
         }
@@ -783,7 +941,8 @@ class AnalizadorSemantico:
 
         self.molds[mold_name] = {
             'fields': {},
-            'methods': {}
+            'methods': {},
+            'attrs': []
         }
 
         self._enter_scope('mold')
@@ -973,7 +1132,11 @@ class AnalizadorSemantico:
 
         # Primer deliver → inferir tipo
         if current_return is None:
-
+            self.current_function['return_info'] = {
+                'type': expr_type,
+                'dims': self._extract_dims(p[2]),
+                'shape': self._extract_shape(p[2]),
+            }
             self.current_function['return_type'] = expr_type
             self.current_function['has_deliver'] = True
 
@@ -983,12 +1146,31 @@ class AnalizadorSemantico:
 
             return
 
+        current_info = self.current_function.get(
+            'return_info',
+            {}
+        )
+
+        current_dims = current_info.get('dims', 0)
+        expr_dims = self._extract_dims(p[2])
+
+        current_shape = current_info.get('shape', [])
+        expr_shape = self._extract_shape(p[2])
+
+        dims_compatible = (
+            current_dims == expr_dims
+        )
         compatible = (
-            current_return == expr_type or
             (
-                current_return == 'float' and
-                expr_type == 'int'
+                current_return == expr_type
+                or
+                (
+                    current_return == 'float'
+                    and expr_type == 'int'
+                )
             )
+            and
+            dims_compatible and current_shape == expr_shape
         )
 
         if not compatible:
@@ -1023,6 +1205,11 @@ class AnalizadorSemantico:
 
             self.current_function['return_type'] = 'void'
             self.current_function['has_deliver'] = True
+            self.current_function['return_info'] = {
+                'type': 'void',
+                'dims': 0,
+                'shape': []
+            }
 
             p[0] = {
                 'always_returns': True
@@ -1246,10 +1433,19 @@ class AnalizadorSemantico:
             p[0] = self._make_expr_data('unknown')
             return
 
+        target_shape = self._extract_shape(target)
+
+        remaining_shape = (
+            target_shape[1:]
+            if len(target_shape) > 0
+            else []
+        )
+
         p[0] = self._make_expr_data(
             self._extract_type(target),
             None,
-            dims=max(target_dims - 1, 0)
+            dims=max(target_dims - 1, 0),
+            shape=remaining_shape
         )
 
     def p_expr_method_call(self, p):
@@ -1265,6 +1461,20 @@ class AnalizadorSemantico:
             received_args = []
 
         target_type = self._extract_type(target)
+
+        if self._validate_extern_function(method_name, self.metadata):
+
+            self._emit_error(
+                p.lineno(3),
+                f"la función externa '{method_name}' no puede llamarse como método"
+            )
+
+            p[0] = self._make_expr_data(
+                'unknown',
+                None
+            )
+
+            return
 
         mold = self.molds.get(target_type)
 
@@ -1310,13 +1520,13 @@ class AnalizadorSemantico:
             received_args
         )
 
+        return_info = method.get('return_info', {})
+
         p[0] = self._make_expr_data(
-            method.get(
-                'return_type',
-                'void'
-            ),
+            return_info.get('type', 'void'),
             None,
-            method.get('dims', 0)
+            return_info.get('dims', 0),
+            return_info.get('shape', [])
         )
 
     def p_expr_member(self, p):
@@ -1354,7 +1564,9 @@ class AnalizadorSemantico:
         p[0] = self._make_expr_data(
             field['type'],
             None,
-            field.get('dims', 0)
+            field.get('dims', 0),
+            field.get('shape', []),
+            field.get('text_size', 0)
         )
 
     def p_expr_call_args(self, p):
@@ -1365,12 +1577,20 @@ class AnalizadorSemantico:
 
         if sym is None:
 
-            self._emit_error(
-                p.lineno(1),
-                f"función '{name}' no declarada"
-            )
+            isExtern = self._validate_extern_function(name, self.metadata)
 
-            p[0] = self._make_expr_data('unknown')
+            if not isExtern:
+                self._emit_error(
+                    p.lineno(1),
+                    f"función '{name}' no declarada"
+                )
+
+                p[0] = self._make_expr_data('unknown')
+                return
+            p[0] = self._make_expr_data(
+                'void',
+                None
+            )
             return
 
         if sym.get('kind') != 'function':
@@ -1385,15 +1605,28 @@ class AnalizadorSemantico:
         
         expected_params = sym.get('params', [])
 
-        self._validate_call_arguments(
-            p.lineno(1),
-            expected_params,
-            p[3]
-        )
+        # If the symbol is a forward-declaration stub (inserted by
+        # p_enter_function_scope to allow recursive calls), skip argument
+        # validation: the real parameter list isn't known yet.
+        is_stub = sym.get('_forward_decl', False)
+        if not is_stub:
+            self._validate_call_arguments(
+                p.lineno(1),
+                expected_params,
+                p[3]
+            )
         
+        ret = sym.get('return_info', {})
+        # Stubs have return_info={'type':'void'} as placeholder; use 'unknown'
+        # so _validate_assignment skips type checking (it treats unknown as
+        # compatible with anything, see lines 2806-2810).
+        ret_type = 'unknown' if is_stub else ret.get('type', 'void')
+
         p[0] = self._make_expr_data(
-            sym.get('return_type', 'void'),
-            None
+            ret_type,
+            None,
+            ret.get('dims', 0),
+            ret.get('shape', [])
         )
 
     def p_expr_call_noargs(self, p):
@@ -1403,12 +1636,20 @@ class AnalizadorSemantico:
 
         if sym is None:
 
-            self._emit_error(
-                p.lineno(1),
-                f"función '{name}' no declarada"
-            )
+            if not self._validate_extern_function(name, self.metadata):
 
-            p[0] = self._make_expr_data('unknown')
+                self._emit_error(
+                    p.lineno(1),
+                    f"función '{name}' no declarada"
+                )
+
+                p[0] = self._make_expr_data('unknown')
+                return
+
+            p[0] = self._make_expr_data(
+                'void',
+                None
+            )
             return
 
         if sym.get('kind') != 'function':
@@ -1430,10 +1671,13 @@ class AnalizadorSemantico:
                 f"la función '{name}' requiere argumentos"
             )
         
+        ret = sym.get('return_info', {})
+
         p[0] = self._make_expr_data(
-            sym.get('return_type', 'unknown'),
-            sym.get('value'),
-            sym.get('dims', 0)
+            ret.get('type', 'void'),
+            None,
+            ret.get('dims', 0),
+            ret.get('shape', [])
         )
 
     def p_expr_summon_args(self, p):
@@ -1543,7 +1787,9 @@ class AnalizadorSemantico:
         p[0] = self._make_expr_data(
             field['type'],
             None,
-            field.get('dims', 0)
+            field.get('dims', 0),
+            field.get('shape', []),
+            field.get('text_size', 0)
         )
 
     def p_expr_ohmy(self, p):
@@ -1576,6 +1822,16 @@ class AnalizadorSemantico:
 
         name = p[1]
 
+        if self.current_method_mold is not None:
+            mold = self._resolve_ohmy(p.lineno(1))
+            if mold is not None and name in mold.get('fields', {}):
+                self._emit_error(
+                    p.lineno(1),
+                    f"el miembro '{name}' del mold '{self.current_method_mold}' debe accederse con ohmy"
+                )
+                p[0] = self._make_expr_data('unknown')
+                return
+
         sym = self._resolve_symbol(name)
 
         if sym is None:
@@ -1591,7 +1847,8 @@ class AnalizadorSemantico:
         p[0] = self._make_expr_data(
             sym.get('type', 'unknown'),
             sym.get('value'),
-            sym.get('dims', 0)
+            sym.get('dims', 0),
+            shape=sym.get('shape', [])
         )
 
     def p_expr_int(self, p):
@@ -1612,10 +1869,10 @@ class AnalizadorSemantico:
 
     def p_expr_string(self, p):
         """expr : STRING"""
-
+        pool_entry = self._intern_string(p[1])
         p[0] = self._make_expr_data(
             'text',
-            p[1]
+            pool_entry
         )
 
     def p_expr_indeed(self, p):
@@ -1667,9 +1924,7 @@ class AnalizadorSemantico:
         else:
             self.errors.append("Error sintáctico: fin de archivo inesperado.")
 
-    # ══════════════════════════════════════════════════════════════════════
     # INICIALIZACIÓN Y API PÚBLICA
-    # ══════════════════════════════════════════════════════════════════════
 
     def __init__(self):
         self._lex = AnalizadorLexico()
@@ -1692,8 +1947,20 @@ class AnalizadorSemantico:
         self.current_function = None
         self.pending_params = []
         self._ast_annotator = ASTSemanticAnnotator(self)
+        self.metadata = []
+        self.type_sizes = {
+            'int':8,
+            'float':8,
+            'bool':8,
+            'text':8,
+        }
+        self.function_stack_offsets = []
+        self.string_pool = {}
+        self.string_counter = 0
+        self.float_pool = {}
+        self.float_counter = 0
 
-    def parse(self, codigo: str) -> tuple[list[str], object, dict]:
+    def parse(self, codigo: str, metadata:list) -> tuple[list[str], object, dict]:
         """
         Analiza y valida semánticamente el código.
         
@@ -1706,6 +1973,7 @@ class AnalizadorSemantico:
         """
         self.errors = []
         self._reset_semantic_state()
+        self.metadata = metadata
 
         # Paso 0: ejecutar lexer para obtener la tabla base real
         # y usarla como base de la tabla semántica enriquecida.
@@ -1736,19 +2004,72 @@ class AnalizadorSemantico:
         # Paso 2: Obtener el AST sintáctico
         _, ast = self._syntactic.parse(codigo)
         self._annotate_ast(ast)
-        return self.errors, ast, self.semantic_symbol_table
+        return {
+            'errors': self.errors,
+            'ast': ast,
+            'symbol_table': self.semantic_symbol_table,
+            'molds': self.molds,
+            'type_sizes': self.type_sizes,
+            'defined_symbols': self.defined_symbols,
+            'functions': self._collect_function_entries(),
+            'target': {
+                'pointer_size': 8,
+                'word_size': 8,
+                'stack_alignment': 8,
+            },
+            'string_pool': self.string_pool,
+            'float_pool': self.float_pool,
+        }
+    
+    def _sizeof(self, type_name, dims=0, shape=None):
+
+        if type_name in self.type_sizes:
+            base_size = self.type_sizes[type_name]
+        else:
+            mold = self.molds.get(type_name)
+
+            if mold:
+                base_size = mold.get('size', 0)
+            else:
+                base_size = 0
+
+        if dims <= 0:
+            return base_size
+
+        total_items = self._shape_size(shape)
+
+        if total_items is None:
+            return base_size
+
+        return base_size * total_items
 
     def _make_expr_data(
         self,
-        type_name='unknown',
+        type_name,
         value=None,
-        dims=0
+        dims=0,
+        shape=None,
+        text_size=0
     ):
         return {
             'type': type_name,
             'value': value,
-            'dims': dims
+            'dims': dims,
+            'shape': shape or [],
+            'text_size': text_size,
         }
+    
+    def _collect_function_entries(self):
+        result = {}
+        for sym in self.defined_symbols:
+            if sym.get('kind') in ('function', 'method'):
+                result[sym['name']] = {
+                    'label': sym.get('label'),
+                    'return_info': sym.get('return_info'),
+                    'params': sym.get('params', []),
+                    'frame_size': sym.get('frame_size', 0),
+                }
+        return result
 
     def _compact_params_info(self, params):
         if not isinstance(params, list):
@@ -1782,6 +2103,8 @@ class AnalizadorSemantico:
                 scope_id = symbol.get('scope_id')
             if symbol.get('return_type') is not None:
                 info['return_type'] = symbol.get('return_type')
+            if symbol.get('text_size') is not None:
+                info['text_size'] = symbol.get('text_size')
             compact_params = self._compact_params_info(symbol.get('params'))
             if compact_params is not None:
                 info['params_info'] = compact_params
@@ -1944,8 +2267,24 @@ class AnalizadorSemantico:
         for expected, received in zip(expected_params, received_args):
 
             expected_type = expected['type']
-            received_type = self._extract_type(received)
+            expected_dims = expected.get('dims', 0)
 
+            received_type = self._extract_type(received)
+            received_dims = self._extract_dims(received)
+
+            # ── Validar dimensiones
+            if expected_dims != received_dims:
+
+                self._emit_error(
+                    line,
+                    f"dimensiones incompatibles: "
+                    f"se esperaba {expected_dims}D "
+                    f"y se recibió {received_dims}D"
+                )
+
+                return False
+
+            # ── Validar tipos
             compatible = (
                 expected_type == received_type or
                 (
@@ -1995,7 +2334,23 @@ class AnalizadorSemantico:
         for expected, received in zip(expected_fields, received_args):
 
             expected_type = expected['type']
+            expected_dims = expected.get('dims', 0)
+
             received_type = self._extract_type(received)
+            received_dims = self._extract_dims(received)
+
+            # ── Validar dimensiones
+            if expected_dims != received_dims:
+
+                self._emit_error(
+                    line,
+                    f"dimensiones incompatibles para "
+                    f"'{expected['name']}': "
+                    f"se esperaba {expected_dims}D "
+                    f"y se recibió {received_dims}D"
+                )
+
+                return False
 
             compatible = (
                 expected_type == received_type or
@@ -2019,6 +2374,50 @@ class AnalizadorSemantico:
 
         return True
     
+    def _flatten_size(self, expr_data):
+
+        value = self._extract_value(expr_data)
+
+        if isinstance(value, list):
+            return len(value)
+
+        if isinstance(expr_data, dict) and expr_data.get('dims', 0) > 0:
+            return self._shape_size(expr_data.get('shape', []))
+
+        return 1
+    
+    def _shape_size(self, shape):
+
+        if not shape:
+            return 1
+
+        total = 1
+
+        for dim in shape:
+
+            if dim is None:
+                return None
+
+            total *= dim
+
+        return total
+    
+    def _flatten_values(self, expr_data):
+
+        value = self._extract_value(expr_data)
+
+        if isinstance(value, list):
+            return value
+
+        return [value]
+    
+    def _is_flat_initializer(self, expr_data):
+
+        if not isinstance(expr_data, dict):
+            return False
+
+        return expr_data.get('is_flat', False)
+
     def _resolve_lvalue_type(self, lvalue, line):
 
         if isinstance(lvalue, str):
@@ -2085,12 +2484,15 @@ class AnalizadorSemantico:
                     return None
 
                 dims = target_info.get('dims', 0)
+                shape = list(target_info.get('shape', []))
+                remaining_shape = shape[1:] if shape else []
 
                 return {
                     'type': target_info['type'],
                     'dims': max(dims - 1, 0),
                     'symbol': target_info.get('symbol'),
-                    'scope_id': target_info.get('scope_id')
+                    'scope_id': target_info.get('scope_id'),
+                    'shape': remaining_shape,
                 }
 
         return None
@@ -2130,6 +2532,33 @@ class AnalizadorSemantico:
         self.molds = {}
         self.current_mold = None
         self.current_method_mold = None
+        self.string_pool = {}
+        self.string_counter = 0
+
+    def _intern_string(self, value: str):
+        if value in self.string_pool:
+            return self.string_pool[value]
+        label = f'str_{self.string_counter}'
+        self.string_counter += 1
+        entry = {
+            'label': label,
+            'value': value,
+            'size': len(value) + 1
+        }
+        self.string_pool[value] = entry
+        return entry
+
+    def _text_value_size(self, value):
+        if isinstance(value, dict):
+            size = value.get('size')
+            if size is not None:
+                return int(size or 0)
+            inner_value = value.get('value')
+            if isinstance(inner_value, str):
+                return len(inner_value) + 1
+        if isinstance(value, str):
+            return len(value) + 1
+        return 0
 
     def _emit_error(self, line: int, message: str):
         """Emitir error semántico."""
@@ -2154,12 +2583,13 @@ class AnalizadorSemantico:
 
     def _define_symbol(
         self,
-        name: str,
-        kind: str,
-        type_name: str | None,
-        line: int,
-        dims: int = 0,
-        value=None
+        name,
+        kind,
+        type_name,
+        line,
+        dims=0,
+        value=None,
+        shape=None
     ):
         """Definir un símbolo en el alcance actual."""
         current_scope = self.scopes[-1]
@@ -2168,38 +2598,99 @@ class AnalizadorSemantico:
             self._emit_error(line, f"símbolo '{name}' ya fue definido en '{scope_name}'")
             return False
         symbol_kind = kind
+        base_size = self._sizeof(type_name, 0)
+        total_size = self._sizeof(type_name, dims, shape)
+        text_size = self._text_value_size(value) if type_name == 'text' else 0
+
         entry = {
             'name': name,
             'kind': symbol_kind,
             'line': line,
             'dims': dims,
+            'shape': shape or [],
             'scope': self.scope_names[-1] if self.scope_names else 'unknown',
             'scope_id': self._make_scope_id(self.scope_names[-1] if self.scope_names else 'unknown', line),
+            'storage_class': None,
+            'offset': None,
+            'size': total_size,
+            'element_size': base_size,
+            'alignment': base_size or 8,
+            'text_size': text_size,
         }
-        if symbol_kind in ('variable', 'array', 'parameter', 'field'):
-            entry['type'] = type_name
-            entry['value'] = value
-        elif symbol_kind in ('function', 'method'):
-            entry['return_type'] = None
-            entry['params'] = []
-        elif symbol_kind == 'mold':
-            entry['type'] = type_name
+        if symbol_kind in ('variable','array','parameter','field'):
+            entry['type']=type_name
+            entry['value']=value
+            if symbol_kind == 'parameter':
+                entry['storage_class'] = 'param'
+                entry['parameter_index'] = len([
+                    s for s in current_scope.values()
+                    if s.get('kind') == 'parameter'
+                ])
+                # Arguments are pushed right-to-left, so first declared param
+                # (idx=0) is pushed last.  frame_size is added by the code
+                # generator at emit time (it is unknown here).
+                entry['param_offset'] = (
+                    16 +
+                    entry['parameter_index'] * 8
+                )
+            else:
+                entry['storage_class'] = 'local'
+                inside_function = (
+                    self.current_function is not None
+                )
+                if inside_function:
+                    size = entry['size']
+                    if type_name == 'text':
+                        size += text_size
+                        entry['size'] = size
+                    entry['offset'] = self.function_stack_offsets[-1]
+                    self.function_stack_offsets[-1] += size
+        elif symbol_kind in ('function','method'):
+            entry['return_info'] = {
+                'type': 'void',
+                'dims': 0,
+                'shape': []
+            }
+            entry['params']=[]
+            if self.current_mold is not None:
+                entry['label'] = (
+                    f'FUNC_{self.current_mold}_{name}'
+                )
+            else:
+                entry['label'] = f'FUNC_{name}'
+            entry['frame_size']=None
+            entry['local_count']=0
+        elif symbol_kind=='mold':
+            entry['type']=type_name
+            entry['size']=0
+            entry['field_order']=[]
+            entry['methods'] = {}
         current_scope[name] = entry
         self.defined_symbols.append(entry)
         self._enrich_lexer_symbol_entry(name, entry)
         if self.current_mold is not None:
-
             mold_data = self.molds[self.current_mold]
-
-            if kind in ('variable', 'array'):
-
+            if kind in ('variable', 'array') and self.current_function is None:
                 entry['kind'] = 'field'
                 mold_data['fields'][name] = entry
-
                 mold_data.setdefault('field_order', []).append(entry)
-
+                attrs = mold_data.setdefault('attrs', [])
+                if name not in attrs:
+                    attrs.append(name)
+                field_offset = mold_data.get('size',0)
+                entry['offset'] = field_offset
+                entry['storage_class']='field'
+                field_size = self._sizeof(
+                    type_name,
+                    dims,
+                    shape
+                )
+                mold_data['size'] = (
+                    field_offset
+                    +
+                    field_size
+                )
             elif kind == 'function':
-
                 entry['kind'] = 'method'
                 entry.setdefault('params', [])
                 entry.setdefault('return_type', None)
@@ -2209,25 +2700,22 @@ class AnalizadorSemantico:
     def _enrich_lexer_symbol_entry(self, name: str, sem_entry: dict):
         """Enriquecer la entrada base del lexer con metadatos semánticos de yacc."""
         row = self.semantic_symbol_table.get(name)
-        if row is None:
-            # Fallback: si por alguna razón no existe en lexer, crear forma compatible
-            row = {
-                'lexeme': name,
-                'length': len(name),
-                'lines': [sem_entry.get('line')],
-                'kind': None,
-                'type': None,
-                'value': None,
-                'scope': None,
-                'scope_id': None,
-            }
-            self.semantic_symbol_table[name] = row
-
         row['kind'] = sem_entry.get('kind')
         row['type'] = sem_entry.get('type')
+        row['dims'] = sem_entry.get('dims', 0)
+        row['shape'] = sem_entry.get('shape', [])
+        row['size'] = sem_entry.get('size')
         row['value'] = sem_entry.get('value')
         row['scope'] = sem_entry.get('scope')
         row['scope_id'] = sem_entry.get('scope_id')
+        row['attr'] = sem_entry.get('attr')
+        row['fields'] = sem_entry.get('fields')
+        row['frame_size'] = sem_entry.get('frame_size')
+        row['params'] = sem_entry.get('params')
+        row['return_type'] = sem_entry.get('return_type')
+        row['return_info'] = sem_entry.get('return_info')
+        row['text_size'] = sem_entry.get('text_size')
+        ###
         line = sem_entry.get('line')
         if line is not None and line not in row.get('lines', []):
             row.setdefault('lines', []).append(line)
@@ -2238,6 +2726,11 @@ class AnalizadorSemantico:
             if name in scope:
                 return scope[name]
         return None
+    
+    def _extract_shape(self, data):
+        if isinstance(data, dict):
+            return data.get('shape', [])
+        return []
 
     def _find_symbol_for_name(self, name: str, use_line: int) -> dict | None:
         """Buscar la definición más cercana por línea (<= use_line) para un nombre.
@@ -2268,17 +2761,52 @@ class AnalizadorSemantico:
         expr_dims = self._extract_dims(expr_data)
 
         # ── Validar dimensiones
-        if declared_dims != expr_dims:
+        is_flat = (
+            isinstance(expr_data, dict)
+            and
+            expr_data.get('is_flat', False)
+        )
 
-            self._emit_error(
-                line,
-                f"dimensiones incompatibles: "
-                f"se esperaba {declared_dims}D "
-                f"y se recibió {expr_dims}D"
+        if not is_flat:
+
+            if declared_dims != expr_dims:
+
+                self._emit_error(
+                    line,
+                    f"dimensiones incompatibles: "
+                    f"se esperaba {declared_dims}D "
+                    f"y se recibió {expr_dims}D"
+                )
+
+                return False
+
+        if is_flat:
+
+            target_shape = (
+                target_info.get('symbol', {})
+                .get('shape', [])
             )
 
-            return False
+            expected_size = self._shape_size(
+                target_shape
+            )
 
+            received_size = expr_data.get(
+                'flat_size',
+                0
+            )
+
+            if expected_size != received_size:
+
+                self._emit_error(
+                    line,
+                    f"tamaño incompatible: "
+                    f"se esperaban {expected_size} elementos "
+                    f"y se recibieron {received_size}"
+                )
+
+                return False
+            
         # ── Tipos desconocidos
         if declared_type in (None, 'unknown'):
             return True
@@ -2306,3 +2834,9 @@ class AnalizadorSemantico:
 
     def _annotate_ast(self, node, _visited=None):
         return self._ast_annotator.annotate(node, _visited)
+
+    def _validate_extern_function(self, name, import_metadata):
+        for inst in import_metadata:
+            if name in inst:
+                return True
+        return False

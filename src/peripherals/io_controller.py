@@ -8,6 +8,7 @@ CONSOLE_PRINT = 0x0
 INT = 0x0
 FLOAT = 0x1
 STRING = 0x2
+BOOL = 0x3
 
 
 class IOController:
@@ -15,7 +16,8 @@ class IOController:
     _FORMAT_FUNCS = {
         INT: lambda x: int.from_bytes(x, byteorder="little", signed=True),
         FLOAT: lambda x: struct.unpack('<d', x)[0],
-        STRING: lambda x: x.decode("utf-8", errors="surrogateescape")
+        STRING: lambda x: x.decode("utf-8", errors="surrogateescape"),
+        BOOL: lambda x: "indeed" if bool(int.from_bytes(x, byteorder="little", signed=True)) else "nope"
     }
 
     def __init__(self):
@@ -69,9 +71,16 @@ class IOController:
             print(f"[Controlador I/O] Formato {format} sin manejador registrado.")
             return
         
-        data = ram.read(addr + 2, length * 8)
+        if format == STRING:
+            msg = []
+            for i in range(length):
+                data = ram.read(addr + 2 + i*8, 1)
+                msg.append(format_func(data))
+            self.console.write_ok("".join(msg))
 
-        self.console.write_ok(format_func(data))
+        else:
+            data = ram.read(addr + 2, length * 8)
+            self.console.write_ok(format_func(data))
 
 
 # ------------------------------------------------------------------

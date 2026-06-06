@@ -1,4 +1,3 @@
-#include "utils.lib"
 let temp: int = 0
 
 let a: int = 756
@@ -13,4 +12,4 @@ asLongAs a != b{
     }
 }
 
-utils.lib.PRINT(a)
+show a

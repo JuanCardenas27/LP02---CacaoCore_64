@@ -10,7 +10,7 @@ Cambios respecto a la versión anterior:
   - self.loader_panel disponible como atributo público
   - Importa CacaoConsole desde cacao_console.py  →  self.console
 """
-# TODO: Modularizar cacao_gui.py.
+# TODO: Modularizar cacao_gui.py (la deuda técnica es eterna).
 
 import tkinter as tk
 from tkinter import messagebox

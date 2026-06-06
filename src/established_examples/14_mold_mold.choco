@@ -1,0 +1,41 @@
+mold Ubicacion {
+    let calle: text
+    let numero: int
+}
+
+mold Persona {
+    let nombre: text
+    let edad: int
+    let ubicacion: Ubicacion
+
+    func descripcion() {
+        show ohmy.nombre
+        show ohmy.ubicacion.calle
+        deliver ohmy.edad + ohmy.ubicacion.numero
+    }
+}
+
+mold Equipo {
+    let jefe: Persona
+    let empleados: Persona[2]
+    let nombre: text
+
+    func resumen() {
+        show ohmy.nombre
+        for (let i: int = 0, i < 2, set i += 1) {
+            show ohmy.empleados[i].nombre
+        }
+        deliver ohmy.jefe.descripcion()
+    }
+}
+
+let casa: Ubicacion = summon Ubicacion("Calle Luna", 12)
+let jefe: Persona = summon Persona("Ada", 28, casa)
+let empleado1: Persona = summon Persona("Luis", 31, casa)
+let empleado2: Persona = summon Persona("Marta", 26, casa)
+let empleados: Persona[2] = empleado1, empleado2
+let equipo: Equipo = summon Equipo(jefe, empleados, "CacaoCore")
+
+show equipo.jefe.nombre
+show equipo.jefe.ubicacion.numero
+show equipo.resumen()

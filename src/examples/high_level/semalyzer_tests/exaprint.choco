@@ -1,0 +1,4 @@
+#include "utils_strings.choco" { printstr }
+
+let cadena : text = "Hola mundo"
+printstr(cadena, 5)

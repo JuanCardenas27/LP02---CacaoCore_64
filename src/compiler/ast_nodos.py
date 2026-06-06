@@ -13,6 +13,7 @@ class _NodoTreePrinter:
     _LABELS = {
         "NodoPrograma": "program",
         "NodoDeclaracion": "let_stmt",
+        "NodoDimensiones": "dims",
         "NodoReasignacion": "set_stmt",
         "NodoFuncion": "func_def",
         "NodoMold": "mold_def",
@@ -213,21 +214,30 @@ class NodoPrograma(Nodo):
 class NodoDeclaracion(Nodo):
     _allows_symbol = True
 
-    """let ID : tipo [dim1][dim2] [= valor]"""
+    """let ID : tipo dims [= valor]"""
 
-    def __init__(self, nombre, tipo, dim1=None, dim2=None, valor=None, linea=0):
+    def __init__(self, nombre, tipo, dims=None, valor=None, linea=0):
         self.let_keyword = NodoTerminal('let', linea)
         self.nombre = nombre
         self.colon = NodoTerminal(':', linea)
         self.tipo = tipo if isinstance(tipo, NodoTerminal) else NodoTerminal(tipo, linea)
-        self.lbracket1 = NodoTerminal('[', linea) if dim1 is not None else None
-        self.dim1 = dim1
-        self.rbracket1 = NodoTerminal(']', linea) if dim1 is not None else None
-        self.lbracket2 = NodoTerminal('[', linea) if dim2 is not None else None
-        self.dim2 = dim2
-        self.rbracket2 = NodoTerminal(']', linea) if dim2 is not None else None
+        self.dims = dims
         self.assign = NodoTerminal('=', linea) if valor is not None else None
         self.valor = valor
+        self.linea = linea
+
+
+class NodoDimensiones(Nodo):
+    """[expr][expr]..."""
+
+    def __init__(self, dimensiones, linea=0):
+        self.items = []
+
+        for dim in dimensiones:
+            self.items.append(NodoTerminal('[', linea))
+            self.items.append(dim)
+            self.items.append(NodoTerminal(']', linea))
+
         self.linea = linea
 
 
@@ -434,11 +444,12 @@ class NodoParametro(Nodo):
 
     """param ::= ID : type"""
 
-    def __init__(self, nombre, tipo, linea=0):
+    def __init__(self, nombre, tipo, dims=None, linea=0):
         self.nombre = nombre
         self.colon = NodoTerminal(':', linea)
         self.tipo = tipo if isinstance(tipo, NodoTerminal) else NodoTerminal(tipo, linea)
         self.linea = linea
+        self.dims = dims
 
 
 class NodoID(Nodo):

@@ -1,7 +1,7 @@
 """
 analizador_sintactico.py
 ========================
-Analizador Sintáctico (Parser) LALR(1) para CacaoScript — CACAO_Core-64.
+Analizador Sintáctico (Parser) LALR(1) para Choco — CACAO_Core-64.
 Construido con PLY (Python Lex-Yacc).
 
 Gramática en E-BNF:
@@ -20,29 +20,59 @@ statement       ::= let_stmt
                   | oops_stmt
                   | expr_stmt
 
-let_stmt        ::= 'let' ID ':' type_annot [ dims ] [ '=' initializer ]
-dims            ::= '[' expr ']' [ '[' expr ']' ]
-initializer     ::= expr | value_list
-value_list      ::= expr { ',' expr }          (* ≥ 2 elementos *)
+let_stmt        ::= 'let' ID ':' type_annot
+                    opt_dims
+                    opt_initializer
+
+opt_dims        ::= dims
+                  | ε
+
+dims            ::= '[' expr ']' { '[' expr ']' }
+
+opt_initializer ::= '=' initializer
+                  | ε
+
+initializer     ::= expr
+                  | value_list
+
+value_list      ::= expr ',' expr { ',' expr }
+                    (* ≥ 2 elementos *)
 
 set_stmt        ::= 'set' lvalue ( '=' | '+=' ) expr
 
-lvalue          ::= ID { '[' expr ']' } { '.' ID }
+lvalue          ::= primary_lvalue
+                    { '[' expr ']' | '.' ID }
 
-type_annot      ::= 'int' | 'float' | 'text' | 'bool' | ID
+primary_lvalue  ::= ID
+                  | 'ohmy'
+
+type_annot      ::= 'int'
+                  | 'float'
+                  | 'text'
+                  | 'bool'
+                  | ID
 
 func_def        ::= 'func' ID '(' [ param_list ] ')' block
 param_list      ::= param { ',' param }
-param           ::= ID ':' type_annot
+
+param           ::= ID ':' type_annot opt_dims
 
 mold_def        ::= 'mold' ID '{' { mold_member } '}'
-mold_member     ::= let_stmt | func_def
+
+mold_member     ::= let_stmt
+                  | func_def
 
 if_stmt         ::= 'if' expr block [ 'otherwise' block ]
 while_stmt      ::= 'asLongAs' expr block
-for_stmt        ::= 'for' '(' for_init ',' expr ',' for_update ')' block
+
+for_stmt        ::= 'for'
+                    '(' for_init ',' expr ',' for_update ')'
+                    block
+
 for_init        ::= let_stmt_simple
-for_update      ::= set_stmt_simple | expr
+
+for_update      ::= set_stmt_simple
+                  | expr
 
 deliver_stmt    ::= 'deliver' [ expr ]
 show_stmt       ::= 'show' expr
@@ -61,10 +91,16 @@ expr            ::= expr ( '+' | '-' | '*' | '/' | '%' ) expr
                   | expr '.' ID
                   | ID '(' [ arg_list ] ')'
                   | 'summon' ID '(' [ arg_list ] ')'
-                  | 'ohmy' [ '.' ID ]
+                  | 'ohmy'
+                  | 'ohmy' '.' ID
                   | '(' expr ')'
-                  | ID | INT_LIT | FLOAT_LIT | STRING
-                  | 'indeed' | 'nope' | 'nothing'
+                  | ID
+                  | INT_LIT
+                  | FLOAT_LIT
+                  | STRING
+                  | 'indeed'
+                  | 'nope'
+                  | 'nothing'
 
 arg_list        ::= expr { ',' expr }
 ──────────────────────────────────────────────────────────────────
@@ -75,7 +111,7 @@ from .analizador_lexico import AnalizadorLexico
 from .ast_nodos import (
     NodoPrograma, NodoDeclaracion, NodoReasignacion, NodoFuncion, NodoMold,
     NodoSi, NodoMientras, NodoPara, NodoEntregar, NodoMostrar, NodoOops,
-    NodoBloque, NodoBinario, NodoUnario, NodoLlamada,
+    NodoBloque, NodoBinario, NodoUnario, NodoLlamada, NodoDimensiones,
     NodoAccesoMiembro, NodoAccesoArreglo, NodoSummon, NodoListaValores,
     NodoParametro, NodoID, NodoEntero, NodoFlotante, NodoCadena, NodoBooleano, NodoNada,
     NodoOhmy, NodoTerminal,
@@ -96,7 +132,7 @@ class AnalizadorSintactico:
 
     # ── Precedencia (de menor a mayor) ────────────────────────────────────
     precedence = (
-        ('left',  'OR'),
+        ('left',  'OR', 'XOR'),
         ('left',  'AND'),
         ('right', 'NOT'),
         ('left',  'EQ', 'NEQ'),
@@ -144,30 +180,40 @@ class AnalizadorSintactico:
 
     # ── Declaración let ───────────────────────────────────────────────────
 
-    def p_let_simple(self, p):
-        """let_stmt : LET ID COLON type_annot"""
-        p[0] = NodoDeclaracion(p[2], p[4], linea=p.lineno(1))
+    def p_let_stmt(self, p):
+        """let_stmt : LET ID COLON type_annot opt_dims opt_initializer"""
+        p[0] = NodoDeclaracion(
+            nombre=p[2],
+            tipo=p[4],
+            dims=p[5],
+            valor=p[6],
+            linea=p.lineno(1)
+        )
+    
+    def p_opt_dims(self, p):
+        """opt_dims : dims
+                    | empty"""
+        p[0] = p[1]
 
-    def p_let_with_val(self, p):
-        """let_stmt : LET ID COLON type_annot ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], valor=p[6], linea=p.lineno(1))
+    def p_opt_initializer(self, p):
+        """opt_initializer : ASSIGN initializer
+                        | empty"""
+        if len(p) == 3:
+            p[0] = p[2]
+        else:
+            p[0] = None
 
-    def p_let_array_1d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], linea=p.lineno(1))
+    def p_dims_one(self, p):
+        """dims : LBRACKET expr RBRACKET"""
+        p[0] = NodoDimensiones([p[2]], linea=p.lineno(1))
 
-    def p_let_array_1d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], valor=p[9], linea=p.lineno(1))
-
-    def p_let_array_2d(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], dim2=p[9], linea=p.lineno(1))
-
-    def p_let_array_2d_val(self, p):
-        """let_stmt : LET ID COLON type_annot LBRACKET expr RBRACKET LBRACKET expr RBRACKET ASSIGN initializer"""
-        p[0] = NodoDeclaracion(p[2], p[4], dim1=p[6], dim2=p[9], valor=p[12], linea=p.lineno(1))
-
+    def p_dims_many(self, p):
+        """dims : dims LBRACKET expr RBRACKET"""
+        p[1].items.append(NodoTerminal('[', p.lineno(2)))
+        p[1].items.append(p[3])
+        p[1].items.append(NodoTerminal(']', p.lineno(2)))
+        p[0] = p[1]
+        
     # Inicializador: expresión simple o lista de valores separada por comas
 
     def p_initializer_expr(self, p):
@@ -267,8 +313,13 @@ class AnalizadorSintactico:
         p[0] = p[1]
 
     def p_param(self, p):
-        """param : ID COLON type_annot"""
-        p[0] = NodoParametro(p[1], p[3], linea=p.lineno(1))
+        """param : ID COLON type_annot opt_dims"""
+        p[0] = NodoParametro(
+            p[1],
+            p[3],
+            dims=p[4],
+            linea=p.lineno(1)
+        )
 
     # ── Mold (TDA / clase) ────────────────────────────────────────────────
 
@@ -504,7 +555,7 @@ class AnalizadorSintactico:
 
     def p_empty(self, p):
         """empty :"""
-        p[0] = []
+        p[0] = None
 
     # ══════════════════════════════════════════════════════════════════════
     # MANEJO DE ERRORES
@@ -515,8 +566,6 @@ class AnalizadorSintactico:
             msg = (f"Error sintáctico en línea {p.lineno}: "
                    f"token inesperado '{p.value}' (tipo: {p.type})")
             self.errors.append(msg)
-            # Recuperación: descarta el token problemático y continúa
-            self.parser.errok()
         else:
             self.errors.append("Error sintáctico: fin de archivo inesperado.")
 
