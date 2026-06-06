@@ -633,6 +633,15 @@ class AnalizadorSemantico:
         name = p[2]
         params = p[5]
 
+        # p_enter_function_scope inserted a forward-decl stub in the outer scope
+        # so that recursive self-calls could be resolved during body parsing.
+        # Delete the stub now so _define_symbol can create a proper entry with
+        # all required fields ('label', 'frame_size', defined_symbols entry, etc.).
+        for scope in reversed(self.scopes):
+            if name in scope and scope[name].get('_forward_decl'):
+                del scope[name]
+                break
+
         self._define_symbol(
             name,
             'function',
@@ -651,11 +660,10 @@ class AnalizadorSemantico:
             for sym_entry in reversed(self.defined_symbols):
                 if sym_entry.get('kind') == 'parameter' and sym_entry.get('name') in param_names and sym_entry.get('scope') == name:
                     idx = param_names[sym_entry['name']]
-                    # CALL pushes arguments right-to-left and then pushes the
-                    # return address; the callee prologue adds its frame size,
-                    # so the first declared parameter sits at frame_size + 16
-                    # plus one 8-byte slot for each later parameter.
-                    sym_entry['param_offset'] = (sym.get('frame_size') or 0) + (num_params - idx + 1) * 8
+                    # Arguments are pushed right-to-left; first declared param
+                    # (idx=0) is pushed last so it sits at frame_size+16.
+                    # frame_size is added by the code generator at emit time.
+                    sym_entry['param_offset'] = 16 + idx * 8
                     updated += 1
                     if updated == num_params:
                         break
@@ -720,6 +728,28 @@ class AnalizadorSemantico:
 
         function_name = p[-2]
 
+        # Pre-register the function in the OUTER scope so that recursive
+        # self-calls inside the body can be found by _resolve_symbol.
+        # p_func_def will update this stub with full info once the body
+        # has been parsed (bottom-up).
+        if self.scopes:
+            outer_scope = self.scopes[-1]
+            outer_scope_name = self.scope_names[-1] if self.scope_names else 'global'
+            if function_name not in outer_scope:
+                outer_scope[function_name] = {
+                    'name': function_name,
+                    'kind': 'function',
+                    'type': 'void',
+                    'scope': outer_scope_name,
+                    'params': [],
+                    'return_type': None,
+                    'return_info': {'type': 'void', 'dims': 0, 'shape': []},
+                    # Marker: params list is empty only because the body hasn't
+                    # been parsed yet.  Argument validation must be skipped for
+                    # recursive calls that resolve to this stub.
+                    '_forward_decl': True,
+                }
+
         self.current_function = {
             'name': function_name,
             'return_type': None,
@@ -742,6 +772,13 @@ class AnalizadorSemantico:
         """func_def : FUNC ID LPAREN enter_function_scope RPAREN block"""
 
         name = p[2]
+
+        # Same as p_func_def: delete the forward-decl stub before calling
+        # _define_symbol to get a complete entry with all required fields.
+        for scope in reversed(self.scopes):
+            if name in scope and scope[name].get('_forward_decl'):
+                del scope[name]
+                break
 
         self._define_symbol(
             name,
@@ -1568,16 +1605,25 @@ class AnalizadorSemantico:
         
         expected_params = sym.get('params', [])
 
-        self._validate_call_arguments(
-            p.lineno(1),
-            expected_params,
-            p[3]
-        )
+        # If the symbol is a forward-declaration stub (inserted by
+        # p_enter_function_scope to allow recursive calls), skip argument
+        # validation: the real parameter list isn't known yet.
+        is_stub = sym.get('_forward_decl', False)
+        if not is_stub:
+            self._validate_call_arguments(
+                p.lineno(1),
+                expected_params,
+                p[3]
+            )
         
         ret = sym.get('return_info', {})
+        # Stubs have return_info={'type':'void'} as placeholder; use 'unknown'
+        # so _validate_assignment skips type checking (it treats unknown as
+        # compatible with anything, see lines 2806-2810).
+        ret_type = 'unknown' if is_stub else ret.get('type', 'void')
 
         p[0] = self._make_expr_data(
-            ret.get('type', 'void'),
+            ret_type,
             None,
             ret.get('dims', 0),
             ret.get('shape', [])
@@ -2580,8 +2626,11 @@ class AnalizadorSemantico:
                     s for s in current_scope.values()
                     if s.get('kind') == 'parameter'
                 ])
+                # Arguments are pushed right-to-left, so first declared param
+                # (idx=0) is pushed last.  frame_size is added by the code
+                # generator at emit time (it is unknown here).
                 entry['param_offset'] = (
-                    24 +
+                    16 +
                     entry['parameter_index'] * 8
                 )
             else:

@@ -2515,11 +2515,19 @@ class GeneradorCodigo:
             func_sym = self.sim_table.get(sym.get('scope'), {}) if isinstance(sym, dict) else {}
             frame_size = func_sym.get('frame_size') or 0
             param_index = sym.get('parameter_index', 0)
-            num_params = len([
-                s for s in self.sim_table.values()
-                if s.get('kind') == 'parameter' and s.get('scope') == sym.get('scope')
-            ])
-            param_offset = frame_size + (num_params - param_index + 1) * 8
+            # Arguments are pushed right-to-left (reversed order in the caller).
+            # push writes AT [R13] then decrements R13 by 8.
+            # CALL also pushes the return address via push.
+            # The callee prologue does SUB R13, frame_size.
+            #
+            # After prologue with frame_size=F:
+            #   R13 = X - (num_args)*8 - 8 - F
+            #   (X is original R13 before any pushes)
+            #
+            # First declared param (idx=0) is pushed LAST (reversed order),
+            # so it sits at X - 8 = R13 + F + 16.
+            # Each subsequent param (idx=k) sits 8 bytes higher: R13 + F + 16 + k*8.
+            param_offset = frame_size + 16 + param_index * 8
             return {
                 'kind': self.OP_STACK,
                 'base': 'R13',

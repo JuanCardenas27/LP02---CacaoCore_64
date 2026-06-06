@@ -1,0 +1,35 @@
+func fib(n : int){
+
+    let n1 : int
+    let n2 : int
+    let fn1 : int
+    let fn2 : int
+
+    if n == 0{
+        deliver 0
+    }
+    otherwise {
+
+        if n == 1{
+            deliver 1
+        }
+        otherwise {
+
+            set n1 = n - 1
+            set n2 = n - 2
+
+            set fn1 = fib(n1)
+            set fn2 = fib(n2)
+
+            set fn1 = fn1 + fn2
+
+            deliver fn1
+        }
+    }
+}
+
+let res : int
+
+set res = fib(10)
+
+show res
